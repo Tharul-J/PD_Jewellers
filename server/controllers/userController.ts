@@ -192,11 +192,12 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
         });
         return;
       }
-      if ((email === 'john@example.com' || email === 'tharul2002@gmail.com') && password === 'password123') {
+      if ((email === 'john@example.com' || email === 'pathum2@gmail.com' || email === 'pathum2gmail.com' || email === 'tharul2002@gmail.com') && password === 'password123') {
+        const isTharul = email === 'tharul2002@gmail.com';
         res.json({
           _id: 'mock-customer-id',
-          name: email === 'tharul2002@gmail.com' ? 'Tharul Senanayake' : 'Pathum Bandara',
-          email: email,
+          name: isTharul ? 'Tharul Senanayake' : 'Pathum Bandara',
+          email: isTharul ? 'tharul2002@gmail.com' : 'pathum2@gmail.com',
           role: 'customer',
           token: generateToken('mock-customer-id', 'customer'),
         });
@@ -233,12 +234,12 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
       const mockId = req.user._id;
       const cached = mockProfileUpdates[mockId] || {};
       
-      const defaultName = req.user.role === 'administrator' ? 'Admin User' : (req.user.email === 'john@example.com' ? 'Pathum Bandara' : 'Tharul Senanayake');
-      const defaultEmail = req.user.role === 'administrator' ? 'admin@pdjewellers.com' : (req.user.email || 'tharul2002@gmail.com');
-      const defaultPhone = req.user.role === 'administrator' ? '+94 11 234 5678' : '+94 77 123 4567';
+      const defaultName = req.user.role === 'administrator' ? 'Admin User' : (req.user.email === 'tharul2002@gmail.com' ? 'Tharul Senanayake' : 'Pathum Bandara');
+      const defaultEmail = req.user.role === 'administrator' ? 'admin@pdjewellers.com' : (req.user.email === 'tharul2002@gmail.com' ? 'tharul2002@gmail.com' : 'pathum2@gmail.com');
+      const defaultPhone = req.user.role === 'administrator' ? '+94 11 234 5678' : '+94 77 289 1045';
       const defaultAvatar = req.user.role === 'administrator' 
         ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' 
-        : 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200';
+        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'; // Golden Aura style
       const defaultAddress = {
         street: 'No. 42, Galle Road',
         city: 'Colombo 03',
@@ -257,6 +258,7 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         address: cached.address || defaultAddress,
         wishlist: getDefaultWishlist(req.user._id),
         savedConfigurations: getDefaultConfigurations(req.user._id),
+        createdAt: '2023-09-18T00:00:00.000Z',
       });
       return;
     }
@@ -292,12 +294,13 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
 
     if (mongoose.connection.readyState !== 1) {
       const mockId = req.user._id;
+      const isTharul = req.user.email === 'tharul2002@gmail.com';
       mockProfileUpdates[mockId] = {
-        name: name || (mockProfileUpdates[mockId]?.name || (req.user.role === 'administrator' ? 'Admin User' : 'John Doe')),
-        email: email || (mockProfileUpdates[mockId]?.email || (req.user.role === 'administrator' ? 'admin@pdjewellers.com' : 'john@example.com')),
-        phone: phone !== undefined ? phone : (mockProfileUpdates[mockId]?.phone || ''),
-        avatar: avatar !== undefined ? avatar : (mockProfileUpdates[mockId]?.avatar || ''),
-        address: address || (mockProfileUpdates[mockId]?.address || { street: '', city: '', state: '', zip: '', country: '' }),
+        name: name || (mockProfileUpdates[mockId]?.name || (req.user.role === 'administrator' ? 'Admin User' : (isTharul ? 'Tharul Senanayake' : 'Pathum Bandara'))),
+        email: email || (mockProfileUpdates[mockId]?.email || (req.user.role === 'administrator' ? 'admin@pdjewellers.com' : (isTharul ? 'tharul2002@gmail.com' : 'pathum2@gmail.com'))),
+        phone: phone !== undefined ? phone : (mockProfileUpdates[mockId]?.phone || (req.user.role === 'administrator' ? '+94 11 234 5678' : '+94 77 289 1045')),
+        avatar: avatar !== undefined ? avatar : (mockProfileUpdates[mockId]?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'),
+        address: address || (mockProfileUpdates[mockId]?.address || { street: 'No. 42, Galle Road', city: 'Colombo 03', state: 'Western Province', zip: '00300', country: 'Sri Lanka' }),
       };
       res.json({
         _id: req.user._id,
@@ -305,6 +308,7 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
         role: req.user.role,
         wishlist: getDefaultWishlist(req.user._id),
         savedConfigurations: getDefaultConfigurations(req.user._id),
+        createdAt: '2023-09-18T00:00:00.000Z',
       });
       return;
     }

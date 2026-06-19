@@ -1,15 +1,38 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import { FONTS } from '../constants';
 import { useLoadedModel } from '../utils/modelLoader';
 
-export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl = '/diamond_engagement_ring_wedding_ring.glb' }: any) {
+class ModelErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("3D model load failed, falling back to default:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { scene, maxZSize } = useLoadedModel(fileUrl);
   
   const styledScene = useMemo(() => {
+    if (!scene) return new THREE.Group();
     const localClone = scene.clone();
     
     const metalMat = new THREE.MeshPhysicalMaterial({ ...metalMaterial, envMapIntensity: 3 });
@@ -24,7 +47,7 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
            const bbox = mesh.geometry.boundingBox;
            const zDepth = bbox.max.z - bbox.min.z;
            if (zDepth > (maxZSize * 0.8) || zDepth > 15) {
-             isRingBody = true;
+              isRingBody = true;
            }
         }
         
@@ -74,5 +97,33 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
         )}
       </Float>
     </group>
+  );
+}
+
+export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl = '/diamond_engagement_ring_wedding_ring.glb' }: any) {
+  const safeFileUrl = fileUrl || '/diamond_engagement_ring_wedding_ring.glb';
+  
+  return (
+    <ModelErrorBoundary 
+      fallback={
+        <ActualGLBRingModel 
+          metalMaterial={metalMaterial} 
+          stoneMaterial={stoneMaterial} 
+          text={text} 
+          fontStyle={fontStyle} 
+          noSpin={noSpin} 
+          fileUrl="/diamond_engagement_ring_wedding_ring.glb" 
+        />
+      }
+    >
+      <ActualGLBRingModel 
+        metalMaterial={metalMaterial} 
+        stoneMaterial={stoneMaterial} 
+        text={text} 
+        fontStyle={fontStyle} 
+        noSpin={noSpin} 
+        fileUrl={safeFileUrl} 
+      />
+    </ModelErrorBoundary>
   );
 }

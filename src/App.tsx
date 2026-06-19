@@ -21,6 +21,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import ProductDetail from './pages/ProductDetail';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -72,6 +73,11 @@ function AnimatedRoutes() {
           <Route path="admin" element={
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
               <Admin />
+            </motion.div>
+          } />
+          <Route path="product/:id" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <ProductDetail />
             </motion.div>
           } />
         </Route>

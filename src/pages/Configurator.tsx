@@ -1,4 +1,5 @@
 import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
@@ -6,7 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IPricing } from '../context/PricingContext';
-import { Check, Glasses, Box, Type, Heart, Save } from 'lucide-react';
+import { Check, Glasses, Box, Type, Heart, Save, Sparkles } from 'lucide-react';
 import ARTryOnModal from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -30,6 +31,7 @@ const DEFAULT_RING_STYLES = [
 ];
 
 export default function Configurator() {
+  const navigate = useNavigate();
   const [modelType, setModelType] = useState<'ring' | 'pendant'>(() => (localStorage.getItem('cfg_modelType') as 'ring' | 'pendant') || 'ring');
   const [dynamicStyles, setDynamicStyles] = useState<{id: string, name: string, fileUrl?: string, basePrice?: number}[]>(DEFAULT_RING_STYLES);
   const [ringStyle, setRingStyle] = useState(() => localStorage.getItem('cfg_ringStyle') || DEFAULT_RING_STYLES[0].id);
@@ -231,7 +233,8 @@ export default function Configurator() {
             console.error("Failed to update configurations cache", e);
           }
         }
-        alert('Custom design saved to your profile!');
+        alert('Custom design saved successfully! Redirecting you to your exclusive product details page...');
+        navigate(`/product/custom?type=${modelType}&metal=${metal}&stone=${stone}&text=${encodeURIComponent(customText)}&font=${fontStyle}&size=${encodeURIComponent(ringSize)}&style=${ringStyle}`);
       } else {
         const data = await response.json();
         alert('Error: ' + data.message);
@@ -605,6 +608,13 @@ export default function Configurator() {
                <Heart size={20} fill={isWished ? "var(--color-orange)" : "none"} color={isWished ? "var(--color-orange)" : "var(--color-orange-dark)"} />
             </button>
           </div>
+          <button 
+            type="button"
+            onClick={() => navigate(`/product/custom?type=${modelType}&metal=${metal}&stone=${stone}&text=${encodeURIComponent(customText)}&font=${fontStyle}&size=${encodeURIComponent(ringSize)}&style=${ringStyle}`)}
+            className="w-full mb-2 bg-gradient-to-r from-stone-900 to-black text-[var(--color-sand)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-colors flex items-center justify-center gap-2"
+          >
+            <Sparkles size={14} className="text-[#cca150]" /> View Separated Product Details
+          </button>
           <button 
             onClick={() => setIsARModalOpen(true)}
             className="w-full opacity-80 border-2 border-[var(--color-orange)] text-[var(--color-orange-dark)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-[var(--color-orange)] hover:text-white transition-colors"

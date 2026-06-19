@@ -26,7 +26,14 @@ export default function Profile() {
       try {
         const parsedUser = JSON.parse(userInfo);
         const stored = localStorage.getItem(`profile_${parsedUser._id}`);
-        return stored ? JSON.parse(stored) : null;
+        if (stored) {
+          const parsedStored = JSON.parse(stored);
+          if (parsedStored.email === 'john@example.com' || parsedStored.phone === 'Not provided' || !parsedStored.phone || !parsedStored.createdAt) {
+            localStorage.removeItem(`profile_${parsedUser._id}`);
+            return null;
+          }
+          return parsedStored;
+        }
       } catch (e) {
         return null;
       }
@@ -40,7 +47,13 @@ export default function Profile() {
       try {
         const parsedUser = JSON.parse(userInfo);
         const stored = localStorage.getItem(`profile_${parsedUser._id}`);
-        if (stored) return false; // Already have cached data, bypass initial full screen spinner
+        if (stored) {
+          const parsedStored = JSON.parse(stored);
+          if (parsedStored.email === 'john@example.com' || parsedStored.phone === 'Not provided' || !parsedStored.phone || !parsedStored.createdAt) {
+            return true;
+          }
+          return false; // Already have cached data, bypass initial full screen spinner
+        }
       } catch (e) {}
     }
     return true;

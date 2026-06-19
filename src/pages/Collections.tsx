@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { ShoppingBag, Heart, Share2, Facebook, Twitter, Link as LinkIcon, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const MOCK_PRODUCTS = [
   // Rings
@@ -103,6 +103,7 @@ const CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Penda
 
 export default function Collections() {
   const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   const categoryParam = searchParams.get('category');
   const priceParam = searchParams.get('price');
@@ -378,6 +379,7 @@ export default function Collections() {
             return (
             <motion.div 
               key={product.id} 
+              onClick={() => navigate(`/product/${product.id}`)}
               className="group cursor-pointer"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
@@ -402,9 +404,10 @@ export default function Collections() {
                   }
                 }}
               >
-                <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                <div className="absolute top-4 right-4 z-10 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
                   <button 
                     onClick={(e) => { 
+                      e.stopPropagation();
                       e.preventDefault(); 
                       toggleWishlistItem({
                         productId: product.id,
@@ -422,6 +425,7 @@ export default function Collections() {
                   <div className="group/share relative">
                     <button 
                         onClick={(e) => { 
+                          e.stopPropagation();
                           e.preventDefault(); 
                           if (navigator.share) {
                             navigator.share({
@@ -438,13 +442,13 @@ export default function Collections() {
                     </button>
                     <div className="absolute top-0 right-full mr-2 flex flex-row items-center gap-2 opacity-0 pointer-events-none group-hover/share:opacity-100 group-hover/share:pointer-events-auto transition-all bg-white px-3 py-2 rounded-full shadow-md translate-x-2 group-hover/share:translate-x-0">
                         <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin + '/collections?category=' + product.category)}`} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-blue-600 transition-colors" onClick={e => e.stopPropagation()} title="Share on Facebook">
-                          <Facebook size={16} />
+                           <Facebook size={16} />
                         </a>
                         <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out ' + product.name)}&url=${encodeURIComponent(window.location.origin + '/collections?category=' + product.category)}`} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-blue-400 transition-colors" onClick={e => e.stopPropagation()} title="Share on Twitter">
-                          <Twitter size={16} />
+                           <Twitter size={16} />
                         </a>
                         <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/collections?category=' + product.category); alert('Link copied to clipboard!'); }} className="text-gray-500 hover:text-gray-800 transition-colors" title="Copy Link">
-                          <LinkIcon size={16} />
+                           <LinkIcon size={16} />
                         </button>
                     </div>
                   </div>
@@ -456,7 +460,7 @@ export default function Collections() {
                   className="w-full h-full object-cover mix-blend-multiply transition-transform duration-300 ease-out group-hover:scale-[2]"
                 />
                 <button 
-                  onClick={(e) => { e.preventDefault(); addToCart(product); }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); addToCart(product); }}
                   className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gold-gradient text-white p-3 rounded-full opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 shadow-xl hover:opacity-90 hover:scale-105 z-10"
                   title="Add to Bag"
                 >

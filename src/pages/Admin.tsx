@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IPricing } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, Sparkles, TrendingUp, ArrowUpRight, CreditCard, Sliders, RefreshCw } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 export default function Admin() {
@@ -19,6 +19,16 @@ export default function Admin() {
   const [savingPricing, setSavingPricing] = useState(false);
   const [newModel, setNewModel] = useState({ name: '', category: 'ring', basePrice: 1000 });
   const [file, setFile] = useState<File | null>(null);
+  
+  const chartData = [
+    { month: 'Jan', revenue: 420000, orders: 12, designs: 15, activeRate: '98.4%', label: 'January' },
+    { month: 'Feb', revenue: 650000, orders: 18, designs: 28, activeRate: '99.1%', label: 'February' },
+    { month: 'Mar', revenue: 540000, orders: 15, designs: 42, activeRate: '97.8%', label: 'March' },
+    { month: 'Apr', revenue: 780000, orders: 28, designs: 63, activeRate: '99.5%', label: 'April' },
+    { month: 'May', revenue: 910000, orders: 32, designs: 87, activeRate: '98.9%', label: 'May' },
+    { month: 'Jun', revenue: 1132000, orders: 45, designs: 104, activeRate: '99.8%', label: 'June Peak' },
+  ];
+  const [hoveredIndex, setHoveredIndex] = useState<number>(5); // June
   
   const [priceForm, setPriceForm] = useState<Partial<IPricing>>({});
 
@@ -187,32 +197,330 @@ export default function Admin() {
 
           {activeTab === 'dashboard' && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              {/* Premium Top Line Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {[
-                  { label: 'Total Revenue', value: 'LKR 1,132,000', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Total Orders', value: ordersList.length > 0 ? `${ordersList.length} Active` : '4 Active', icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { label: 'Total Products', value: modelsList.length > 0 ? `${modelsList.length} Models` : '4 Models', icon: Package, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                  { label: 'Total Users', value: usersList.length > 0 ? usersList.length.toString() : '6', icon: Users, color: 'text-[var(--color-gold)]', bg: 'bg-amber-50' }
+                  { 
+                    label: 'Total Platform Revenue', 
+                    value: 'LKR 1,132,000', 
+                    change: '+18.4% this month', 
+                    icon: DollarSign, 
+                    color: 'text-amber-600', 
+                    bg: 'bg-gradient-to-tr from-amber-50 to-orange-50/70 border border-amber-100',
+                    dotColor: 'bg-amber-500'
+                  },
+                  { 
+                    label: 'Orders in Production', 
+                    value: ordersList.length > 0 ? `${ordersList.length} Active` : '4 Active', 
+                    change: '2 Ready for Collection', 
+                    icon: ShoppingCart, 
+                    color: 'text-orange-600', 
+                    bg: 'bg-gradient-to-tr from-orange-50 to-yellow-50/70 border border-orange-100',
+                    dotColor: 'bg-orange-500'
+                  },
+                  { 
+                    label: '3D Configurable Models', 
+                    value: modelsList.length > 0 ? `${modelsList.length} Variations` : '4 Variations', 
+                    change: 'Fully active on frontend', 
+                    icon: Package, 
+                    color: 'text-yellow-600', 
+                    bg: 'bg-gradient-to-tr from-yellow-50/80 to-amber-50/50 border border-yellow-200/60',
+                    dotColor: 'bg-yellow-500'
+                  },
+                  { 
+                    label: 'Platform User Registries', 
+                    value: usersList.length > 0 ? `${usersList.length} Registered` : '6 Registered', 
+                    change: 'Including 2 VIP Administrators', 
+                    icon: Users, 
+                    color: 'text-amber-700', 
+                    bg: 'bg-gradient-to-tr from-amber-50/60 to-yellow-50/30 border border-amber-100/40',
+                    dotColor: 'bg-amber-600'
+                  }
                 ].map((stat, i) => (
-                  <div key={i} className="bg-white p-6 shadow-sm border border-gray-100 rounded-lg">
+                  <motion.div 
+                    key={i} 
+                    whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                    className="bg-white p-6 rounded-xl border border-gray-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.01)] relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-amber-500 to-orange-400" />
                     <div className="flex items-center justify-between mb-4">
-                      <div className={`p-3 rounded-md ${stat.bg}`}>
-                        <stat.icon className={stat.color} size={20} />
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{stat.label}</span>
+                      <div className={`p-2.5 rounded-lg ${stat.bg}`}>
+                        <stat.icon className={stat.color} size={18} />
                       </div>
                     </div>
-                    <h3 className="text-2xl font-bold text-[var(--color-ink)] mb-1">{stat.value}</h3>
-                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{stat.label}</p>
-                  </div>
+                    <h3 className="text-2xl font-serif font-bold text-[var(--color-ink)] mb-1 tracking-tight">{stat.value}</h3>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${stat.dotColor} animate-pulse`} />
+                      <span className="text-xs text-gray-500">{stat.change}</span>
+                    </div>
+                  </motion.div>
                 ))}
               </div>
 
-              <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-8">
-                <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-4">
-                  <h2 className="text-lg font-serif text-[var(--color-ink)] font-normal">Recent Platform Activity</h2>
-                  <span className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 rounded-full">Real-time Feed</span>
+              {/* Bento Grid layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+                {/* Left panel & interactive custom SVG golden area chart */}
+                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.01)] flex flex-col justify-between">
+                  <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-50">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 rounded bg-amber-100 text-amber-700"><TrendingUp size={14} /></span>
+                          <h2 className="text-lg font-serif text-[var(--color-ink)] font-normal">Golden Hour Revenue Matrix</h2>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Interactively hover across peak months to fetch historic sales coefficients.</p>
+                      </div>
+                      
+                      {/* Interactive indicator pills */}
+                      <div className="flex gap-1 bg-gray-50 p-1 rounded-lg self-start text-[10px] font-bold">
+                        <span className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-md shadow-sm">Revenue Forecast</span>
+                        <span className="px-2.5 py-1.5 text-gray-500 hover:text-gray-900 cursor-pointer">Live Orders Feed</span>
+                      </div>
+                    </div>
+
+                    {/* Highly aesthetic animated SVG chart */}
+                    <div className="relative w-full h-[220px] mb-4 flex items-center justify-center bg-gradient-to-b from-amber-50/10 to-transparent rounded-lg p-2">
+                      <svg viewBox="0 0 520 200" className="w-full h-full overflow-visible">
+                        <defs>
+                          {/* Smooth golden orange gradient for chart area stroke */}
+                          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.32" />
+                            <stop offset="100%" stopColor="#f97316" stopOpacity="0.01" />
+                          </linearGradient>
+                          {/* Glowing shadow effect for active node */}
+                          <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
+                            <feOffset dx="0" dy="4" />
+                            <feComponentTransfer><feFuncA type="linear" slope="0.3" /></feComponentTransfer>
+                            <feMerge>
+                              <feMergeNode />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
+
+                        {/* Horizontal guide lines */}
+                        <line x1="40" y1="40" x2="480" y2="40" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="40" y1="80" x2="480" y2="80" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="40" y1="120" x2="480" y2="120" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
+                        <line x1="40" y1="160" x2="480" y2="160" stroke="#f1f5f9" strokeWidth="1" />
+
+                        {/* Chart Area Fill with gradient */}
+                        {/* coordinates mapping based on index: (40 + idx*82, value mapped 40-160) */}
+                        <path
+                          d="M  40 160
+                             L  40 120
+                             L 122 100
+                             L 204 115
+                             L 286  85
+                             L 368  60
+                             L 450  40
+                             L 450 160 Z"
+                          fill="url(#chartGradient)"
+                          className="transition-all duration-300"
+                        />
+
+                        {/* Glowing stroke path */}
+                        <path
+                          d="M 40 120 L 122 100 L 204 115 L 286 85 L 368 60 L 450 40"
+                          fill="none"
+                          stroke="url(#lineGradient)"
+                          strokeWidth="3.5"
+                          strokeLinecap="round"
+                          className="transition-all duration-300"
+                        />
+                        <defs>
+                          <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#eab308" />
+                            <stop offset="50%" stopColor="#f59e0b" />
+                            <stop offset="100%" stopColor="#ea580c" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Invisible hover trigger columns for interactivity */}
+                        {chartData.map((d, index) => {
+                          const x = 40 + index * 82;
+                          const yPoints = [120, 100, 115, 85, 60, 40];
+                          const y = yPoints[index];
+                          return (
+                            <g key={index}>
+                              {/* Trigger line */}
+                              <line
+                                x1={x}
+                                y1="30"
+                                x2={x}
+                                y2="170"
+                                stroke={hoveredIndex === index ? '#f59e0b' : 'transparent'}
+                                strokeWidth="1.5"
+                                strokeDasharray="2 2"
+                              />
+
+                              {/* Hover sensor rect */}
+                              <rect
+                                x={x - 40}
+                                y="20"
+                                width="82"
+                                height="150"
+                                fill="transparent"
+                                className="cursor-pointer"
+                                onMouseEnter={() => setHoveredIndex(index)}
+                              />
+
+                              {/* Drawing point circles */}
+                              <circle
+                                cx={x}
+                                cy={y}
+                                r={hoveredIndex === index ? '7' : '4'}
+                                fill={hoveredIndex === index ? '#ffffff' : '#f59e0b'}
+                                stroke={hoveredIndex === index ? '#ea580c' : '#ffffff'}
+                                strokeWidth="2.5"
+                                className="transition-all duration-150 cursor-pointer"
+                                filter={hoveredIndex === index ? 'url(#goldGlow)' : ''}
+                              />
+                            </g>
+                          );
+                        })}
+
+                        {/* Month labels at bottom */}
+                        {chartData.map((d, index) => {
+                          const x = 40 + index * 82;
+                          return (
+                            <text
+                              key={index}
+                              x={x}
+                              y="180"
+                              textAnchor="middle"
+                              className={`text-[10px] font-mono font-bold transition-colors ${hoveredIndex === index ? 'fill-amber-600' : 'fill-gray-400'}`}
+                            >
+                              {d.month}
+                            </text>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Active Month Stats breakdown display bar */}
+                  <div className="bg-gradient-to-r from-amber-50/50 via-orange-50/30 to-yellow-50/40 p-4 rounded-lg border border-amber-100/60 flex flex-wrap gap-4 justify-between items-center mt-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Active Analysis Zone</span>
+                      <h4 className="text-sm font-sans font-bold text-[var(--color-ink)] flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-amber-500 animate-spin" />
+                        Stats for {chartData[hoveredIndex].label}
+                      </h4>
+                    </div>
+                    <div className="flex gap-6">
+                      <div className="text-right">
+                        <div className="text-xs text-gray-400">Monthly Volume</div>
+                        <div className="text-sm font-bold text-amber-600 font-serif">LKR {chartData[hoveredIndex].revenue.toLocaleString()}</div>
+                      </div>
+                      <div className="text-right border-l border-amber-100/80 pl-6">
+                        <div className="text-xs text-gray-400">Custom Designs</div>
+                        <div className="text-sm font-bold text-orange-600">{chartData[hoveredIndex].designs} Units</div>
+                      </div>
+                      <div className="text-right border-l border-amber-100/80 pl-6">
+                        <div className="text-xs text-gray-400">Satisfaction</div>
+                        <div className="text-sm font-bold text-yellow-600">{chartData[hoveredIndex].activeRate}</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
+                {/* Right column: Luxury virtual gold ledger card and quick operations */}
                 <div className="space-y-6">
+                  {/* Virtual Credit Ledger Card */}
+                  <div className="bg-gradient-to-br from-amber-600 via-amber-500 to-orange-600 text-white rounded-xl p-6 shadow-[0_15px_30px_rgba(245,158,11,0.2)] border border-amber-400/30 relative overflow-hidden transition-all duration-300 hover:scale-[1.02]">
+                    {/* Abstract radial circles */}
+                    <div className="absolute -right-16 -bottom-16 w-40 h-40 rounded-full bg-white/10 blur-xl" />
+                    <div className="absolute -left-10 -top-10 w-32 h-32 rounded-full bg-yellow-300/10 blur-lg" />
+                    
+                    <div className="flex justify-between items-start mb-8 relative z-10">
+                      <div>
+                        <p className="text-[10px] font-mono tracking-widest text-amber-100 uppercase uppercase-widest">PD Jewellers</p>
+                        <p className="text-[8px] tracking-wider text-amber-200/80 uppercase">PREMIUM STORE LEDGER</p>
+                      </div>
+                      <Sparkles size={20} className="text-yellow-200 animate-pulse" />
+                    </div>
+
+                    {/* Gold card chip simulation */}
+                    <div className="mb-4 relative z-10 w-11 h-8 rounded bg-gradient-to-tr from-yellow-300 to-amber-400 border border-amber-200/60 overflow-hidden flex flex-col justify-between p-1.5 shadow-inner">
+                      <div className="w-5 h-4 border-r border-b border-amber-600/30" />
+                      <div className="flex justify-between w-full">
+                        <div className="w-2.5 h-1 border-t border-amber-600/30" />
+                        <div className="w-2.5 h-1 border-t border-amber-600/30" />
+                      </div>
+                    </div>
+
+                    <div className="mb-6 relative z-10">
+                      <p className="text-[10px] text-amber-100/70 uppercase tracking-widest font-mono">Store Master Value</p>
+                      <h3 className="text-2xl font-serif font-bold text-white tracking-wide">LKR 1,132,000</h3>
+                    </div>
+
+                    <div className="flex justify-between items-end relative z-10 text-[10px] font-mono text-amber-100/90">
+                      <div>
+                        <span className="text-[8px] text-amber-200/60 block block-widest">CARDHOLDER</span>
+                        <span>Tharul Senanayake</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] text-amber-200/60 block text-right">SECURE TOKEN</span>
+                        <span>* * * * 2026</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Multipliers & Quick Rates summary */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-50">
+                      <h4 className="text-xs font-serif text-[var(--color-ink)] font-semibold flex items-center gap-1.5 uppercase tracking-wide">
+                        <Sliders size={14} className="text-amber-500" />
+                        Market Valuation Modifiers
+                      </h4>
+                      <span className="px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider bg-amber-50 text-amber-700 rounded border border-amber-100 animate-pulse">Live</span>
+                    </div>
+
+                    <div className="space-y-3 mb-4">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-500 font-medium">Gold Index Multiplier</span>
+                        <span className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">18.2x base rate</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-500 font-medium">Rose Gold Multiplier</span>
+                        <span className="font-mono font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">14.0x base rate</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-500 font-medium">Engraving Premium charge</span>
+                        <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded">LKR 5,000</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => setActiveTab('pricing')}
+                      className="w-full py-2 bg-gray-50 hover:bg-amber-50 border border-gray-100 hover:border-amber-200 text-[10px] text-gray-600 hover:text-amber-700 uppercase tracking-widest font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <RefreshCw size={11} className="animate-spin-slow" />
+                      Configure multipliers
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Aesthetic Timeline Feed for Recent Activity */}
+              <div className="bg-white rounded-xl border border-gray-100 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.01)]">
+                <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-4">
+                  <div>
+                    <h2 className="text-lg font-serif text-[var(--color-ink)] font-normal flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 animate-ping-slow" />
+                      Platform Chronology Log
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-1">A curated chronological feed of recent platform and customer activity.</p>
+                  </div>
+                  <span className="px-3 py-1 text-[10px] uppercase font-bold tracking-wider bg-gradient-to-r from-amber-600 to-orange-500 text-white rounded-full flex items-center gap-1">
+                    <Sparkles size={11} /> Real-time Feed
+                  </span>
+                </div>
+
+                <div className="relative border-l-2 border-amber-100/60 ml-3.5 space-y-8">
                   {[
                     {
                       user: 'Tharul Senanayake',
@@ -220,9 +528,10 @@ export default function Admin() {
                       action: 'saved a new 3D custom design arrangement',
                       target: '22K Rose Gold Pendant (Diamond)',
                       time: '2 hours ago',
-                      icon: Package,
-                      iconBg: 'bg-amber-50',
-                      iconColor: 'text-amber-600'
+                      icon: Sparkles,
+                      badge: 'Saved Configuration',
+                      badgeStyle: 'bg-amber-50 text-amber-700 border-amber-100',
+                      avatar: 'TS'
                     },
                     {
                       user: 'Kusal Fernando',
@@ -231,42 +540,62 @@ export default function Admin() {
                       target: 'ORD-2026-3409 (LKR 365,000)',
                       time: '1 day ago',
                       icon: ShoppingCart,
-                      iconBg: 'bg-emerald-50',
-                      iconColor: 'text-emerald-600'
+                      badge: 'VIP Custom Order',
+                      badgeStyle: 'bg-orange-50 text-orange-700 border-orange-100',
+                      avatar: 'KF'
                     },
                     {
                       user: 'Dilini Perera',
                       email: 'dilini@gmail.com',
-                      action: 'added classic item to their wishlist',
+                      action: 'added classic luxury catalog item to wishlist',
                       target: '22K Swarovski Zirconia Choker Necklace',
                       time: '3 days ago',
                       icon: Activity,
-                      iconBg: 'bg-blue-50',
-                      iconColor: 'text-blue-600'
+                      badge: 'Catalog Interest',
+                      badgeStyle: 'bg-yellow-50 text-yellow-800 border-yellow-100',
+                      avatar: 'DP'
                     },
                     {
                       user: 'System Admin',
                       email: 'admin@pdjewellers.com',
-                      action: 'updated metal multipliers for luxury billing',
-                      target: 'Gold set to 18.2x Base Rate',
+                      action: 'updated metal scaling indexes for custom calculations',
+                      target: 'Gold Multiplier set to 18.2x Base Rate',
                       time: '5 days ago',
-                      icon: DollarSign,
-                      iconBg: 'bg-purple-50',
-                      iconColor: 'text-purple-600'
+                      icon: Sliders,
+                      badge: 'Modifier Tweak',
+                      badgeStyle: 'bg-gray-100 text-gray-700 border-gray-200',
+                      avatar: 'AD'
                     }
                   ].map((activity, idx) => (
-                    <div key={idx} className="flex gap-4 items-start pb-6 border-b border-gray-50 last:border-0 last:pb-0">
-                      <div className={`p-2.5 rounded-full ${activity.iconBg} ${activity.iconColor} shrink-0`}>
-                        <activity.icon size={16} />
+                    <div key={idx} className="relative pl-8 group">
+                      {/* Timeline dot marker with hover glow */}
+                      <div className="absolute -left-[11px] top-0.5 w-5 h-5 rounded-full bg-white border-2 border-amber-400 flex items-center justify-center shadow-sm group-hover:bg-amber-400 group-hover:scale-110 transition-all duration-300">
+                        <activity.icon size={10} className="text-amber-600 group-hover:text-white transition-colors" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-600">
-                          <span className="font-semibold text-[var(--color-ink)]">{activity.user}</span>{' '}
-                          <span className="text-gray-400 font-normal">({activity.email})</span>{' '}
-                          {activity.action}{' '}
-                          <span className="font-medium text-gray-900 underline decoration-amber-200 decoration-2">{activity.target}</span>
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1 font-mono">{activity.time}</p>
+
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <div className="flex items-start gap-3">
+                          {/* Colored avatar logo */}
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-amber-500/10 self-center">
+                            {activity.avatar}
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-bold text-[var(--color-ink)] hover:text-amber-600 cursor-pointer">{activity.user}</span>{' '}
+                              <span className="text-gray-400 text-xs font-normal">({activity.email})</span>{' '}
+                              {activity.action}{' '}
+                              <span className="font-bold text-gray-900 underline decoration-amber-300 decoration-2 underline-offset-2">{activity.target}</span>
+                            </p>
+                            <span className="text-[10px] text-gray-400 font-mono block mt-0.5">{activity.time}</span>
+                          </div>
+                        </div>
+
+                        {/* Custom visual badge indicator */}
+                        <div className="self-start md:self-center pl-12 md:pl-0">
+                          <span className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded border ${activity.badgeStyle}`}>
+                            {activity.badge}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
