@@ -1,21 +1,32 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePricing, IPricing } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'products' | 'orders'>('dashboard');
+  const { pricing, updatePricing } = usePricing();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'products' | 'orders' | 'pricing'>('dashboard');
   const [usersList, setUsersList] = useState<any[]>([]);
   const [ordersList, setOrdersList] = useState<any[]>([]);
   const [modelsList, setModelsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [savingPricing, setSavingPricing] = useState(false);
   const [newModel, setNewModel] = useState({ name: '', category: 'ring', basePrice: 1000 });
   const [file, setFile] = useState<File | null>(null);
+  
+  const [priceForm, setPriceForm] = useState<Partial<IPricing>>({});
+
+  useEffect(() => {
+    if (pricing) {
+        setPriceForm(pricing);
+    }
+  }, [pricing]);
 
   useEffect(() => {
     if (!user) {
@@ -126,7 +137,8 @@ export default function Admin() {
             { id: 'dashboard', label: 'Dashboard', icon: Activity },
             { id: 'users', label: 'Users', icon: Users },
             { id: 'products', label: 'Products', icon: Package },
-            { id: 'orders', label: 'Orders', icon: ShoppingCart }
+            { id: 'orders', label: 'Orders', icon: ShoppingCart },
+            { id: 'pricing', label: 'Pricing', icon: DollarSign }
           ].map((item) => (
             <button
               key={item.id}
@@ -168,6 +180,7 @@ export default function Admin() {
                  <option value="users">Users</option>
                  <option value="products">Products</option>
                  <option value="orders">Orders</option>
+                 <option value="pricing">Pricing</option>
                </select>
             </div>
           </div>
@@ -396,6 +409,92 @@ export default function Admin() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'pricing' && (
+            <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-8">
+              <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                <h2 className="text-lg font-serif text-[var(--color-ink)]">Dynamic Pricing Configuration</h2>
+              </div>
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!user) return;
+                  setSavingPricing(true);
+                  const success = await updatePricing(priceForm, user.token);
+                  if (success) {
+                      alert('Pricing updated successfully!');
+                  } else {
+                      alert('Failed to update pricing');
+                  }
+                  setSavingPricing(false);
+                }}
+              >
+                <div className="mb-8">
+                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Silver (Default: 1.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_silver || 1} onChange={(e) => setPriceForm({...priceForm, metalMultiplier_silver: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Gold (Default: 18.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_gold || 18} onChange={(e) => setPriceForm({...priceForm, metalMultiplier_gold: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Rose Gold (Default: 14.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_rose || 14} onChange={(e) => setPriceForm({...priceForm, metalMultiplier_rose: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices (LKR)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Aquamarine</label>
+                      <input type="number" value={priceForm.stonePrice_aquamarine || 45000} onChange={(e) => setPriceForm({...priceForm, stonePrice_aquamarine: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Diamond</label>
+                      <input type="number" value={priceForm.stonePrice_diamond || 380000} onChange={(e) => setPriceForm({...priceForm, stonePrice_diamond: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Ruby</label>
+                      <input type="number" value={priceForm.stonePrice_ruby || 95000} onChange={(e) => setPriceForm({...priceForm, stonePrice_ruby: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Emerald</label>
+                      <input type="number" value={priceForm.stonePrice_emerald || 110000} onChange={(e) => setPriceForm({...priceForm, stonePrice_emerald: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Sapphire</label>
+                      <input type="number" value={priceForm.stonePrice_sapphire || 150000} onChange={(e) => setPriceForm({...priceForm, stonePrice_sapphire: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Engraving Price (LKR)</label>
+                      <input type="number" value={priceForm.engravingPrice || 5000} onChange={(e) => setPriceForm({...priceForm, engravingPrice: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button 
+                    type="submit" 
+                    disabled={savingPricing}
+                    className="px-6 py-3 bg-[var(--color-ink)] text-white text-xs uppercase tracking-widest rounded-sm hover:bg-black transition-colors disabled:opacity-50"
+                  >
+                    {savingPricing ? 'Saving...' : 'Save Pricing'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 

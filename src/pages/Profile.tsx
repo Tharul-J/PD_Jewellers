@@ -369,12 +369,26 @@ export default function Profile() {
                               )}
                             </dl>
                             
-                            <Link 
-                              to="/configurator"
+                            <button 
+                              onClick={() => {
+                                localStorage.setItem('cfg_modelType', config.type || 'ring');
+                                if (config.ringSize) localStorage.setItem('cfg_ringSize', config.ringSize);
+                                if (config.metal) localStorage.setItem('cfg_metal', config.metal);
+                                if (config.stone) localStorage.setItem('cfg_stone', config.stone);
+                                if (config.engravingText) {
+                                  localStorage.setItem('cfg_engraveWant', 'true');
+                                  localStorage.setItem('cfg_customText', config.engravingText);
+                                } else {
+                                  localStorage.setItem('cfg_engraveWant', 'false');
+                                }
+                                if (config.fontStyle) localStorage.setItem('cfg_fontStyle', config.fontStyle);
+                                if (config.pendantShape) localStorage.setItem('cfg_pendantShape', config.pendantShape);
+                                navigate('/configurator');
+                              }}
                               className="block w-full text-center border border-[var(--color-gold)] text-[var(--color-gold-dark)] py-2 text-[10px] uppercase tracking-widest hover:bg-[var(--color-gold)] hover:text-white transition-colors"
                             >
                               Open in Configurator
-                            </Link>
+                            </button>
                           </div>
                         ))}
                       </div>

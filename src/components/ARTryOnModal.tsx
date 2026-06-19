@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { HandLandmarker, FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { X } from 'lucide-react';
+import { X, Camera } from 'lucide-react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Text3D, Center } from '@react-three/drei';
@@ -18,10 +18,6 @@ interface ARTryOnModalProps {
   fileUrl?: string;
   customText?: string;
   fontStyle?: keyof typeof FONTS;
-}
-
-function renderRingModel(style: string, props: any) {
-  return <CustomGLBRingModel {...props} />;
 }
 
 function ARRing({ transformRef, ringStyle, metal, stone, text, fontStyle, fileUrl }: { transformRef: any, ringStyle?: string, metal: string, stone?: string, text?: string, fontStyle?: string, fileUrl?: string }) {
@@ -397,6 +393,31 @@ export default function ARTryOnModal({ isOpen, onClose, metal, metalName, stone,
 
   }, [isOpen, modelType]); // Render loop...
 
+  const handleCapture = () => {
+    if (!canvasRef.current) return;
+    const r3fCanvas = document.querySelector('.pointer-events-none canvas') as HTMLCanvasElement;
+    if (!r3fCanvas) return;
+
+    const resultCanvas = document.createElement('canvas');
+    resultCanvas.width = canvasRef.current.width;
+    resultCanvas.height = canvasRef.current.height;
+    const ctx = resultCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // Flip horizontally because the wrapper has scaleX(-1)
+    ctx.translate(resultCanvas.width, 0);
+    ctx.scale(-1, 1);
+
+    ctx.drawImage(canvasRef.current, 0, 0);
+    ctx.drawImage(r3fCanvas, 0, 0, resultCanvas.width, resultCanvas.height);
+
+    const dataUrl = resultCanvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `try-on-${modelType}-${Date.now()}.png`;
+    link.href = dataUrl;
+    link.click();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -420,7 +441,7 @@ export default function ARTryOnModal({ isOpen, onClose, metal, metalName, stone,
         
         {/* Overlay: R3F Canvas */}
         <div className="absolute inset-0 pointer-events-none">
-          <Canvas orthographic camera={{ position: [0, 0, 100], zoom: 1 }}>
+          <Canvas orthographic camera={{ position: [0, 0, 100], zoom: 1 }} gl={{ preserveDrawingBuffer: true }}>
             <ambientLight intensity={0.8} />
             <directionalLight position={[0, 10, 5]} intensity={2.5} />
             <directionalLight position={[-5, -5, -5]} intensity={1} />
@@ -433,6 +454,14 @@ export default function ARTryOnModal({ isOpen, onClose, metal, metalName, stone,
           </Canvas>
         </div>
       </div>
+
+      <button 
+        onClick={handleCapture}
+        title="Capture Screenshot"
+        className="absolute top-6 right-20 p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors z-10"
+      >
+        <Camera className="w-6 h-6" />
+      </button>
 
       <button 
         onClick={onClose}

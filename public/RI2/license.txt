@@ -1,0 +1,11 @@
+Model Information:
+* title:	Pendergraft,S 2
+* source:	https://sketchfab.com/3d-models/pendergrafts-2-184de977bf67402ebf05c5ab8a45ce52
+* author:	CADtrends (https://sketchfab.com/CADtrends)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Pendergraft,S 2" (https://sketchfab.com/3d-models/pendergrafts-2-184de977bf67402ebf05c5ab8a45ce52) by CADtrends (https://sketchfab.com/CADtrends) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

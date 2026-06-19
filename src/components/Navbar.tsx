@@ -1,13 +1,15 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Search, User, Menu, Phone, Sparkles } from 'lucide-react';
+import { ShoppingBag, Search, User, Menu, Phone, Sparkles, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useWishlist } from '../context/WishlistContext';
 import { useState, useEffect } from 'react';
 import { StyleQuiz } from './StyleQuiz';
 
 export function Navbar() {
   const { setIsCartOpen, items } = useCart();
   const { user } = useAuth();
+  const { wishlist } = useWishlist();
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === '/';
@@ -24,6 +26,7 @@ export function Navbar() {
   }, []);
 
   const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
+  const wishlistItemCount = wishlist.length;
 
   // If on home page and not scrolled, hide the entire navbar
   const isHidden = isHome && !isScrolled;
@@ -84,7 +87,19 @@ export function Navbar() {
               <button className="hover:text-[var(--color-gold)] transition-colors">
                 <Search strokeWidth={1.5} size={20} />
               </button>
-              <button onClick={() => navigate(user ? "/profile" : "/login")} className="hover:text-[var(--color-gold)] transition-colors">
+              <button 
+                onClick={() => navigate("/profile")} 
+                className="relative flex items-center justify-center p-2 hover:text-[var(--color-gold)] transition-colors" 
+                title="Wishlist"
+              >
+                <Heart strokeWidth={1.5} size={20} />
+                {wishlistItemCount > 0 && (
+                  <span className="absolute bottom-1 right-0 w-4 h-4 bg-[var(--color-gold)] text-[var(--color-paper)] rounded-full text-[9px] flex items-center justify-center font-bold">
+                    {wishlistItemCount}
+                  </span>
+                )}
+              </button>
+              <button onClick={() => navigate(user ? "/profile" : "/login")} className="hover:text-[var(--color-gold)] transition-colors flex items-center justify-center p-2">
                 <User strokeWidth={1.5} size={20} />
               </button>
             </div>

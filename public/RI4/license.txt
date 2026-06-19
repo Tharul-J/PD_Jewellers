@@ -1,0 +1,11 @@
+Model Information:
+* title:	CH DrivenUpdtd
+* source:	https://sketchfab.com/3d-models/ch-drivenupdtd-48d61bea63654260ae90d56b6bec9a3d
+* author:	CADtrends (https://sketchfab.com/CADtrends)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "CH DrivenUpdtd" (https://sketchfab.com/3d-models/ch-drivenupdtd-48d61bea63654260ae90d56b6bec9a3d) by CADtrends (https://sketchfab.com/CADtrends) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

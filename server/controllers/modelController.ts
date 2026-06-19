@@ -23,6 +23,10 @@ export const getModels = async (req: Request, res: Response): Promise<void> => {
 // @access  Private/Admin
 export const createModel = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database not connected' });
+      return;
+    }
     const { name, glbUrl, category, basePrice } = req.body;
 
     const model = new ConfigurableModel({
@@ -44,6 +48,10 @@ export const createModel = async (req: Request, res: Response): Promise<void> =>
 // @access  Private/Admin
 export const updateModelStatus = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database not connected' });
+      return;
+    }
     const model = await ConfigurableModel.findById(req.params.id);
 
     if (model) {
@@ -63,6 +71,10 @@ export const updateModelStatus = async (req: Request, res: Response): Promise<vo
 // @access  Private/Admin
 export const deleteModel = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database not connected' });
+      return;
+    }
     const model = await ConfigurableModel.findByIdAndDelete(req.params.id);
 
     if (model) {

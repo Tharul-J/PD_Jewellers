@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { ShoppingBag, Heart, Share2, Facebook, Twitter, Link as LinkIcon, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -6,54 +7,57 @@ import { useLocation } from 'react-router-dom';
 
 export const MOCK_PRODUCTS = [
   // Rings
-  { id: 'r1', name: 'Eternity Diamond Ring', price: 450000, category: 'Rings', image: 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80', description: 'A continuous line of flawlessly matched diamonds set in 18k white gold.' },
-  { id: 'r2', name: 'Bridal Solitaire Set', price: 210000, category: 'Rings', image: 'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&q=80', description: 'A classic ring capturing the elegant simplicity of true love.' },
-  { id: 'r3', name: 'Sapphire Halo Ring', price: 450000, category: 'Rings', image: 'https://images.unsplash.com/photo-1596944924616-7b38e7cfac36?auto=format&fit=crop&q=80', description: 'Stunning blue sapphire surrounded by a halo of brilliant diamonds.' },
+  { id: 'r1', name: 'Eternity Diamond Ring', price: 450000, category: 'Rings', image: 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80', description: 'A continuous line of flawlessly matched diamonds set in 18k white gold.', karatage: '18K', hasStones: true, dateAdded: '2023-10-01', views: 1250 },
+  { id: 'r2', name: 'Bridal Solitaire Set', price: 210000, category: 'Rings', image: 'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&q=80', description: 'A classic ring capturing the elegant simplicity of true love.', karatage: '18K', hasStones: true, dateAdded: '2023-11-15', views: 890 },
+  { id: 'r3', name: 'Sapphire Halo Ring', price: 450000, category: 'Rings', image: 'https://images.unsplash.com/photo-1596944924616-7b38e7cfac36?auto=format&fit=crop&q=80', description: 'Stunning blue sapphire surrounded by a halo of brilliant diamonds.', karatage: '18K', hasStones: true, dateAdded: '2024-01-10', views: 2100 },
   
   // Necklaces
-  { id: 'n1', name: 'Antique Gold Necklace', price: 180000, category: 'Necklaces', image: 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80', description: 'An intricate traditional antique gold necklace for the modern royal.' },
-  { id: 'n2', name: 'Diamond Tennis Necklace', price: 1250000, category: 'Necklaces', image: 'https://images.unsplash.com/photo-1599687267812-35fc05fd4b50?auto=format&fit=crop&q=80', description: 'Seamless strand of round brilliant diamonds.' },
-  { id: 'n3', name: 'Pearl & Gold Chain', price: 85000, category: 'Necklaces', image: 'https://images.unsplash.com/photo-1515562141207-7a8efb545f47?auto=format&fit=crop&q=80', description: 'Cultured freshwater pearls alternating with gold links.' },
+  { id: 'n1', name: 'Antique Gold Necklace', price: 180000, category: 'Necklaces', image: 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80', description: 'An intricate traditional antique gold necklace for the modern royal.', karatage: '22K', hasStones: false, dateAdded: '2023-09-05', views: 3400 },
+  { id: 'n2', name: 'Diamond Tennis Necklace', price: 1250000, category: 'Necklaces', image: 'https://images.unsplash.com/photo-1599687267812-35fc05fd4b50?auto=format&fit=crop&q=80', description: 'Seamless strand of round brilliant diamonds.', karatage: '18K', hasStones: true, dateAdded: '2024-02-20', views: 4500 },
+  { id: 'n3', name: 'Pearl & Gold Chain', price: 85000, category: 'Necklaces', image: 'https://images.unsplash.com/photo-1515562141207-7a8efb545f47?auto=format&fit=crop&q=80', description: 'Cultured freshwater pearls alternating with gold links.', karatage: '22K', hasStones: true, dateAdded: '2023-12-01', views: 1100 },
   
   // Earrings
-  { id: 'e1', name: 'Kundan Drop Earrings', price: 95000, category: 'Earrings', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80', description: 'Classic Kundan style drop earrings echoing timeless traditions.' },
-  { id: 'e2', name: 'Diamond Hoop Earrings', price: 340000, category: 'Earrings', image: 'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&q=80', description: 'Inside-out diamond hoop earrings crafted in white gold.' },
-  { id: 'e3', name: 'Pearl Studs', price: 45000, category: 'Earrings', image: 'https://images.unsplash.com/photo-1574542385491-03cd61bced3a?auto=format&fit=crop&q=80', description: 'Elegant South Sea pearl stud earrings.' },
+  { id: 'e1', name: 'Kundan Drop Earrings', price: 95000, category: 'Earrings', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80', description: 'Classic Kundan style drop earrings echoing timeless traditions.', karatage: '22K', hasStones: true, dateAdded: '2023-08-15', views: 2200 },
+  { id: 'e2', name: 'Diamond Hoop Earrings', price: 340000, category: 'Earrings', image: 'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&q=80', description: 'Inside-out diamond hoop earrings crafted in white gold.', karatage: '18K', hasStones: true, dateAdded: '2024-03-05', views: 1800 },
+  { id: 'e3', name: 'Pearl Studs', price: 45000, category: 'Earrings', image: 'https://images.unsplash.com/photo-1574542385491-03cd61bced3a?auto=format&fit=crop&q=80', description: 'Elegant South Sea pearl stud earrings.', karatage: '18K', hasStones: true, dateAdded: '2023-07-20', views: 950 },
 
   // Bracelets
-  { id: 'b1', name: 'Temple Bangles', price: 450000, category: 'Bracelets', image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80', description: 'A pair of heavy gold temple bangles, studded with rubies.' },
-  { id: 'b2', name: 'Diamond Tennis Bracelet', price: 890000, category: 'Bracelets', image: 'https://images.unsplash.com/photo-1511556820780-d912e42b4980?auto=format&fit=crop&q=80', description: 'Classic 4-prong diamond tennis bracelet in platinum.' },
-  { id: 'b3', name: 'Chain Link Bracelet', price: 120000, category: 'Bracelets', image: 'https://images.unsplash.com/photo-1573408301145-b98c46544ea6?auto=format&fit=crop&q=80', description: 'Modern chunky chain link bracelet in 14k yellow gold.' },
+  { id: 'b1', name: 'Temple Bangles', price: 450000, category: 'Bracelets', image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80', description: 'A pair of heavy gold temple bangles, studded with rubies.', karatage: '22K', hasStones: true, dateAdded: '2023-10-25', views: 2800 },
+  { id: 'b2', name: 'Diamond Tennis Bracelet', price: 890000, category: 'Bracelets', image: 'https://images.unsplash.com/photo-1511556820780-d912e42b4980?auto=format&fit=crop&q=80', description: 'Classic 4-prong diamond tennis bracelet in platinum.', karatage: '18K', hasStones: true, dateAdded: '2024-01-30', views: 3100 },
+  { id: 'b3', name: 'Chain Link Bracelet', price: 120000, category: 'Bracelets', image: 'https://images.unsplash.com/photo-1573408301145-b98c46544ea6?auto=format&fit=crop&q=80', description: 'Modern chunky chain link bracelet in 14k yellow gold.', karatage: '18K', hasStones: false, dateAdded: '2023-11-05', views: 1400 },
 
   // Pendants
-  { id: 'p1', name: 'Heritage Pendant', price: 280000, category: 'Pendants', image: 'https://images.unsplash.com/photo-1599643477873-cecefb2c42d4?auto=format&fit=crop&q=80', description: 'An ancestral design featuring uncut polki diamonds in pure gold.' },
-  { id: 'p2', name: 'Emerald Cut Pendant', price: 540000, category: 'Pendants', image: 'https://images.unsplash.com/photo-1599643477874-c689ff887d19?auto=format&fit=crop&q=80', description: 'Dazzling emerald cut diamond pendant on a delicate chain.' },
-
-  // Watches
-  { id: 'w1', name: 'Classic Gold Timepiece', price: 650000, category: 'Watches', image: 'https://images.unsplash.com/photo-1587836149124-a4002e21b8c0?auto=format&fit=crop&q=80', description: 'Automatic movement watch with an 18k gold case.' },
-  { id: 'w2', name: 'Diamond Bezel Watch', price: 1240000, category: 'Watches', image: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&q=80', description: 'Luxury timepiece featuring a diamond-encrusted bezel.' },
+  { id: 'p1', name: 'Heritage Pendant', price: 280000, category: 'Pendants', image: 'https://images.unsplash.com/photo-1599643477873-cecefb2c42d4?auto=format&fit=crop&q=80', description: 'An ancestral design featuring uncut polki diamonds in pure gold.', karatage: '22K', hasStones: true, dateAdded: '2023-09-12', views: 1600 },
+  { id: 'p2', name: 'Emerald Cut Pendant', price: 540000, category: 'Pendants', image: 'https://images.unsplash.com/photo-1599643477874-c689ff887d19?auto=format&fit=crop&q=80', description: 'Dazzling emerald cut diamond pendant on a delicate chain.', karatage: '18K', hasStones: true, dateAdded: '2024-02-14', views: 2500 },
 
   // Engagement
-  { id: 'en1', name: 'Princess Cut Engagement Ring', price: 560000, category: 'Engagement', image: 'https://images.unsplash.com/photo-1515562141207-7a8efb545f47?auto=format&fit=crop&q=80', description: 'A breathtaking princess cut diamond set in platinum.' },
-  { id: 'en2', name: 'Oval Solitaire', price: 720000, category: 'Engagement', image: 'https://images.unsplash.com/photo-1596944924616-7b38e7cfac36?auto=format&fit=crop&q=80', description: 'Brilliant oval diamond on a delicate pavé band.' },
+  { id: 'en1', name: 'Princess Cut Engagement Ring', price: 560000, category: 'Engagement', image: 'https://images.unsplash.com/photo-1515562141207-7a8efb545f47?auto=format&fit=crop&q=80', description: 'A breathtaking princess cut diamond set in platinum.', karatage: '18K', hasStones: true, dateAdded: '2024-01-05', views: 3800 },
+  { id: 'en2', name: 'Oval Solitaire', price: 720000, category: 'Engagement', image: 'https://images.unsplash.com/photo-1596944924616-7b38e7cfac36?auto=format&fit=crop&q=80', description: 'Brilliant oval diamond on a delicate pavé band.', karatage: '18K', hasStones: true, dateAdded: '2024-02-10', views: 4000 },
 
   // Bridal Sets
-  { id: 'br1', name: 'Rivaah Bridal Set', price: 2500000, category: 'Bridal Sets', image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&q=80', description: 'Complete wedding set includes necklace, earrings, and maang tikka.' },
-  { id: 'br2', name: 'Diamond Encrusted Set', price: 1850000, category: 'Bridal Sets', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80', description: 'Matching necklace and earrings adorned with brilliant cut diamonds.' }
+  { id: 'br1', name: 'Rivaah Bridal Set', price: 2500000, category: 'Bridal Sets', image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&q=80', description: 'Complete wedding set includes necklace, earrings, and maang tikka.', karatage: '22K', hasStones: true, dateAdded: '2023-11-20', views: 6500 },
+  { id: 'br2', name: 'Diamond Encrusted Set', price: 1850000, category: 'Bridal Sets', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80', description: 'Matching necklace and earrings adorned with brilliant cut diamonds.', karatage: '18K', hasStones: true, dateAdded: '2024-01-15', views: 5800 }
 ];
 
-const CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Watches', 'Engagement', 'Bridal Sets'];
+const CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Engagement', 'Bridal Sets'];
 
 export default function Collections() {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const categoryParam = searchParams.get('category');
-  const materialParam = searchParams.get('material');
   const priceParam = searchParams.get('price');
+  const karatageParam = searchParams.get('karatage');
+  const stonesParam = searchParams.get('stones');
   
   const [activeCategory, setActiveCategory] = useState('All');
-  const [urlFilters, setUrlFilters] = useState<{material?: string, price?: string}>({});
+  const [urlFilters, setUrlFilters] = useState<{price?: string}>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // New states for extended filtering and sorting
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState('latest');
+  const [karatageFilter, setKaratageFilter] = useState<string[]>([]);
+  const [stonesFilter, setStonesFilter] = useState<string | null>(null);
 
   const maxProductPrice = Math.max(...MOCK_PRODUCTS.map(p => p.price));
   const [maxPrice, setMaxPrice] = useState(maxProductPrice);
@@ -62,32 +66,41 @@ export default function Collections() {
     if (categoryParam) {
       const match = CATEGORIES.find(c => c.toLowerCase() === categoryParam.toLowerCase());
       if (match) setActiveCategory(match);
-      // Clean up category from URL when selected to avoid sticky state
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
     }
     
-    if (materialParam || priceParam) {
-        setUrlFilters({
-            material: materialParam || undefined,
-            price: priceParam || undefined
-        });
+    if (priceParam) {
+      setUrlFilters({ price: priceParam });
+    } else {
+      setUrlFilters({});
     }
-  }, [categoryParam, materialParam, priceParam]);
+
+    if (karatageParam && karatageParam !== 'Any') {
+      setKaratageFilter([karatageParam]);
+    }
+
+    if (stonesParam && stonesParam !== 'Any') {
+      setStonesFilter(stonesParam === 'With Stones' ? 'with' : 'without');
+    }
+
+    if (categoryParam || priceParam || karatageParam || stonesParam) {
+      // Clean up from URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [categoryParam, priceParam, karatageParam, stonesParam]);
 
   useEffect(() => {
     // Simulate loading for better UX when filters change
     setIsLoading(true);
     const timer = setTimeout(() => setIsLoading(false), 600);
     return () => clearTimeout(timer);
-  }, [activeCategory, urlFilters, maxPrice]);
+  }, [activeCategory, urlFilters, maxPrice, sortBy, karatageFilter, stonesFilter]);
 
   const { addToCart } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
 
   const filteredProducts = useMemo(() => {
     let products = activeCategory === 'All' 
-      ? MOCK_PRODUCTS 
+      ? [...MOCK_PRODUCTS] 
       : MOCK_PRODUCTS.filter(p => p.category === activeCategory);
 
     if (urlFilters.price) {
@@ -96,22 +109,34 @@ export default function Collections() {
       else if (urlFilters.price === 'Over LKR 600K') products = products.filter(p => p.price > 600000);
     }
     
-    if (urlFilters.material) {
-      if (urlFilters.material === 'Classic Gold (18K/22K)') {
-        products = products.filter(p => p.name.includes('Gold') || p.description.toLowerCase().includes('gold') || p.description.toLowerCase().includes('kundan'));
-      } else if (urlFilters.material === 'White Gold / Platinum') {
-        products = products.filter(p => p.description.toLowerCase().includes('white gold') || p.description.toLowerCase().includes('platinum') || p.name.includes('Silver'));
-      } else if (urlFilters.material === 'Diamond Focused') {
-        products = products.filter(p => p.name.includes('Diamond') || p.description.toLowerCase().includes('diamond'));
-      }
-    }
-
     if (maxPrice < maxProductPrice) {
       products = products.filter(p => p.price <= maxPrice);
     }
 
+    if (karatageFilter.length > 0) {
+      products = products.filter(p => p.karatage && karatageFilter.includes(p.karatage));
+    }
+    
+    if (stonesFilter) {
+      if (stonesFilter === 'with') {
+        products = products.filter(p => p.hasStones === true);
+      } else if (stonesFilter === 'without') {
+        products = products.filter(p => p.hasStones === false);
+      }
+    }
+
+    if (sortBy === 'latest') {
+      products.sort((a, b) => new Date(b.dateAdded || 0).getTime() - new Date(a.dateAdded || 0).getTime());
+    } else if (sortBy === 'most_viewed') {
+      products.sort((a, b) => (b.views || 0) - (a.views || 0));
+    } else if (sortBy === 'price_low_high') {
+      products.sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'price_high_low') {
+      products.sort((a, b) => b.price - a.price);
+    }
+
     return products;
-  }, [activeCategory, urlFilters, maxPrice, maxProductPrice]);
+  }, [activeCategory, urlFilters, maxPrice, maxProductPrice, karatageFilter, stonesFilter, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-20">
@@ -123,7 +148,7 @@ export default function Collections() {
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-16 border-b border-black/5 pb-8 overflow-x-auto whitespace-nowrap">
+      <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12 border-b border-black/5 pb-8 overflow-x-auto whitespace-nowrap">
         {CATEGORIES.map(category => (
           <button
             key={category}
@@ -137,43 +162,121 @@ export default function Collections() {
         ))}
       </div>
 
-      <div className="max-w-md mx-auto mb-12 flex flex-col items-center">
-        <label className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-4 text-center">
-          Maximum Budget: <span className="text-[var(--color-ink)]">LKR {maxPrice.toLocaleString()}</span>
-        </label>
-        <div className="w-full relative">
-          <input 
-            type="range" 
-            min="0" 
-            max={maxProductPrice} 
-            step="10000" 
-            value={maxPrice} 
-            onChange={(e) => setMaxPrice(Number(e.target.value))}
-            className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--color-gold)]"
-          />
-          <div className="flex justify-between mt-2 text-[10px] text-gray-400">
-            <span>Any</span>
-            <span>Max</span>
+      {/* Advanced Filters Bar */}
+      <div className="flex justify-end gap-4 items-center mb-8 pb-4">
+        <button 
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-2 border border-black px-6 py-3 uppercase tracking-widest text-xs font-bold hover:bg-black hover:text-white transition-colors"
+        >
+          {showFilters ? 'Hide Filters' : 'Filter By'} 
+          {showFilters ? <X size={16} /> : <span className="text-lg leading-none font-normal">+</span>}
+        </button>
+
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="appearance-none border border-black px-6 py-3 pr-10 uppercase tracking-widest text-xs font-bold bg-white focus:outline-none cursor-pointer"
+          >
+            <option value="latest">Sort By Latest</option>
+            <option value="most_viewed">Most Viewed</option>
+            <option value="price_low_high">Price: Low to High</option>
+            <option value="price_high_low">Price: High to Low</option>
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-black">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
           </div>
         </div>
       </div>
 
+      {showFilters && (
+        <div className="bg-[#fcf8f0] border border-[#e5dfd3] p-8 mb-12 flex flex-col md:flex-row gap-12 rounded-sm transition-all duration-300">
+          
+          <div className="flex-1">
+            <h4 className="font-serif text-2xl text-[var(--color-ink)] mb-8">Filter by</h4>
+            
+            <div className="mb-8">
+              <h5 className="text-[12px] uppercase font-bold tracking-widest text-gray-800 mb-5">Karatage</h5>
+              <div className="flex gap-10">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-6 h-6 flex items-center justify-center border transition-colors ${karatageFilter.includes('18K') ? 'bg-[#e5dfd3] border-[#e5dfd3]' : 'bg-white border-gray-300 group-hover:border-gray-400'}`}>
+                    {karatageFilter.includes('18K') && <svg className="w-4 h-4 text-[#8a7f66]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>}
+                  </div>
+                  <input type="checkbox" className="hidden" checked={karatageFilter.includes('18K')} onChange={() => {
+                    setKaratageFilter(prev => prev.includes('18K') ? prev.filter(k => k !== '18K') : [...prev, '18K'])
+                  }} />
+                  <span className="text-[15px] text-[#4a5568]">18K</span>
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-6 h-6 flex items-center justify-center border transition-colors ${karatageFilter.includes('22K') ? 'bg-[#e5dfd3] border-[#e5dfd3]' : 'bg-white border-gray-300 group-hover:border-gray-400'}`}>
+                    {karatageFilter.includes('22K') && <svg className="w-4 h-4 text-[#8a7f66]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>}
+                  </div>
+                  <input type="checkbox" className="hidden" checked={karatageFilter.includes('22K')} onChange={() => {
+                    setKaratageFilter(prev => prev.includes('22K') ? prev.filter(k => k !== '22K') : [...prev, '22K'])
+                  }} />
+                  <span className="text-[15px] text-[#4a5568]">22K</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <h5 className="text-[12px] uppercase font-bold tracking-widest text-gray-800 mb-5 relative flex items-center gap-3">
+                Stones 
+                {stonesFilter && <button onClick={() => setStonesFilter(null)} className="text-[9px] text-[#a09a8a] underline hover:text-black uppercase tracing-widest">Clear</button>}
+              </h5>
+              <div className="flex gap-10">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-5 h-5 rounded-full border transition-colors relative flex items-center justify-center ${stonesFilter === 'with' ? 'border-[#8a7f66]' : 'border-gray-300 group-hover:border-gray-400'}`}>
+                     {stonesFilter === 'with' && <div className="w-2.5 h-2.5 rounded-full bg-[#8a7f66]"></div>}
+                  </div>
+                  <input type="radio" name="stones" className="hidden" checked={stonesFilter === 'with'} onChange={() => setStonesFilter('with')} />
+                  <span className="text-[15px] text-[#4a5568]">With Stones</span>
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-5 h-5 rounded-full border transition-colors relative flex items-center justify-center ${stonesFilter === 'without' ? 'border-[#8a7f66]' : 'border-gray-300 group-hover:border-gray-400'}`}>
+                    {stonesFilter === 'without' && <div className="w-2.5 h-2.5 rounded-full bg-[#8a7f66]"></div>}
+                  </div>
+                  <input type="radio" name="stones" className="hidden" checked={stonesFilter === 'without'} onChange={() => setStonesFilter('without')} />
+                  <span className="text-[15px] text-[#4a5568]">Without Stones</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+          
+          <div className="w-px bg-[#e5dfd3] hidden md:block"></div>
+
+          <div className="flex-1 md:max-w-md flex flex-col justify-start">
+            <h4 className="font-serif text-2xl text-[var(--color-ink)] mb-8 opacity-0 pointer-events-none hidden md:block">Budget</h4>
+            <label className="text-[12px] uppercase font-bold tracking-widest text-gray-800 mb-6">
+              Maximum Budget: <span className="text-[var(--color-gold)]">LKR {maxPrice.toLocaleString()}</span>
+            </label>
+            <div className="w-full relative mt-2">
+              <input 
+                type="range" 
+                min="0" 
+                max={maxProductPrice} 
+                step="10000" 
+                value={maxPrice} 
+                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                className="w-full h-[3px] bg-[#e5dfd3] rounded-lg appearance-none cursor-pointer accent-[#D4AF37]"
+              />
+              <div className="flex justify-between mt-3 text-[11px] text-[#a09a8a] uppercase font-bold tracking-wider">
+                <span>Any</span>
+                <span>LKR {maxProductPrice.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      )}
+
       {/* Active Selection Filters from Style Assistant */}
-      {(urlFilters.material || urlFilters.price) && (
+      {(urlFilters.price) && (
         <div className="flex flex-wrap items-center justify-center gap-3 mb-10 -mt-8">
           <span className="text-[10px] uppercase font-bold tracking-widest text-gray-400">Match Filters:</span>
-          {urlFilters.material && (
-            <span className="flex items-center gap-2 bg-[#D4AF37]/5 border border-[#D4AF37]/20 text-[#D4AF37] px-3 py-1.5 rounded-full text-xs font-medium">
-              {urlFilters.material}
-              <button 
-                onClick={() => setUrlFilters(prev => ({...prev, material: undefined}))}
-                className="hover:text-black transition-colors"
-                title="Remove filter"
-              >
-                <X size={12} />
-              </button>
-            </span>
-          )}
           {urlFilters.price && (
             <span className="flex items-center gap-2 bg-[#D4AF37]/5 border border-[#D4AF37]/20 text-[#D4AF37] px-3 py-1.5 rounded-full text-xs font-medium">
               {urlFilters.price}
@@ -209,12 +312,36 @@ export default function Collections() {
             </div>
           ))
         ) : (
-          filteredProducts.map(product => {
+          filteredProducts.map((product, index) => {
             const inWishlist = isInWishlist(product.id);
             
             return (
-            <div key={product.id} className="group cursor-pointer">
-              <div className="relative aspect-[4/5] bg-white rounded-lg overflow-hidden mb-6 border border-black/5 group-hover:border-[var(--color-gold)] transition-colors">
+            <motion.div 
+              key={product.id} 
+              className="group cursor-pointer"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: (index % 4) * 0.1 }}
+            >
+              <div 
+                className="relative aspect-[4/5] bg-white rounded-lg overflow-hidden mb-6 border border-black/5 group-hover:border-[var(--color-gold)] transition-colors"
+                onMouseMove={(e) => {
+                  const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+                  const x = (e.clientX - left) / width * 100;
+                  const y = (e.clientY - top) / height * 100;
+                  const img = e.currentTarget.querySelector('img');
+                  if (img) {
+                    img.style.transformOrigin = `${x}% ${y}%`;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const img = e.currentTarget.querySelector('img');
+                  if (img) {
+                    img.style.transformOrigin = 'center center';
+                  }
+                }}
+              >
                 <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
                   <button 
                     onClick={(e) => { 
@@ -266,11 +393,11 @@ export default function Collections() {
                   src={product.image} 
                   alt={product.name} 
                   loading="lazy"
-                  className="w-full h-full object-cover mix-blend-multiply transition-transform duration-1000 group-hover:scale-105"
+                  className="w-full h-full object-cover mix-blend-multiply transition-transform duration-300 ease-out group-hover:scale-[2]"
                 />
                 <button 
                   onClick={(e) => { e.preventDefault(); addToCart(product); }}
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gold-gradient text-white p-3 rounded-full opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 shadow-xl hover:opacity-90 hover:scale-105"
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gold-gradient text-white p-3 rounded-full opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 shadow-xl hover:opacity-90 hover:scale-105 z-10"
                   title="Add to Bag"
                 >
                   <ShoppingBag size={20} className="stroke-white" strokeWidth={2} />
@@ -282,7 +409,7 @@ export default function Collections() {
                 <p className="text-sm opacity-70 mb-4 line-clamp-2 px-2 h-10">{product.description}</p>
                 <p className="font-sans font-medium text-lg text-[var(--color-ink)]">Starts from LKR {product.price.toLocaleString()}</p>
               </div>
-            </div>
+            </motion.div>
           );
         })
       )}

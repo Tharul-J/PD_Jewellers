@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { Layout } from './components/Layout';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { PricingProvider } from './context/PricingContext';
 
 // Pages
 import Home from './pages/Home';
@@ -20,26 +22,74 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 
+function AnimatedRoutes() {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<Layout />}>
+          <Route index element={
+            <motion.div initial={{ opacity: 0, filter: 'blur(10px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, filter: 'blur(10px)' }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Home />
+            </motion.div>
+          } />
+          <Route path="collections" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Collections />
+            </motion.div>
+          } />
+          <Route path="configurator" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Configurator />
+            </motion.div>
+          } />
+          <Route path="materials" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Materials />
+            </motion.div>
+          } />
+          <Route path="checkout" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Checkout />
+            </motion.div>
+          } />
+          <Route path="login" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Login />
+            </motion.div>
+          } />
+          <Route path="register" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Register />
+            </motion.div>
+          } />
+          <Route path="profile" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Profile />
+            </motion.div>
+          } />
+          <Route path="admin" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Admin />
+            </motion.div>
+          } />
+        </Route>
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <WishlistProvider>
         <CartProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Home />} />
-                <Route path="collections" element={<Collections />} />
-                <Route path="configurator" element={<Configurator />} />
-                <Route path="materials" element={<Materials />} />
-                <Route path="checkout" element={<Checkout />} />
-                <Route path="login" element={<Login />} />
-                <Route path="register" element={<Register />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="admin" element={<Admin />} />
-              </Route>
-            </Routes>
-          </Router>
+          <PricingProvider>
+            <Router>
+              <AnimatedRoutes />
+            </Router>
+          </PricingProvider>
         </CartProvider>
       </WishlistProvider>
     </AuthProvider>

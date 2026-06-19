@@ -52,7 +52,7 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
       <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
         <primitive object={styledScene} position={[0, -0.2, 0]} scale={0.4} />
         {/* Inner Engraving */}
-        {text && (
+        {text && text.trim().length > 0 && (
           <group position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
              <Center position={[0, 0, 0]}>
                 <Text3D 

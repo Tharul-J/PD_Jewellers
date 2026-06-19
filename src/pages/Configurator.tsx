@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
+import { usePricing, IPricing } from '../context/PricingContext';
 import { Check, Glasses, Box, Type, Heart, Save } from 'lucide-react';
 import ARTryOnModal from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
@@ -14,266 +15,95 @@ import { METALS, STONES, FONTS } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
 
+import { PendantModel } from '../components/PendantModel';
+import { ARViewContent } from '../components/ARViewContent';
+
 const store = createXRStore();
 
 const DEFAULT_RING_STYLES = [
-  { id: 'custom-glb', name: 'Diamond Engagement Ring (Custom)' },
+  { id: 'custom-glb', name: 'Diamond Engagement Ring (Custom)', fileUrl: '/diamond_engagement_ring_wedding_ring.glb' },
+  { id: 'ri1', name: 'Ring Model 1', fileUrl: '/RI1.glb' },
+  { id: 'ri2', name: 'Ring Model 2', fileUrl: '/RI2.glb' },
+  { id: 'ri3', name: 'Ring Model 3', fileUrl: '/RI3.glb' },
+  { id: 'ri4', name: 'Ring Model 4', fileUrl: '/RI4.glb' },
+  { id: 'ri5', name: 'Ring Model 5', fileUrl: '/RI5.glb' },
 ];
 
-function renderRingModel(style: string, props: any) {
-  return <CustomGLBRingModel {...props} />;
-}
-
-function PendantModel({ text, metalMaterial, fontStyle, shape = 'standard' }: any) {
-  const groupRef = useRef<THREE.Group>(null);
-  const textGroupRef = useRef<THREE.Group>(null);
-  const fontUrl = FONTS[fontStyle as keyof typeof FONTS]?.url || FONTS.helvetiker.url;
-
-  const [cachedWidth, setCachedWidth] = useState(text.length * 0.26);
-
-  useFrame((state) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.2;
-    }
-  });
-
-  const { leftLinks, rightLinks } = useMemo(() => {
-    const w = shape === 'standard' ? cachedWidth : cachedWidth + 0.5;
-    const yStart = shape === 'standard' ? 0.25 : 0.6;
-
-    const lCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-w / 2, yStart, 0),
-      new THREE.Vector3(-w / 2 - 0.2, 1.0, -0.3),
-      new THREE.Vector3(-1.0, 3.0, -1.0)
-    ]);
-    const rCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(w / 2, yStart, 0),
-      new THREE.Vector3(w / 2 + 0.2, 1.0, -0.3),
-      new THREE.Vector3(1.0, 3.0, -1.0)
-    ]);
-
-    const createLinks = (curve: THREE.CatmullRomCurve3) => {
-      const links = [];
-      const numLinks = 60; // More links for realism
-      for (let i = 0; i < numLinks; i++) {
-        const fraction = i / (numLinks - 1);
-        const pos = curve.getPoint(fraction);
-        const tangent = curve.getTangent(fraction);
-        
-        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
-        if (i % 2 === 0) {
-            quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2));
-        }
-
-        const euler = new THREE.Euler().setFromQuaternion(quaternion);
-        links.push({ 
-          pos: [pos.x, pos.y, pos.z] as [number, number, number], 
-          rotation: [euler.x, euler.y, euler.z] as [number, number, number] 
-        });
-      }
-      return links;
-    };
-
-    return {
-      leftLinks: createLinks(lCurve),
-      rightLinks: createLinks(rCurve),
-    };
-  }, [cachedWidth, shape]);
-
-  const heartShape = useMemo(() => {
-    const s = new THREE.Shape();
-    const x = 0, y = 0;
-    s.moveTo( x + 5, y + 5 );
-    s.bezierCurveTo( x + 5, y + 5, x + 4, y, x, y );
-    s.bezierCurveTo( x - 6, y, x - 6, y + 7,x - 6, y + 7 );
-    s.bezierCurveTo( x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19 );
-    s.bezierCurveTo( x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7 );
-    s.bezierCurveTo( x + 16, y + 7, x + 16, y, x + 10, y );
-    s.bezierCurveTo( x + 7, y, x + 5, y + 5, x + 5, y + 5 );
-    return s;
-  }, []);
-
-  const wingShape = useMemo(() => {
-    const s = new THREE.Shape();
-    s.moveTo(0, 0);
-    s.quadraticCurveTo(10, 5, 20, 0);
-    s.quadraticCurveTo(15, -5, 5, -10);
-    s.quadraticCurveTo(8, -8, 12, -8);
-    s.quadraticCurveTo(5, -12, -2, -15);
-    s.quadraticCurveTo(2, -10, 0, 0);
-    return s;
-  }, []);
-
-  return (
-    <group ref={groupRef}>
-      <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
-        <group position={[0, -0.3, 0]}>
-          <Center 
-            position={[0, 0, 0]}
-            onCentered={({ width }) => {
-              if (Math.abs(width - cachedWidth) > 0.05 && width > 0) {
-                setCachedWidth(width);
-              }
-            }}
-          >
-            <group>
-              <Text3D
-                font={fontUrl}
-                size={0.4}
-                height={0.08}
-                curveSegments={12}
-                bevelEnabled
-                bevelThickness={shape === 'standard' ? 0.02 : 0.005}
-                bevelSize={shape === 'standard' ? 0.01 : 0}
-                bevelOffset={0}
-                bevelSegments={3}
-                position={[0, 0, shape === 'standard' ? 0 : 0.05]}
-              >
-                {text || 'PD'}
-                <meshStandardMaterial {...metalMaterial} envMapIntensity={3} color={shape === 'standard' ? metalMaterial.color : '#333'} metalness={shape === 'standard' ? metalMaterial.metalness : 0.8} />
-              </Text3D>
-              
-              {shape === 'heart' && (
-                <mesh position={[cachedWidth / 2, -0.6, -0.05]} scale={[0.08, -0.08, 0.08]} castShadow>
-                  <extrudeGeometry args={[heartShape, { depth: 1, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.1, bevelThickness: 0.1 }]} />
-                  <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3} />
-                </mesh>
-              )}
-
-              {shape === 'wing' && (
-                <mesh position={[cachedWidth / 2 - 0.4, 0.2, -0.05]} scale={[0.08, -0.08, 0.08]} castShadow>
-                  <extrudeGeometry args={[wingShape, { depth: 1, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.1, bevelThickness: 0.1 }]} />
-                  <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3} />
-                </mesh>
-              )}
-            </group>
-          </Center>
-
-          {/* Left jump ring */}
-          <mesh position={[-cachedWidth / 2, 0.22, 0.0]} rotation={[0, Math.PI / 2, 0]} castShadow>
-            <torusGeometry args={[0.04, 0.015, 32, 64]} />
-            <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3} />
-          </mesh>
-
-          {/* Right jump ring */}
-          <mesh position={[cachedWidth / 2, 0.22, 0.0]} rotation={[0, Math.PI / 2, 0]} castShadow>
-            <torusGeometry args={[0.04, 0.015, 32, 64]} />
-            <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3} />
-          </mesh>
-
-          {/* Left Chain Links */}
-          {leftLinks.map((link, i) => (
-            <mesh key={`l-${i}`} position={link.pos} rotation={link.rotation} castShadow>
-              <torusGeometry args={[0.03, 0.01, 16, 32]} />
-              <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3} />
-            </mesh>
-          ))}
-
-          {/* Right Chain Links */}
-          {rightLinks.map((link, i) => (
-            <mesh key={`r-${i}`} position={link.pos} rotation={link.rotation} castShadow>
-              <torusGeometry args={[0.03, 0.01, 16, 32]} />
-              <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3} />
-            </mesh>
-          ))}
-        </group>
-      </Float>
-    </group>
-  );
-}
-
-function ARViewContent({ modelType, ringStyle, metal, stone, customText, fontStyle }: any) {
-  const [placement, setPlacement] = useState<THREE.Matrix4 | null>(null);
-  const [locked, setLocked] = useState(false);
-  const matrixHelper = useMemo(() => new THREE.Matrix4(), []);
-  
-  return (
-    <>
-      <ambientLight intensity={0.8} />
-      <spotLight position={[10, 15, 10]} angle={0.3} penumbra={1} intensity={2} />
-      <Environment preset="city" background={false} blur={0.5} />
-      
-      {!locked && (
-        <XRHitTest 
-          onResults={(results, getWorldMatrix) => {
-            if (results.length > 0) {
-              getWorldMatrix(matrixHelper, results[0]);
-              setPlacement(matrixHelper.clone());
-            }
-          }} 
-        />
-      )}
-
-      {placement && (
-        <group 
-          matrix={placement} 
-          matrixAutoUpdate={false} 
-          onPointerDown={() => setLocked(true)}
-        >
-          {/* Show a reticle overlay if not locked */}
-          {!locked && (
-            <mesh rotation={[-Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[0.2, 0.25, 32]} />
-              <meshBasicMaterial color="#d4af37" transparent opacity={0.6} />
-            </mesh>
-          )}
-          
-          <group position={[0, 0.2, 0]}>
-            {modelType === 'ring' ? (
-              renderRingModel(ringStyle, { text: customText, metalMaterial: METALS[metal], stoneMaterial: STONES[stone], fontStyle })
-            ) : (
-              <PendantModel text={customText} metalMaterial={METALS[metal]} />
-            )}
-          </group>
-        </group>
-      )}
-      
-      {/* If no placement yet (searching for planes), we can show some instructions or just wait */}
-    </>
-  );
-}
-
 export default function Configurator() {
-  const [modelType, setModelType] = useState<'ring' | 'pendant'>('ring');
+  const [modelType, setModelType] = useState<'ring' | 'pendant'>(() => (localStorage.getItem('cfg_modelType') as 'ring' | 'pendant') || 'ring');
   const [dynamicStyles, setDynamicStyles] = useState<{id: string, name: string, fileUrl?: string, basePrice?: number}[]>(DEFAULT_RING_STYLES);
-  const [ringStyle, setRingStyle] = useState(DEFAULT_RING_STYLES[0].id);
+  const [ringStyle, setRingStyle] = useState(() => localStorage.getItem('cfg_ringStyle') || DEFAULT_RING_STYLES[0].id);
   const [isARModalOpen, setIsARModalOpen] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
-  const [customText, setCustomText] = useState('PD');
-  const [engraveWant, setEngraveWant] = useState(false);
-  const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'wing'>('standard');
-  const [metal, setMetal] = useState<keyof typeof METALS>('silver');
-  const [stone, setStone] = useState<keyof typeof STONES>('aquamarine');
-  const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>('helvetiker');
-  const [ringSize, setRingSize] = useState('US 7');
+  const [customText, setCustomText] = useState(() => localStorage.getItem('cfg_customText') || 'PD');
+  const [engraveWant, setEngraveWant] = useState(() => localStorage.getItem('cfg_engraveWant') === 'true');
+  const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'wing'>(() => (localStorage.getItem('cfg_pendantShape') as 'standard'|'heart'|'wing') || 'standard');
+  const [metal, setMetal] = useState<keyof typeof METALS>(() => (localStorage.getItem('cfg_metal') as keyof typeof METALS) || 'silver');
+  const [stone, setStone] = useState<keyof typeof STONES>(() => (localStorage.getItem('cfg_stone') as keyof typeof STONES) || 'aquamarine');
+  const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>(() => (localStorage.getItem('cfg_fontStyle') as keyof typeof FONTS) || 'helvetiker');
+  const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const { addToCart } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { user } = useAuth();
+  const { pricing } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
 
+  // Auto-save configuration changes
   useEffect(() => {
-    setIsLoadingModels(true);
+    localStorage.setItem('cfg_modelType', modelType);
+    localStorage.setItem('cfg_ringStyle', ringStyle);
+    localStorage.setItem('cfg_customText', customText);
+    localStorage.setItem('cfg_engraveWant', String(engraveWant));
+    localStorage.setItem('cfg_pendantShape', pendantShape);
+    localStorage.setItem('cfg_metal', metal);
+    localStorage.setItem('cfg_stone', stone);
+    localStorage.setItem('cfg_fontStyle', fontStyle);
+    localStorage.setItem('cfg_ringSize', ringSize);
+  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, ringSize]);
+
+  useEffect(() => {
+    const cachedModels = localStorage.getItem('cfg_cache_api_models');
+    
+    const processModelsData = (data: any[]) => {
+      const dbModels = data.filter(m => m.isActive !== false).map(m => ({
+        id: `custom-glb-${m._id}`,
+        name: m.name,
+        category: m.category,
+        basePrice: m.basePrice,
+        fileUrl: m.glbUrl
+      }));
+      setDynamicStyles([...DEFAULT_RING_STYLES, ...dbModels.filter(m => m.category === 'ring')]);
+      
+      // Prefetch custom models in background
+      setTimeout(() => {
+        dbModels.forEach(m => {
+          if (m.fileUrl) prefetchModel(m.fileUrl);
+        });
+      }, 1000);
+    };
+
+    if (cachedModels) {
+      try {
+        const parsed = JSON.parse(cachedModels);
+        if (Array.isArray(parsed)) {
+          processModelsData(parsed);
+          setIsLoadingModels(false);
+        }
+      } catch (e) {
+        console.error('Failed to parse cached models', e);
+      }
+    }
+
+    if (!cachedModels) setIsLoadingModels(true);
+    
     fetch('/api/models').then(res => {
       if (!res.ok) throw new Error('API Error');
       return res.json();
     }).then(data => {
       if (Array.isArray(data)) {
-        const dbModels = data.filter(m => m.isActive !== false).map(m => ({
-          id: `custom-glb-${m._id}`,
-          name: m.name,
-          category: m.category,
-          basePrice: m.basePrice,
-          fileUrl: m.glbUrl
-        }));
-        setDynamicStyles([...DEFAULT_RING_STYLES, ...dbModels.filter(m => m.category === 'ring')]);
-        
-        // Prefetch custom models in background
-        setTimeout(() => {
-          dbModels.forEach(m => {
-            if (m.fileUrl) prefetchModel(m.fileUrl);
-          });
-        }, 1000);
+        localStorage.setItem('cfg_cache_api_models', JSON.stringify(data));
+        processModelsData(data);
       }
     }).catch(err => console.error("Could not fetch models", err)).finally(() => {
         setIsLoadingModels(false);
@@ -288,21 +118,45 @@ export default function Configurator() {
   const calculatePrice = () => {
     let basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);
     
-    const metalMultiplier = METALS[metal]?.priceMultiplier || 1;
-    let finalPrice = basePrice * metalMultiplier;
+    let metalMultiplier = METALS[metal]?.priceMultiplier || 1;
+    if (pricing) {
+        if (metal === 'silver') metalMultiplier = pricing.metalMultiplier_silver;
+        if (metal === 'gold') metalMultiplier = pricing.metalMultiplier_gold;
+        if (metal === 'rose') metalMultiplier = pricing.metalMultiplier_rose;
+    }
+
+    const metalPart = basePrice * metalMultiplier;
+    let stonePart = 0;
     
     if (modelType === 'ring') {
-       finalPrice += STONES[stone]?.price || 0;
+       stonePart = pricing ? (pricing as any)[`stonePrice_${stone}`] : (STONES[stone]?.price || 0);
+    }
+
+    let engravingPart = 0;
+    if ((modelType === 'ring' && engraveWant) || modelType === 'pendant') {
+       engravingPart = pricing?.engravingPrice || 5000;
+       if (customText.length > 0) {
+           // We could multiply by chars, but let's just use flat fee per engraving
+       } else {
+           engravingPart = 0; 
+       }
     }
     
-    return Math.round(finalPrice);
+    return {
+        total: Math.round(metalPart + stonePart + engravingPart),
+        breakdown: {
+            metal: Math.round(metalPart),
+            stone: Math.round(stonePart),
+            engraving: Math.round(engravingPart)
+        }
+    };
   };
 
   const handleAddToCart = () => {
     const isRing = modelType === 'ring';
     const ringNameInfo = currentStyleDef?.name || 'Custom Ring';
     const itemName = isRing ? `${ringNameInfo} ("${customText}")` : `Name Pendant ("${customText}")`;
-    const finalPrice = calculatePrice();
+    const finalPrice = calculatePrice().total;
 
     addToCart({
       id: getCustomId(),
@@ -324,7 +178,7 @@ export default function Configurator() {
     const isRing = modelType === 'ring';
     const ringNameInfo = currentStyleDef?.name || 'Custom Ring';
     const itemName = isRing ? `${ringNameInfo} ("${customText}")` : `Name Pendant ("${customText}")`;
-    const finalPrice = calculatePrice();
+    const finalPrice = calculatePrice().total;
 
     toggleWishlistItem({
       productId: getCustomId(),
@@ -360,7 +214,7 @@ export default function Configurator() {
           engravingText: (modelType === 'ring' && engraveWant) || modelType === 'pendant' ? customText : undefined,
           fontStyle,
           pendantShape: modelType === 'pendant' ? pendantShape : undefined,
-          price: calculatePrice()
+          price: calculatePrice().total
         })
       });
       
@@ -401,7 +255,7 @@ export default function Configurator() {
                 <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                   <group position={[0, 0, -0.6]} scale={1.5}>
                     {modelType === 'ring' ? (
-                       renderRingModel(ringStyle, { text: engraveWant ? customText : undefined, metalMaterial: METALS[metal], stoneMaterial: STONES[stone], fontStyle, fileUrl: currentStyleDef?.fileUrl })
+                       <CustomGLBRingModel style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fileUrl={currentStyleDef?.fileUrl} />
                     ) : (
                       <PendantModel 
                         text={customText} 
@@ -696,9 +550,27 @@ export default function Configurator() {
         </div>
 
         <div className="p-6 border-t border-[rgba(26,26,26,0.1)] bg-white/30 sticky bottom-0">
-          <div className="flex justify-between items-end mb-4">
-            <span className="text-xs uppercase tracking-widest font-bold text-gray-500">Estimated Price:</span>
-            <span className="font-serif text-2xl text-[var(--color-ink)]">Starts from LKR {calculatePrice().toLocaleString()}</span>
+          <div className="flex flex-col mb-4">
+            <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
+               <span>Base + Metal:</span>
+               <span>LKR {calculatePrice().breakdown.metal.toLocaleString()}</span>
+            </div>
+            {modelType === 'ring' && (
+              <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
+                 <span>Stone:</span>
+                 <span>LKR {calculatePrice().breakdown.stone.toLocaleString()}</span>
+              </div>
+            )}
+            {((modelType === 'ring' && engraveWant) || modelType === 'pendant') && (
+              <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-2 border-b border-black/5 pb-1">
+                 <span>Engraving:</span>
+                 <span>LKR {calculatePrice().breakdown.engraving.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-end mt-2">
+              <span className="text-xs uppercase tracking-widest font-bold text-gray-800">Total Price:</span>
+              <span className="font-serif text-2xl text-[var(--color-ink)]">LKR {calculatePrice().total.toLocaleString()}</span>
+            </div>
           </div>
           <div className="flex gap-2 mb-2">
             <button 
@@ -721,12 +593,6 @@ export default function Configurator() {
                <Heart size={20} fill={isWished ? "var(--color-orange)" : "none"} color={isWished ? "var(--color-orange)" : "var(--color-orange-dark)"} />
             </button>
           </div>
-          <button 
-            onClick={() => store.enterAR()}
-            className="w-full border-2 border-[var(--color-orange)] text-[var(--color-orange-dark)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-[var(--color-orange)] hover:text-white transition-colors mb-2"
-          >
-            Place in Room (WebXR)
-          </button>
           <button 
             onClick={() => setIsARModalOpen(true)}
             className="w-full opacity-80 border-2 border-[var(--color-orange)] text-[var(--color-orange-dark)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-[var(--color-orange)] hover:text-white transition-colors"

@@ -7,8 +7,8 @@ export function StyleQuiz({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
   const [answers, setAnswers] = useState({
-    occasion: '',
-    material: '',
+    karatage: '',
+    stones: '',
     price: ''
   });
 
@@ -20,14 +20,9 @@ export function StyleQuiz({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
       setStep(step + 1);
     } else {
       // Navigate to collections with filters
-      let category = 'All';
-      if (newAnswers.occasion === 'Bridal & Wedding') category = 'Bridal Sets';
-      else if (newAnswers.occasion === 'Everyday Wear') category = 'Rings';
-      else if (newAnswers.occasion === 'Special Occasion') category = 'Necklaces';
-
       const searchParams = new URLSearchParams();
-      if (category !== 'All') searchParams.set('category', category);
-      searchParams.set('material', newAnswers.material);
+      searchParams.set('karatage', newAnswers.karatage);
+      searchParams.set('stones', newAnswers.stones);
       searchParams.set('price', newAnswers.price);
 
       navigate(`/collections?${searchParams.toString()}`);
@@ -63,10 +58,10 @@ export function StyleQuiz({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                 {step === 0 && (
                    <motion.div key="s0" initial={{x:20, opacity:0}} animate={{x:0, opacity:1}}>
                       <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] font-bold mb-2 block">Step 1 of 3</span>
-                      <h4 className="font-serif text-xl mb-5 text-[var(--color-ink)]">What are you shopping for today?</h4>
+                      <h4 className="font-serif text-xl mb-5 text-[var(--color-ink)]">Which Karatage do you prefer?</h4>
                       <div className="space-y-2">
-                         {['Everyday Wear', 'Special Occasion', 'Bridal & Wedding'].map(opt => (
-                            <button key={opt} onClick={() => handleAnswer('occasion', opt)} className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm hover:border-[var(--color-gold)] hover:shadow-sm transition-all text-gray-700">
+                         {['18K', '22K', 'Any'].map(opt => (
+                            <button key={opt} onClick={() => handleAnswer('karatage', opt)} className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm hover:border-[var(--color-gold)] hover:shadow-sm transition-all text-gray-700">
                                {opt}
                             </button>
                          ))}
@@ -77,10 +72,10 @@ export function StyleQuiz({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                    <motion.div key="s1" initial={{x:20, opacity:0}} animate={{x:0, opacity:1}}>
                       <button onClick={() => setStep(0)} className="text-gray-400 mb-3 flex items-center gap-1 text-[10px] uppercase tracking-wider hover:text-[var(--color-ink)]"><ArrowLeft size={12}/> Back</button>
                       <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] font-bold mb-2 block">Step 2 of 3</span>
-                      <h4 className="font-serif text-xl mb-5 text-[var(--color-ink)]">Which material matters most?</h4>
+                      <h4 className="font-serif text-xl mb-5 text-[var(--color-ink)]">Would you like stones with your piece?</h4>
                       <div className="space-y-2">
-                         {['Classic Gold (18K/22K)', 'White Gold / Platinum', 'Diamond Focused'].map(opt => (
-                            <button key={opt} onClick={() => handleAnswer('material', opt)} className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm hover:border-[var(--color-gold)] hover:shadow-sm transition-all text-gray-700">
+                         {['With Stones', 'Without Stones', 'Any'].map(opt => (
+                            <button key={opt} onClick={() => handleAnswer('stones', opt)} className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm hover:border-[var(--color-gold)] hover:shadow-sm transition-all text-gray-700">
                                {opt}
                             </button>
                          ))}

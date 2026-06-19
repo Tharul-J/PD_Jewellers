@@ -9,32 +9,9 @@ import userRoutes from "./server/routes/userRoutes.js";
 import orderRoutes from "./server/routes/orderRoutes.js";
 import modelRoutes from "./server/routes/modelRoutes.js";
 import uploadRoutes from "./server/routes/uploadRoutes.js";
-
-// Helper for initial seeding
-import User from './server/models/User.js';
+import pricingRoutes from "./server/routes/pricingRoutes.js";
 
 dotenv.config();
-
-async function seedData() {
-  const usersCount = await User.countDocuments();
-  if (usersCount === 0) {
-    await User.insertMany([
-      {
-        name: 'Admin User',
-        email: 'admin@pdjewellers.com',
-        password: 'password123',
-        role: 'administrator'
-      },
-      {
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        role: 'customer'
-      }
-    ]);
-    console.log('Dummy users seeded to memory database.');
-  }
-}
 
 async function startServer() {
   const app = express();
@@ -48,9 +25,8 @@ async function startServer() {
   if (process.env.MONGODB_URI) {
     mongoose.connect(process.env.MONGODB_URI).then(async () => {
       console.log("Connected to MongoDB via Mongoose");
-      await seedData();
     }).catch(err => {
-      console.error("MongoDB connection error:", err);
+      console.error("MongoDB connection error:", err.message || "Failed to connect");
     });
   } else {
     console.warn("MONGODB_URI environment variable is not set. Database features will not work.");
@@ -66,6 +42,7 @@ async function startServer() {
   app.use("/api/orders", orderRoutes);
   app.use("/api/models", modelRoutes);
   app.use("/api/upload", uploadRoutes);
+  app.use("/api/pricing", pricingRoutes);
 
   // Make uploads folder static
   const uploadsDir = path.join(process.cwd(), 'uploads');
