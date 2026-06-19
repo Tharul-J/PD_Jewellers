@@ -1,0 +1,28 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 10.02.2012 11:38:53
+
+newmtl 13506_Diamond_Wedding_Ring_ring
+	Ns 72.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 1.0000 1.0000 1.0000
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.7561 0.6557 0.4800
+	Ke 0.0000 0.0000 0.0000
+	map_Ka 13506_Diamond_Wedding_Ring_ring_diff.jpg
+	map_Kd 13506_Diamond_Wedding_Ring_ring_diff.jpg
+
+newmtl 13506_Diamond_Wedding_Ring_diamond
+	Ns 6.0000
+	Ni 1.5000
+	d 0.5000
+	Tr 0.5000
+	Tf 0.5000 0.5000 0.5000 
+	illum 2
+	Ka 0.8471 0.8471 0.8471
+	Kd 0.8471 0.8471 0.8471
+	Ks 0.8910 0.8910 0.8910
+	Ke 0.0000 0.0000 0.0000
