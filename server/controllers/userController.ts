@@ -3,6 +3,123 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 
+const mockProfileUpdates: Record<string, any> = {};
+export const mockWishlists: Record<string, any[]> = {};
+export const mockSavedConfigurations: Record<string, any[]> = {};
+export const mockOrders: Record<string, any[]> = {};
+
+export const getDefaultWishlist = (userId: string) => {
+  if (!mockWishlists[userId]) {
+    mockWishlists[userId] = [
+      {
+        productId: 'RI001',
+        name: '22K Classic Yellow Gold Gents Ring (RI001)',
+        price: '155000',
+        image: 'https://www.swarnamahal.lk/cdn/shop/files/RI0002126C.jpg?v=1692788516',
+        category: 'Rings',
+        isCustom: false
+      },
+      {
+        productId: 'NE007',
+        name: '22K Swarovski Zirconia Choker Necklace (NE007)',
+        price: '540000',
+        image: 'https://www.swarnamahal.lk/cdn/shop/products/NE0000974A.jpg?v=1593000004',
+        category: 'Necklaces',
+        isCustom: false
+      }
+    ];
+  }
+  return mockWishlists[userId];
+};
+
+export const getDefaultConfigurations = (userId: string) => {
+  if (!mockSavedConfigurations[userId]) {
+    mockSavedConfigurations[userId] = [
+      {
+        _id: 'mock-config-1',
+        type: 'ring',
+        ringSize: '7',
+        metal: 'Yellow Gold (22K)',
+        stone: 'Ruby',
+        engravingText: 'PD J. 2026',
+        fontStyle: 'serif',
+        pendantShape: '',
+        price: 185000,
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        _id: 'mock-config-2',
+        type: 'pendant',
+        ringSize: '',
+        metal: 'Rose Gold (18K)',
+        stone: 'Diamond',
+        engravingText: 'Tharul',
+        fontStyle: 'classic',
+        pendantShape: 'heart',
+        price: 135000,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+  }
+  return mockSavedConfigurations[userId];
+};
+
+export const getDefaultOrders = (userId: string) => {
+  if (!mockOrders[userId]) {
+    mockOrders[userId] = [
+      {
+        _id: 'ORD-2026-9041',
+        user: userId,
+        orderItems: [
+          {
+            name: '22K Classic Yellow Gold Gents Ring (RI001)',
+            price: 155000,
+            image: 'https://www.swarnamahal.lk/cdn/shop/files/RI0002126C.jpg?v=1692788516',
+            category: 'Rings'
+          }
+        ],
+        shippingAddress: {
+          street: 'No. 42, Galle Road',
+          city: 'Colombo 03',
+          state: 'Western Province',
+          zip: '00300',
+          country: 'Sri Lanka'
+        },
+        totalPrice: 155000,
+        isPaid: true,
+        paidAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'ready_for_collection'
+      },
+      {
+        _id: 'ORD-2026-1182',
+        user: userId,
+        orderItems: [
+          {
+            name: '22K Swarovski Starlet Ear Studs (ES001)',
+            price: 72000,
+            image: 'https://www.swarnamahal.lk/cdn/shop/files/ES0000869B.jpg?v=1692020976',
+            category: 'Earrings'
+          }
+        ],
+        shippingAddress: {
+          street: 'No. 42, Galle Road',
+          city: 'Colombo 03',
+          state: 'Western Province',
+          zip: '00300',
+          country: 'Sri Lanka'
+        },
+        totalPrice: 72000,
+        isPaid: true,
+        paidAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'crafting'
+      }
+    ];
+  }
+  return mockOrders[userId];
+};
+
 const generateToken = (id: string, role: string) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET || 'secret', {
     expiresIn: '30d',
@@ -75,11 +192,11 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
         });
         return;
       }
-      if (email === 'john@example.com' && password === 'password123') {
+      if ((email === 'john@example.com' || email === 'tharul2002@gmail.com') && password === 'password123') {
         res.json({
           _id: 'mock-customer-id',
-          name: 'John Doe',
-          email: 'john@example.com',
+          name: email === 'tharul2002@gmail.com' ? 'Tharul Senanayake' : 'Pathum Bandara',
+          email: email,
           role: 'customer',
           token: generateToken('mock-customer-id', 'customer'),
         });
@@ -113,13 +230,33 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
 export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
+      const mockId = req.user._id;
+      const cached = mockProfileUpdates[mockId] || {};
+      
+      const defaultName = req.user.role === 'administrator' ? 'Admin User' : (req.user.email === 'john@example.com' ? 'Pathum Bandara' : 'Tharul Senanayake');
+      const defaultEmail = req.user.role === 'administrator' ? 'admin@pdjewellers.com' : (req.user.email || 'tharul2002@gmail.com');
+      const defaultPhone = req.user.role === 'administrator' ? '+94 11 234 5678' : '+94 77 123 4567';
+      const defaultAvatar = req.user.role === 'administrator' 
+        ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' 
+        : 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200';
+      const defaultAddress = {
+        street: 'No. 42, Galle Road',
+        city: 'Colombo 03',
+        state: 'Western Province',
+        zip: '00300',
+        country: 'Sri Lanka'
+      };
+
       res.json({
         _id: req.user._id,
-        name: req.user.role === 'administrator' ? 'Admin User' : 'John Doe',
-        email: req.user.role === 'administrator' ? 'admin@pdjewellers.com' : 'john@example.com',
+        name: cached.name || defaultName,
+        email: cached.email || defaultEmail,
         role: req.user.role,
-        wishlist: [],
-        savedConfigurations: [],
+        phone: cached.phone !== undefined ? cached.phone : defaultPhone,
+        avatar: cached.avatar !== undefined ? cached.avatar : defaultAvatar,
+        address: cached.address || defaultAddress,
+        wishlist: getDefaultWishlist(req.user._id),
+        savedConfigurations: getDefaultConfigurations(req.user._id),
       });
       return;
     }
@@ -131,8 +268,83 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         name: user.name,
         email: user.email,
         role: user.role,
+        phone: (user as any).phone || '',
+        avatar: (user as any).avatar || '',
+        address: (user as any).address || { street: '', city: '', state: '', zip: '', country: '' },
         wishlist: user.wishlist || [],
         savedConfigurations: user.savedConfigurations || [],
+        createdAt: (user as any).createdAt,
+      });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+export const updateUserProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, email, phone, avatar, address, password } = req.body;
+
+    if (mongoose.connection.readyState !== 1) {
+      const mockId = req.user._id;
+      mockProfileUpdates[mockId] = {
+        name: name || (mockProfileUpdates[mockId]?.name || (req.user.role === 'administrator' ? 'Admin User' : 'John Doe')),
+        email: email || (mockProfileUpdates[mockId]?.email || (req.user.role === 'administrator' ? 'admin@pdjewellers.com' : 'john@example.com')),
+        phone: phone !== undefined ? phone : (mockProfileUpdates[mockId]?.phone || ''),
+        avatar: avatar !== undefined ? avatar : (mockProfileUpdates[mockId]?.avatar || ''),
+        address: address || (mockProfileUpdates[mockId]?.address || { street: '', city: '', state: '', zip: '', country: '' }),
+      };
+      res.json({
+        _id: req.user._id,
+        ...mockProfileUpdates[mockId],
+        role: req.user.role,
+        wishlist: getDefaultWishlist(req.user._id),
+        savedConfigurations: getDefaultConfigurations(req.user._id),
+      });
+      return;
+    }
+
+    const user: any = await User.findById(req.user._id);
+
+    if (user) {
+      user.name = name || user.name;
+      user.email = email || user.email;
+      
+      if (phone !== undefined) user.phone = phone;
+      if (avatar !== undefined) user.avatar = avatar;
+      if (address !== undefined) {
+        user.address = {
+          street: address.street !== undefined ? address.street : (user.address?.street || ''),
+          city: address.city !== undefined ? address.city : (user.address?.city || ''),
+          state: address.state !== undefined ? address.state : (user.address?.state || ''),
+          zip: address.zip !== undefined ? address.zip : (user.address?.zip || ''),
+          country: address.country !== undefined ? address.country : (user.address?.country || ''),
+        };
+      }
+
+      if (password) {
+        user.password = password;
+      }
+
+      const updatedUser = await user.save();
+
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        phone: updatedUser.phone || '',
+        avatar: updatedUser.avatar || '',
+        address: updatedUser.address || { street: '', city: '', state: '', zip: '', country: '' },
+        wishlist: updatedUser.wishlist || [],
+        savedConfigurations: updatedUser.savedConfigurations || [],
+        createdAt: updatedUser.createdAt,
+        token: generateToken(updatedUser._id.toString(), updatedUser.role),
       });
     } else {
       res.status(404).json({ message: 'User not found' });
@@ -149,7 +361,16 @@ export const toggleWishlistItem = async (req: Request, res: Response): Promise<v
   try {
     if (mongoose.connection.readyState !== 1) {
       const { productId, name, price, image, category, isCustom } = req.body;
-      res.json([{ productId, name, price, image, category, isCustom }]);
+      const userId = req.user._id;
+      let list = getDefaultWishlist(userId);
+      const exists = list.some(item => item.productId === productId);
+      if (exists) {
+        list = list.filter(item => item.productId !== productId);
+      } else {
+        list.push({ productId, name, price, image, category, isCustom });
+      }
+      mockWishlists[userId] = list;
+      res.json(list);
       return;
     }
     const user = await User.findById(req.user._id);
@@ -183,8 +404,23 @@ export const saveConfiguration = async (req: Request, res: Response): Promise<vo
     const { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, price } = req.body;
 
     if (mongoose.connection.readyState !== 1) {
-      const newConfig = { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, price };
-      res.json([newConfig]);
+      const userId = req.user._id;
+      const newConfig = {
+        _id: 'mock-config-' + Date.now(),
+        type,
+        ringSize,
+        metal,
+        stone,
+        engravingText,
+        fontStyle,
+        pendantShape,
+        price,
+        createdAt: new Date().toISOString()
+      };
+      const list = getDefaultConfigurations(userId);
+      list.push(newConfig);
+      mockSavedConfigurations[userId] = list;
+      res.json(list);
       return;
     }
 
@@ -209,7 +445,14 @@ export const saveConfiguration = async (req: Request, res: Response): Promise<vo
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json([]);
+      res.json([
+        { _id: 'mock-customer-id', name: 'Tharul Senanayake', email: 'tharul2002@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
+        { _id: 'mock-id-2', name: 'Pathum Bandara', email: 'john@example.com', role: 'customer', createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString() },
+        { _id: 'mock-id-3', name: 'Dilini Perera', email: 'dilini@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() },
+        { _id: 'mock-id-4', name: 'Kusal Fernando', email: 'kusal@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
+        { _id: 'mock-id-5', name: 'Amara Wickramasinghe', email: 'amara@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+        { _id: 'mock-admin-id', name: 'Admin User', email: 'admin@pdjewellers.com', role: 'administrator', createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString() }
+      ]);
       return;
     }
     const users = await User.find({}).select('-password');

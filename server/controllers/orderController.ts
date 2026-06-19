@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
+import { mockOrders, getDefaultOrders } from './userController.js';
 
 // @desc    Create new order (with simulated payment)
 // @route   POST /api/orders
@@ -14,16 +15,28 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
       return;
     } else {
       if (mongoose.connection.readyState !== 1) {
-        res.status(201).json({
-          _id: 'mock-order-id-' + Date.now(),
-          user: req.user._id,
+        const userId = req.user._id;
+        const newOrder = {
+          _id: 'ORD-2026-' + Math.floor(1000 + Math.random() * 9000),
+          user: userId,
           orderItems,
-          shippingAddress,
+          shippingAddress: shippingAddress || {
+            street: 'No. 42, Galle Road',
+            city: 'Colombo 03',
+            state: 'Western Province',
+            zip: '00300',
+            country: 'Sri Lanka'
+          },
           totalPrice,
           isPaid: true,
-          paidAt: Date.now(),
-          status: 'order_confirmed',
-        });
+          paidAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          status: 'order_confirmed'
+        };
+        const list = getDefaultOrders(userId);
+        list.unshift(newOrder);
+        mockOrders[userId] = list;
+        res.status(201).json(newOrder);
         return;
       }
       const order = new Order({
@@ -51,7 +64,72 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
 export const getOrders = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json([]);
+      res.json([
+        {
+          _id: 'ORD-2026-9041',
+          user: { _id: 'mock-customer-id', name: 'Tharul Senanayake', email: 'tharul2002@gmail.com' },
+          orderItems: [
+            {
+              name: '22K Classic Yellow Gold Gents Ring (RI001)',
+              price: 155000,
+              image: 'https://www.swarnamahal.lk/cdn/shop/files/RI0002126C.jpg?v=1692788516',
+              category: 'Rings'
+            }
+          ],
+          totalPrice: 155000,
+          isPaid: true,
+          createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'ready_for_collection'
+        },
+        {
+          _id: 'ORD-2026-1182',
+          user: { _id: 'mock-customer-id', name: 'Tharul Senanayake', email: 'tharul2002@gmail.com' },
+          orderItems: [
+            {
+              name: '22K Swarovski Starlet Ear Studs (ES001)',
+              price: 72000,
+              image: 'https://www.swarnamahal.lk/cdn/shop/files/ES0000869B.jpg?v=1692020976',
+              category: 'Earrings'
+            }
+          ],
+          totalPrice: 72000,
+          isPaid: true,
+          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'crafting'
+        },
+        {
+          _id: 'ORD-2026-8802',
+          user: { _id: 'mock-id-3', name: 'Dilini Perera', email: 'dilini@gmail.com' },
+          orderItems: [
+            {
+              name: '22K Swarovski Zirconia Choker Necklace (NE007)',
+              price: 540000,
+              image: 'https://www.swarnamahal.lk/cdn/shop/products/NE0000974A.jpg?v=1593000004',
+              category: 'Necklaces'
+            }
+          ],
+          totalPrice: 540000,
+          isPaid: true,
+          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'finished'
+        },
+        {
+          _id: 'ORD-2026-3409',
+          user: { _id: 'mock-id-4', name: 'Kusal Fernando', email: 'kusal@gmail.com' },
+          orderItems: [
+            {
+              name: '22K Gold Classic Kara Bangle (BA002)',
+              price: 365000,
+              image: 'https://www.swarnamahal.lk/cdn/shop/files/BA0001099A.jpg?v=1692019488',
+              category: 'Bangles'
+            }
+          ],
+          totalPrice: 365000,
+          isPaid: true,
+          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'order_confirmed'
+        }
+      ]);
       return;
     }
     const orders = await Order.find({}).populate('user', 'id name email');
@@ -67,7 +145,7 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
 export const getMyOrders = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json([]);
+      res.json(getDefaultOrders(req.user._id));
       return;
     }
     const orders = await Order.find({ user: req.user._id });

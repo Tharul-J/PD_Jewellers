@@ -2,13 +2,20 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import ConfigurableModel from '../models/ConfigurableModel.js';
 
+let mockModelsSeed = [
+  { _id: 'model-1', name: 'Classic 22K Wedding Band', category: 'ring', basePrice: 120000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true },
+  { _id: 'model-2', name: 'Solitaire Diamond Ring', category: 'ring', basePrice: 285000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true },
+  { _id: 'model-3', name: 'Vintage Emerald Pendant', category: 'pendant', basePrice: 195000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true },
+  { _id: 'model-4', name: 'Infinity Gold Love Heart Pendant', category: 'pendant', basePrice: 135000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true }
+];
+
 // @desc    Get all configurable models
 // @route   GET /api/models
 // @access  Public
 export const getModels = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json([]);
+      res.json(mockModelsSeed);
       return;
     }
     const models = await ConfigurableModel.find({});
@@ -23,11 +30,21 @@ export const getModels = async (req: Request, res: Response): Promise<void> => {
 // @access  Private/Admin
 export const createModel = async (req: Request, res: Response): Promise<void> => {
   try {
+    const { name, glbUrl, category, basePrice } = req.body;
+
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ message: 'Database not connected' });
+      const newM = {
+        _id: 'model-' + Date.now(),
+        name,
+        glbUrl: glbUrl || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+        category,
+        basePrice,
+        isActive: true
+      };
+      mockModelsSeed.push(newM);
+      res.status(201).json(newM);
       return;
     }
-    const { name, glbUrl, category, basePrice } = req.body;
 
     const model = new ConfigurableModel({
       name,

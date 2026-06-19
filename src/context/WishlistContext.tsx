@@ -20,7 +20,19 @@ interface WishlistContextType {
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
 export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistItem[]>(() => {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const parsedUser = JSON.parse(userInfo);
+        const stored = localStorage.getItem(`wishlist_${parsedUser._id}`);
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
@@ -37,6 +49,7 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const data = await response.json();
           if (response.ok) {
             setWishlist(data.wishlist || []);
+            localStorage.setItem(`wishlist_${user._id}`, JSON.stringify(data.wishlist || []));
           }
         } catch (error) {
           console.error("Error fetching wishlist", error);
@@ -55,11 +68,12 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Optimistic update
     const alreadyInWishlist = isInWishlist(item.productId);
-    setWishlist(prev => 
-      alreadyInWishlist 
-        ? prev.filter(w => w.productId !== item.productId)
-        : [...prev, item]
-    );
+    const updatedList = alreadyInWishlist 
+      ? wishlist.filter(w => w.productId !== item.productId)
+      : [...wishlist, item];
+
+    setWishlist(updatedList);
+    localStorage.setItem(`wishlist_${user._id}`, JSON.stringify(updatedList));
 
     try {
       const response = await fetch('/api/users/wishlist', {
@@ -73,6 +87,7 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const data = await response.json();
       if (response.ok) {
         setWishlist(data);
+        localStorage.setItem(`wishlist_${user._id}`, JSON.stringify(data));
       } else {
         // Revert on error
          console.error('Failed to update wishlist:', data.message);

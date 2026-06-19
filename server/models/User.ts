@@ -20,6 +20,21 @@ const userSchema = new mongoose.Schema({
     enum: ['customer', 'administrator'],
     default: 'customer'
   },
+  phone: {
+    type: String,
+    default: ''
+  },
+  avatar: {
+    type: String,
+    default: ''
+  },
+  address: {
+    street: { type: String, default: '' },
+    city: { type: String, default: '' },
+    state: { type: String, default: '' },
+    zip: { type: String, default: '' },
+    country: { type: String, default: '' }
+  },
   wishlist: [{
     productId: String,
     name: String,

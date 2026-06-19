@@ -3,18 +3,193 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Settings, Heart, ShoppingBag, Trash2, Palette } from 'lucide-react';
+import { LogOut, User as UserIcon, Settings, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+
+const PRESET_AVATARS = [
+  { name: 'Emerald Monarch', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Golden Aura', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Pearl Elegance', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Royal Ruby', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Sapphire Breeze', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200' },
+  { name: 'Onyx Classic', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200' },
+];
 
 export default function Profile() {
   const { user, logout } = useAuth();
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
   const navigate = useNavigate();
-  const [profileData, setProfileData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  
+  const [profileData, setProfileData] = useState<any>(() => {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const parsedUser = JSON.parse(userInfo);
+        const stored = localStorage.getItem(`profile_${parsedUser._id}`);
+        return stored ? JSON.parse(stored) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(() => {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const parsedUser = JSON.parse(userInfo);
+        const stored = localStorage.getItem(`profile_${parsedUser._id}`);
+        if (stored) return false; // Already have cached data, bypass initial full screen spinner
+      } catch (e) {}
+    }
+    return true;
+  });
+
   const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs'>('account');
-  const [orders, setOrders] = useState<any[]>([]);
+  
+  const [orders, setOrders] = useState<any[]>(() => {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const parsedUser = JSON.parse(userInfo);
+        const stored = localStorage.getItem(`orders_${parsedUser._id}`);
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
   const [ordersLoading, setOrdersLoading] = useState(false);
+
+  // Edit / password modes
+  const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Profile Form States
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAvatar, setEditAvatar] = useState('');
+  const [editAddress, setEditAddress] = useState({
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: '',
+  });
+
+  // Password Form States
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Synchronize state when profile data transitions
+  useEffect(() => {
+    if (profileData) {
+      setEditName(profileData.name || '');
+      setEditEmail(profileData.email || '');
+      setEditPhone(profileData.phone || '');
+      setEditAvatar(profileData.avatar || '');
+      setEditAddress({
+        street: profileData.address?.street || '',
+        city: profileData.address?.city || '',
+        state: profileData.address?.state || '',
+        zip: profileData.address?.zip || '',
+        country: profileData.address?.country || '',
+      });
+    }
+  }, [profileData]);
+
+  const { login: syncAuthContext } = useAuth();
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setActionLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`
+        },
+        body: JSON.stringify({
+          name: editName,
+          email: editEmail,
+          phone: editPhone,
+          avatar: editAvatar,
+          address: editAddress
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setProfileData(data);
+        localStorage.setItem(`profile_${user._id}`, JSON.stringify(data));
+        syncAuthContext({
+          _id: data._id,
+          name: data.name,
+          email: data.email,
+          role: data.role,
+          token: data.token || user.token
+        });
+        setSuccessMsg('Profile updated successfully!');
+        setIsEditing(false);
+      } else {
+        setErrorMsg(data.message || 'Error updating profile');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Network error occurred.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (newPassword !== confirmPassword) {
+      setErrorMsg('New passwords do not match');
+      return;
+    }
+    setActionLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`
+        },
+        body: JSON.stringify({
+          password: newPassword
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccessMsg('Password updated successfully!');
+        setIsChangingPassword(false);
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setErrorMsg(data.message || 'Error updating password');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Network error occurred.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -30,7 +205,10 @@ export default function Profile() {
           }
         });
         const data = await response.json();
-        setProfileData(data);
+        if (response.ok) {
+          setProfileData(data);
+          localStorage.setItem(`profile_${user._id}`, JSON.stringify(data));
+        }
       } catch (error) {
         console.error("Error fetching profile", error);
       } finally {
@@ -50,7 +228,9 @@ export default function Profile() {
             headers: { Authorization: `Bearer ${user.token}` }
           });
           if (res.ok) {
-            setOrders(await res.json());
+            const data = await res.json();
+            setOrders(data);
+            localStorage.setItem(`orders_${user._id}`, JSON.stringify(data));
           }
         } catch (error) {
           console.error("Error fetching orders", error);
@@ -83,9 +263,20 @@ export default function Profile() {
             
             {/* Sidebar */}
             <div className="w-full md:w-1/3 lg:w-1/4">
-              <div className="mb-8">
-                <h1 className="text-3xl font-serif text-[var(--color-ink)]">{profileData?.name || user?.name}</h1>
-                <p className="text-gray-500 mt-2 text-sm">{profileData?.email || user?.email}</p>
+              <div className="mb-8 flex flex-col items-center md:items-start text-center md:text-left">
+                {profileData?.avatar ? (
+                  <img 
+                    src={profileData.avatar} 
+                    alt={profileData.name} 
+                    className="w-24 h-24 rounded-full object-cover border-2 border-[var(--color-gold)] mb-4 shadow-sm"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[var(--color-ink)] to-gray-700 flex items-center justify-center text-white text-3xl font-serif border-2 border-[var(--color-gold)] mb-4 shadow-sm">
+                    {(profileData?.name || user?.name || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <h1 className="text-2xl font-serif text-[var(--color-ink)] break-words w-full">{profileData?.name || user?.name}</h1>
+                <p className="text-gray-500 mt-2 text-sm break-all w-full">{profileData?.email || user?.email}</p>
               </div>
 
               <div className="space-y-2">
@@ -130,30 +321,296 @@ export default function Profile() {
             <div className="w-full md:w-2/3 lg:w-3/4">
               <div className="bg-white p-8 border border-gray-100 shadow-sm min-h-[500px]">
                 
-                {activeTab === 'account' && (
+                {activeTab === 'account' && !isEditing && !isChangingPassword && (
                   <>
-                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-6">Account Details</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                      <h2 className="text-xl font-serif text-[var(--color-ink)]">Account Details</h2>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => { setIsEditing(true); setSuccessMsg(''); setErrorMsg(''); }}
+                          className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 text-[10px] uppercase tracking-widest text-[#1a1a1a] hover:text-[var(--color-gold-dark)] hover:border-[var(--color-gold)] transition-colors font-medium rounded-sm"
+                        >
+                          <Edit size={12} /> Edit Profile
+                        </button>
+                        <button 
+                          onClick={() => { setIsChangingPassword(true); setSuccessMsg(''); setErrorMsg(''); }}
+                          className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 text-[10px] uppercase tracking-widest text-[#1a1a1a] hover:text-[var(--color-gold-dark)] hover:border-[var(--color-gold)] transition-colors font-medium rounded-sm"
+                        >
+                          <Lock size={12} /> Change Password
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {successMsg && (
+                      <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 text-sm font-medium">
+                        {successMsg}
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Name</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-200 pb-2">{profileData?.name || user?.name}</p>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Full Name</label>
+                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.name || user?.name}</p>
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Email</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-200 pb-2">{profileData?.email || user?.email}</p>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Email Address</label>
+                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.email || user?.email}</p>
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Account Type</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-200 pb-2 capitalize">{user?.role || 'Customer'}</p>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Phone Number</label>
+                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.phone || 'Not provided'}</p>
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Member Since</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-200 pb-2">
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Account Type</label>
+                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2 capitalize">{user?.role || 'Customer'}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Member Since</label>
+                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">
                           {profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : 'Recently'}
                         </p>
                       </div>
                     </div>
+
+                    <div className="border-t border-gray-100 pt-8 mt-8">
+                      <h3 className="text-md font-serif text-[var(--color-ink)] mb-4 flex items-center gap-2"><MapPin size={16} className="text-gray-400" /> Default Delivery Address</h3>
+                      {profileData?.address?.street || profileData?.address?.city || profileData?.address?.state ? (
+                        <div className="bg-gray-50 p-4 rounded-sm border border-gray-100 text-sm text-gray-700 space-y-1">
+                          <p className="font-semibold text-[var(--color-ink)]">{profileData.name || user?.name}</p>
+                          <p>{profileData.address.street}</p>
+                          <p>{profileData.address.city}, {profileData.address.state} {profileData.address.zip}</p>
+                          <p className="uppercase font-semibold tracking-wider text-[10px] text-gray-500 mt-1">{profileData.address.country}</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">No delivery address saved yet. Update your profile to add an address.</p>
+                      )}
+                    </div>
                   </>
+                )}
+
+                {activeTab === 'account' && isEditing && (
+                  <form onSubmit={handleUpdateProfile}>
+                    <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                      <h2 className="text-xl font-serif text-[var(--color-ink)]">Edit Profile</h2>
+                      <button 
+                        type="button"
+                        onClick={() => { setIsEditing(false); setErrorMsg(''); }}
+                        className="text-gray-400 hover:text-gray-600 p-1"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+
+                    {errorMsg && (
+                      <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm font-medium">
+                        {errorMsg}
+                      </div>
+                    )}
+
+                    {/* Avatar Selection */}
+                    <div className="mb-8">
+                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">Select Profile Icon</label>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+                        {PRESET_AVATARS.map((p) => {
+                          const isSelected = editAvatar === p.url;
+                          return (
+                            <button
+                              key={p.name}
+                              type="button"
+                              onClick={() => setEditAvatar(p.url)}
+                              className={`relative rounded-full aspect-square overflow-hidden border-2 transition-all p-0.5 ${isSelected ? 'border-[var(--color-gold)] scale-105 shadow-md' : 'border-transparent opacity-75 hover:opacity-100'}`}
+                              title={p.name}
+                            >
+                              <img src={p.url} alt={p.name} className="w-full h-full rounded-full object-cover" />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
+                                  <Check size={14} />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Or Avatar Image URL</label>
+                        <input 
+                          type="text" 
+                          value={editAvatar}
+                          onChange={(e) => setEditAvatar(e.target.value)}
+                          placeholder="https://example.com/your-image.jpg"
+                          className="w-full border border-gray-200 p-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-[var(--color-ink)] transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Full Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Email Address</label>
+                        <input 
+                          type="email" 
+                          required
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Phone Number</label>
+                        <input 
+                          type="text" 
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          placeholder="e.g. +1 (555) 019-9234"
+                          className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Address Fields */}
+                    <div className="border-t border-gray-100 pt-6">
+                      <h3 className="text-sm font-serif text-[var(--color-ink)] mb-4 uppercase tracking-wider">Delivery Address</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Street Address</label>
+                          <input 
+                            type="text" 
+                            value={editAddress.street}
+                            onChange={(e) => setEditAddress({ ...editAddress, street: e.target.value })}
+                            placeholder="Apartment, suite, unit, building, floor, street details"
+                            className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">City</label>
+                          <input 
+                            type="text" 
+                            value={editAddress.city}
+                            onChange={(e) => setEditAddress({ ...editAddress, city: e.target.value })}
+                            className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">State / Province</label>
+                          <input 
+                            type="text" 
+                            value={editAddress.state}
+                            onChange={(e) => setEditAddress({ ...editAddress, state: e.target.value })}
+                            className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">ZIP / Postal Code</label>
+                          <input 
+                            type="text" 
+                            value={editAddress.zip}
+                            onChange={(e) => setEditAddress({ ...editAddress, zip: e.target.value })}
+                            className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Country</label>
+                          <input 
+                            type="text" 
+                            value={editAddress.country}
+                            onChange={(e) => setEditAddress({ ...editAddress, country: e.target.value })}
+                            className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-8 border-t border-gray-100 pt-6">
+                      <button 
+                        type="button"
+                        onClick={() => { setIsEditing(false); setErrorMsg(''); }}
+                        className="px-4 py-2 border border-gray-200 text-gray-500 hover:text-[var(--color-ink)] hover:border-[var(--color-ink)] transition-colors text-[10px] uppercase tracking-widest font-semibold"
+                        disabled={actionLoading}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit"
+                        className="px-5 py-2 bg-[var(--color-ink)] hover:bg-black text-white transition-colors text-[10px] uppercase tracking-widest font-semibold flex items-center gap-2"
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {activeTab === 'account' && isChangingPassword && (
+                  <form onSubmit={handleChangePassword}>
+                    <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                      <h2 className="text-xl font-serif text-[var(--color-ink)]">Change Password</h2>
+                      <button 
+                        type="button"
+                        onClick={() => { setIsChangingPassword(false); setErrorMsg(''); }}
+                        className="text-gray-400 hover:text-gray-600 p-1"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+
+                    {errorMsg && (
+                      <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm font-medium">
+                        {errorMsg}
+                      </div>
+                    )}
+
+                    <div className="space-y-6 max-w-md">
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">New Password</label>
+                        <input 
+                          type="password" 
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Min. 6 characters"
+                          className="w-full border border-gray-200 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Confirm New Password</label>
+                        <input 
+                          type="password" 
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Re-type new password"
+                          className="w-full border border-gray-200 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-8 border-t border-gray-100 pt-6">
+                      <button 
+                        type="button"
+                        onClick={() => { setIsChangingPassword(false); setErrorMsg(''); }}
+                        className="px-4 py-2 border border-gray-200 text-gray-500 hover:text-[var(--color-ink)] hover:border-[var(--color-ink)] transition-colors text-[10px] uppercase tracking-widest font-semibold"
+                        disabled={actionLoading}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit"
+                        className="px-5 py-2 bg-[var(--color-ink)] hover:bg-black text-white transition-colors text-[10px] uppercase tracking-widest font-semibold"
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? 'Updating...' : 'Update Password'}
+                      </button>
+                    </div>
+                  </form>
                 )}
 
                 {activeTab === 'wishlist' && (

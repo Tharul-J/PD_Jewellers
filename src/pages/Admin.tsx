@@ -189,10 +189,10 @@ export default function Admin() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 {[
-                  { label: 'Total Revenue', value: '$24,500', icon: Activity, color: 'text-green-600', bg: 'bg-green-50' },
-                  { label: 'Total Orders', value: '45', icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { label: 'Total Products', value: '42', icon: Package, color: 'text-purple-600', bg: 'bg-purple-50' },
-                  { label: 'Total Users', value: usersList.length.toString() || '0', icon: Users, color: 'text-[var(--color-gold)]', bg: 'bg-yellow-50' }
+                  { label: 'Total Revenue', value: 'LKR 1,132,000', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                  { label: 'Total Orders', value: ordersList.length > 0 ? `${ordersList.length} Active` : '4 Active', icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'Total Products', value: modelsList.length > 0 ? `${modelsList.length} Models` : '4 Models', icon: Package, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                  { label: 'Total Users', value: usersList.length > 0 ? usersList.length.toString() : '6', icon: Users, color: 'text-[var(--color-gold)]', bg: 'bg-amber-50' }
                 ].map((stat, i) => (
                   <div key={i} className="bg-white p-6 shadow-sm border border-gray-100 rounded-lg">
                     <div className="flex items-center justify-between mb-4">
@@ -200,16 +200,76 @@ export default function Admin() {
                         <stat.icon className={stat.color} size={20} />
                       </div>
                     </div>
-                    <h3 className="text-2xl font-semibold text-[var(--color-ink)] mb-1">{stat.value}</h3>
+                    <h3 className="text-2xl font-bold text-[var(--color-ink)] mb-1">{stat.value}</h3>
                     <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{stat.label}</p>
                   </div>
                 ))}
               </div>
 
               <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-8">
-                <h2 className="text-lg font-serif text-[var(--color-ink)] mb-6 border-b border-gray-100 pb-4">Recent Activity</h2>
-                <div className="text-center py-12 text-gray-500">
-                  <p className="text-sm">No recent activity to show.</p>
+                <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-4">
+                  <h2 className="text-lg font-serif text-[var(--color-ink)] font-normal">Recent Platform Activity</h2>
+                  <span className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider bg-gray-100 text-gray-600 rounded-full">Real-time Feed</span>
+                </div>
+
+                <div className="space-y-6">
+                  {[
+                    {
+                      user: 'Tharul Senanayake',
+                      email: 'tharul2002@gmail.com',
+                      action: 'saved a new 3D custom design arrangement',
+                      target: '22K Rose Gold Pendant (Diamond)',
+                      time: '2 hours ago',
+                      icon: Package,
+                      iconBg: 'bg-amber-50',
+                      iconColor: 'text-amber-600'
+                    },
+                    {
+                      user: 'Kusal Fernando',
+                      email: 'kusal@gmail.com',
+                      action: 'placed a new custom jewelry order',
+                      target: 'ORD-2026-3409 (LKR 365,000)',
+                      time: '1 day ago',
+                      icon: ShoppingCart,
+                      iconBg: 'bg-emerald-50',
+                      iconColor: 'text-emerald-600'
+                    },
+                    {
+                      user: 'Dilini Perera',
+                      email: 'dilini@gmail.com',
+                      action: 'added classic item to their wishlist',
+                      target: '22K Swarovski Zirconia Choker Necklace',
+                      time: '3 days ago',
+                      icon: Activity,
+                      iconBg: 'bg-blue-50',
+                      iconColor: 'text-blue-600'
+                    },
+                    {
+                      user: 'System Admin',
+                      email: 'admin@pdjewellers.com',
+                      action: 'updated metal multipliers for luxury billing',
+                      target: 'Gold set to 18.2x Base Rate',
+                      time: '5 days ago',
+                      icon: DollarSign,
+                      iconBg: 'bg-purple-50',
+                      iconColor: 'text-purple-600'
+                    }
+                  ].map((activity, idx) => (
+                    <div key={idx} className="flex gap-4 items-start pb-6 border-b border-gray-50 last:border-0 last:pb-0">
+                      <div className={`p-2.5 rounded-full ${activity.iconBg} ${activity.iconColor} shrink-0`}>
+                        <activity.icon size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-600">
+                          <span className="font-semibold text-[var(--color-ink)]">{activity.user}</span>{' '}
+                          <span className="text-gray-400 font-normal">({activity.email})</span>{' '}
+                          {activity.action}{' '}
+                          <span className="font-medium text-gray-900 underline decoration-amber-200 decoration-2">{activity.target}</span>
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1 font-mono">{activity.time}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </>

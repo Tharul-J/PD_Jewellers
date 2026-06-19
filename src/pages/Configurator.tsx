@@ -219,6 +219,18 @@ export default function Configurator() {
       });
       
       if (response.ok) {
+        const configs = await response.json();
+        // Sync newly saved configurations to localStorage profile cache
+        const profileCachedStr = localStorage.getItem(`profile_${user._id}`);
+        if (profileCachedStr) {
+          try {
+            const cached = JSON.parse(profileCachedStr);
+            cached.savedConfigurations = configs;
+            localStorage.setItem(`profile_${user._id}`, JSON.stringify(cached));
+          } catch(e) {
+            console.error("Failed to update configurations cache", e);
+          }
+        }
         alert('Custom design saved to your profile!');
       } else {
         const data = await response.json();
