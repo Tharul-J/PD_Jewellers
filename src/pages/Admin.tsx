@@ -147,7 +147,7 @@ export default function Admin() {
             { id: 'dashboard', label: 'Dashboard', icon: Activity },
             { id: 'users', label: 'Users', icon: Users },
             { id: 'products', label: 'Products', icon: Package },
-            { id: 'orders', label: 'Orders', icon: ShoppingCart },
+            { id: 'orders', label: 'Inquiries', icon: ShoppingCart },
             { id: 'pricing', label: 'Pricing', icon: DollarSign }
           ].map((item) => (
             <button
@@ -175,8 +175,8 @@ export default function Admin() {
         >
           <div className="mb-10 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-serif text-[var(--color-ink)] tracking-tight capitalize">{activeTab}</h1>
-              <p className="text-sm text-gray-500 mt-2">Manage your platform's {activeTab}.</p>
+              <h1 className="text-3xl font-serif text-[var(--color-ink)] tracking-tight capitalize">{activeTab === 'orders' ? 'Inquiries' : activeTab}</h1>
+              <p className="text-sm text-gray-500 mt-2">Manage your platform's {activeTab === 'orders' ? 'Inquiries' : activeTab}.</p>
             </div>
             
             {/* Mobile Tab Select */}
@@ -189,7 +189,7 @@ export default function Admin() {
                  <option value="dashboard">Dashboard</option>
                  <option value="users">Users</option>
                  <option value="products">Products</option>
-                 <option value="orders">Orders</option>
+                 <option value="orders">Inquiries</option>
                  <option value="pricing">Pricing</option>
                </select>
             </div>
@@ -202,7 +202,7 @@ export default function Admin() {
                 {[
                   { 
                     label: 'Total Platform Revenue', 
-                    value: 'LKR 1,132,000', 
+                    value: 'Rs. 1,132,000', 
                     change: '+18.4% this month', 
                     icon: DollarSign, 
                     color: 'text-amber-600', 
@@ -413,7 +413,7 @@ export default function Admin() {
                     <div className="flex gap-6">
                       <div className="text-right">
                         <div className="text-xs text-gray-400">Monthly Volume</div>
-                        <div className="text-sm font-bold text-amber-600 font-serif">LKR {chartData[hoveredIndex].revenue.toLocaleString()}</div>
+                        <div className="text-sm font-bold text-amber-600 font-serif">Rs. {chartData[hoveredIndex].revenue.toLocaleString()}</div>
                       </div>
                       <div className="text-right border-l border-amber-100/80 pl-6">
                         <div className="text-xs text-gray-400">Custom Designs</div>
@@ -454,7 +454,7 @@ export default function Admin() {
 
                     <div className="mb-6 relative z-10">
                       <p className="text-[10px] text-amber-100/70 uppercase tracking-widest font-mono">Store Master Value</p>
-                      <h3 className="text-2xl font-serif font-bold text-white tracking-wide">LKR 1,132,000</h3>
+                      <h3 className="text-2xl font-serif font-bold text-white tracking-wide">Rs. 1,132,000</h3>
                     </div>
 
                     <div className="flex justify-between items-end relative z-10 text-[10px] font-mono text-amber-100/90">
@@ -490,7 +490,7 @@ export default function Admin() {
                       </div>
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-gray-500 font-medium">Engraving Premium charge</span>
-                        <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded">LKR 5,000</span>
+                        <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded">Rs. 5,000</span>
                       </div>
                     </div>
 
@@ -537,7 +537,7 @@ export default function Admin() {
                       user: 'Kusal Fernando',
                       email: 'kusal@gmail.com',
                       action: 'placed a new custom jewelry order',
-                      target: 'ORD-2026-3409 (LKR 365,000)',
+                      target: 'ORD-2026-3409 (Rs. 365,000)',
                       time: '1 day ago',
                       icon: ShoppingCart,
                       badge: 'VIP Custom Order',
@@ -754,19 +754,19 @@ export default function Admin() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Order ID</th>
+                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Inquiry Code</th>
                         <th className="py-4 px-6 font-semibold border-b border-gray-100">Customer</th>
-                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Total Price</th>
-                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Date</th>
-                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Status</th>
+                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Est. Price</th>
+                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Date Received</th>
+                        <th className="py-4 px-6 font-semibold border-b border-gray-100">Availability Status</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm divide-y divide-gray-100">
                       {ordersList.map((order) => (
                         <tr key={order._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-4 px-6 font-mono text-xs text-gray-400">{order._id.substring(0, 8)}...</td>
+                          <td className="py-4 px-6 font-mono text-xs font-bold text-amber-700">{order.inquiryRef || 'INQ-PENDING'}</td>
                           <td className="py-4 px-6 font-medium text-[var(--color-ink)]">{order.user?.name || 'Unknown'}</td>
-                          <td className="py-4 px-6 text-gray-600">${order.totalPrice}</td>
+                          <td className="py-4 px-6 text-gray-600">Rs. {Number(order.totalPrice || 0).toLocaleString()}</td>
                           <td className="py-4 px-6 text-gray-500">
                             {new Date(order.createdAt).toLocaleDateString()}
                           </td>
@@ -775,16 +775,18 @@ export default function Admin() {
                               value={order.status}
                               onChange={(e) => handleUpdateOrderStatus(order._id, e.target.value)}
                               className={`p-1 border border-gray-200 rounded-md text-xs font-semibold focus:outline-none focus:border-[var(--color-gold)] capitalize
-                                ${order.status === 'order_confirmed' ? 'bg-blue-50 text-blue-700' : ''}
+                                ${order.status === 'pending' ? 'bg-orange-50 text-orange-700' : ''}
+                                ${order.status === 'availability_confirmed' ? 'bg-blue-50 text-blue-700' : ''}
                                 ${order.status === 'crafting' ? 'bg-yellow-50 text-[var(--color-gold-dark)]' : ''}
-                                ${order.status === 'finished' ? 'bg-indigo-50 text-indigo-700' : ''}
-                                ${order.status === 'ready_for_collection' ? 'bg-green-50 text-green-700' : ''}
+                                ${order.status === 'completed' ? 'bg-green-50 text-green-700' : ''}
+                                ${order.status === 'declined' ? 'bg-red-50 text-red-700' : ''}
                               `}
                             >
-                              <option value="order_confirmed">Confirmed</option>
+                              <option value="pending">Pending Review</option>
+                              <option value="availability_confirmed">Availability Confirmed</option>
                               <option value="crafting">Crafting</option>
-                              <option value="finished">Finished</option>
-                              <option value="ready_for_collection">Ready for Collection</option>
+                              <option value="completed">Completed / Collection</option>
+                              <option value="declined">Declined / Slot full</option>
                             </select>
                           </td>
                         </tr>
@@ -793,7 +795,7 @@ export default function Admin() {
                   </table>
                   {ordersList.length === 0 && (
                     <div className="text-center py-12 text-gray-500 text-sm">
-                      No orders found.
+                      No inquiries found.
                     </div>
                   )}
                 </div>
@@ -839,7 +841,7 @@ export default function Admin() {
                 </div>
 
                 <div className="mb-8">
-                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices (LKR)</h3>
+                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices (Rs.)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Aquamarine</label>
@@ -868,7 +870,7 @@ export default function Admin() {
                   <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Engraving Price (LKR)</label>
+                      <label className="block text-xs text-gray-500 mb-1">Engraving Price (Rs.)</label>
                       <input type="number" value={priceForm.engravingPrice || 5000} onChange={(e) => setPriceForm({...priceForm, engravingPrice: Number(e.target.value)})} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                   </div>

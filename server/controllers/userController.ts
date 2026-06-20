@@ -69,6 +69,7 @@ export const getDefaultOrders = (userId: string) => {
     mockOrders[userId] = [
       {
         _id: 'ORD-2026-9041',
+        inquiryRef: 'INQ-904183',
         user: userId,
         orderItems: [
           {
@@ -79,20 +80,19 @@ export const getDefaultOrders = (userId: string) => {
           }
         ],
         shippingAddress: {
-          street: 'No. 42, Galle Road',
+          fullName: 'Tharul Senanayake',
+          address: 'No. 42, Galle Road',
           city: 'Colombo 03',
-          state: 'Western Province',
-          zip: '00300',
+          postalCode: '00300',
           country: 'Sri Lanka'
         },
         totalPrice: 155000,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
         createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-        status: 'ready_for_collection'
+        status: 'completed'
       },
       {
         _id: 'ORD-2026-1182',
+        inquiryRef: 'INQ-118239',
         user: userId,
         orderItems: [
           {
@@ -103,15 +103,13 @@ export const getDefaultOrders = (userId: string) => {
           }
         ],
         shippingAddress: {
-          street: 'No. 42, Galle Road',
+          fullName: 'Tharul Senanayake',
+          address: 'No. 42, Galle Road',
           city: 'Colombo 03',
-          state: 'Western Province',
-          zip: '00300',
+          postalCode: '00300',
           country: 'Sri Lanka'
         },
         totalPrice: 72000,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         status: 'crafting'
       }

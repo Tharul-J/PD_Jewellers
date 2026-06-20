@@ -568,23 +568,23 @@ export default function Configurator() {
           <div className="flex flex-col mb-4">
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                <span>Base + Metal:</span>
-               <span>LKR {calculatePrice().breakdown.metal.toLocaleString()}</span>
+               <span>Rs. {calculatePrice().breakdown.metal.toLocaleString()}</span>
             </div>
             {modelType === 'ring' && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                  <span>Stone:</span>
-                 <span>LKR {calculatePrice().breakdown.stone.toLocaleString()}</span>
+                 <span>Rs. {calculatePrice().breakdown.stone.toLocaleString()}</span>
               </div>
             )}
             {((modelType === 'ring' && engraveWant) || modelType === 'pendant') && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-2 border-b border-black/5 pb-1">
                  <span>Engraving:</span>
-                 <span>LKR {calculatePrice().breakdown.engraving.toLocaleString()}</span>
+                 <span>Rs. {calculatePrice().breakdown.engraving.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between items-end mt-2">
               <span className="text-xs uppercase tracking-widest font-bold text-gray-800">Total Price:</span>
-              <span className="font-serif text-2xl text-[var(--color-ink)]">LKR {calculatePrice().total.toLocaleString()}</span>
+              <span className="font-serif text-2xl text-[var(--color-ink)]">Rs. {calculatePrice().total.toLocaleString()}</span>
             </div>
           </div>
           <div className="flex gap-2 mb-2">
@@ -592,7 +592,7 @@ export default function Configurator() {
               onClick={handleAddToCart}
               className="flex-1 bg-[var(--color-ink)] text-[var(--color-sand)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-opacity"
             >
-              Add to Bag
+              Inquire Now
             </button>
             <button 
               onClick={handleSaveConfiguration}

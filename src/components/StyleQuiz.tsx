@@ -88,7 +88,7 @@ export function StyleQuiz({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                       <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] font-bold mb-2 block">Step 3 of 3</span>
                       <h4 className="font-serif text-xl mb-5 text-[var(--color-ink)]">What is your comfort range?</h4>
                       <div className="space-y-2">
-                         {['Under LKR 150K', 'LKR 150K - 600K', 'Over LKR 600K'].map(opt => (
+                         {['Under Rs. 150K', 'Rs. 150K - 600K', 'Over Rs. 600K'].map(opt => (
                             <button key={opt} onClick={() => handleAnswer('price', opt)} className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm hover:border-[var(--color-gold)] hover:shadow-sm transition-all flex justify-between items-center group text-gray-700">
                                {opt}
                                <ArrowRight size={14} className="text-[var(--color-gold)] opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />

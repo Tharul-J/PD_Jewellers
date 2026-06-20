@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import { mockOrders, getDefaultOrders } from './userController.js';
 
-// @desc    Create new order (with simulated payment)
+// @desc    Create new inquiry/order request
 // @route   POST /api/orders
 // @access  Private
 export const addOrderItems = async (req: Request, res: Response): Promise<void> => {
@@ -11,13 +11,16 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
     const { orderItems, shippingAddress, totalPrice } = req.body;
 
     if (orderItems && orderItems.length === 0) {
-      res.status(400).json({ message: 'No order items' });
+      res.status(400).json({ message: 'No inquiry items found' });
       return;
     } else {
+      const inquiryRef = 'INQ-' + Math.floor(100000 + Math.random() * 900000);
+      
       if (mongoose.connection.readyState !== 1) {
         const userId = req.user._id;
         const newOrder = {
           _id: 'ORD-2026-' + Math.floor(1000 + Math.random() * 9000),
+          inquiryRef,
           user: userId,
           orderItems,
           shippingAddress: shippingAddress || {
@@ -28,10 +31,8 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
             country: 'Sri Lanka'
           },
           totalPrice,
-          isPaid: true,
-          paidAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
-          status: 'order_confirmed'
+          status: 'pending'
         };
         const list = getDefaultOrders(userId);
         list.unshift(newOrder);
@@ -41,12 +42,11 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
       }
       const order = new Order({
         user: req.user._id,
+        inquiryRef,
         orderItems,
         shippingAddress,
         totalPrice,
-        isPaid: true,
-        paidAt: Date.now(),
-        status: 'order_confirmed',
+        status: 'pending',
       });
 
       const createdOrder = await order.save();
@@ -58,7 +58,7 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// @desc    Get all orders
+// @desc    Get all inquiries
 // @route   GET /api/orders
 // @access  Private/Admin
 export const getOrders = async (req: Request, res: Response): Promise<void> => {
@@ -67,6 +67,7 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
       res.json([
         {
           _id: 'ORD-2026-9041',
+          inquiryRef: 'INQ-904183',
           user: { _id: 'mock-customer-id', name: 'Tharul Senanayake', email: 'tharul2002@gmail.com' },
           orderItems: [
             {
@@ -77,12 +78,12 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
             }
           ],
           totalPrice: 155000,
-          isPaid: true,
           createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'ready_for_collection'
+          status: 'completed'
         },
         {
           _id: 'ORD-2026-1182',
+          inquiryRef: 'INQ-118239',
           user: { _id: 'mock-customer-id', name: 'Tharul Senanayake', email: 'tharul2002@gmail.com' },
           orderItems: [
             {
@@ -93,12 +94,12 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
             }
           ],
           totalPrice: 72000,
-          isPaid: true,
           createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
           status: 'crafting'
         },
         {
           _id: 'ORD-2026-8802',
+          inquiryRef: 'INQ-880210',
           user: { _id: 'mock-id-3', name: 'Dilini Perera', email: 'dilini@gmail.com' },
           orderItems: [
             {
@@ -109,12 +110,12 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
             }
           ],
           totalPrice: 540000,
-          isPaid: true,
           createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'finished'
+          status: 'availability_confirmed'
         },
         {
           _id: 'ORD-2026-3409',
+          inquiryRef: 'INQ-340941',
           user: { _id: 'mock-id-4', name: 'Kusal Fernando', email: 'kusal@gmail.com' },
           orderItems: [
             {
@@ -125,9 +126,8 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
             }
           ],
           totalPrice: 365000,
-          isPaid: true,
           createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'order_confirmed'
+          status: 'pending'
         }
       ]);
       return;
@@ -139,7 +139,7 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// @desc    Get logged in user orders
+// @desc    Get logged in user inquiries
 // @route   GET /api/orders/myorders
 // @access  Private
 export const getMyOrders = async (req: Request, res: Response): Promise<void> => {
@@ -155,13 +155,13 @@ export const getMyOrders = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// @desc    Update order status
+// @desc    Update inquiry status
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json({ message: 'Mock updated order status', status: req.body.status });
+      res.json({ message: 'Mock updated inquiry status', status: req.body.status });
       return;
     }
     const order = await Order.findById(req.params.id);
@@ -171,7 +171,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       const updatedOrder = await order.save();
       res.json(updatedOrder);
     } else {
-      res.status(404).json({ message: 'Order not found' });
+      res.status(404).json({ message: 'Inquiry not found' });
     }
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });

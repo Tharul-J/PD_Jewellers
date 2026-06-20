@@ -16,7 +16,7 @@ import Home from './pages/Home';
 import Collections from './pages/Collections';
 import Configurator from './pages/Configurator';
 import Materials from './pages/Materials';
-import Checkout from './pages/Checkout';
+import Inquiry from './pages/Inquiry';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
@@ -50,9 +50,9 @@ function AnimatedRoutes() {
               <Materials />
             </motion.div>
           } />
-          <Route path="checkout" element={
+          <Route path="inquiry" element={
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
-              <Checkout />
+              <Inquiry />
             </motion.div>
           } />
           <Route path="login" element={

@@ -9,42 +9,42 @@ const FEATURED_PRODUCTS: Product[] = [
   {
     id: '1',
     name: 'Royal Sapphire Necklace',
-    price: 'Starts from LKR 4,200,000',
+    price: 'Starts from Rs. 4,200,000',
     image: 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80',
     category: 'Necklace'
   },
   {
     id: '2',
     name: 'Diamond Solitaire Ring',
-    price: 'Starts from LKR 6,500,000',
+    price: 'Starts from Rs. 6,500,000',
     image: 'https://images.unsplash.com/photo-1605100804763-247f661c9e94?auto=format&fit=crop&q=80',
     category: 'Rings'
   },
   {
     id: '3',
     name: 'Gold Heritage Bangle',
-    price: 'Starts from LKR 2,800,000',
+    price: 'Starts from Rs. 2,800,000',
     image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80',
     category: 'Bracelets'
   },
   {
     id: '4',
     name: 'Emerald Drop Earrings',
-    price: 'Starts from LKR 3,400,000',
+    price: 'Starts from Rs. 3,400,000',
     image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80',
     category: 'Earrings'
   },
   {
     id: '5',
     name: 'Platinum Wedding Band',
-    price: 'Starts from LKR 1,800,000',
+    price: 'Starts from Rs. 1,800,000',
     image: 'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&q=80',
     category: 'Rings'
   },
   {
     id: '6',
     name: 'Ruby Pendant Necklace',
-    price: 'Starts from LKR 3,100,000',
+    price: 'Starts from Rs. 3,100,000',
     image: 'https://images.unsplash.com/photo-1599643477874-c689ff887d19?auto=format&fit=crop&q=80',
     category: 'Necklace'
   }

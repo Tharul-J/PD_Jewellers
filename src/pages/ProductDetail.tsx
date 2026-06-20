@@ -410,7 +410,7 @@ export default function ProductDetail() {
               {/* Dynamic Price Display */}
               <div className="flex items-baseline gap-3 mt-4 border-b border-stone-200/60 pb-6">
                 <span className="text-3xl font-normal text-stone-900">
-                  LKR {computedPrice.toLocaleString()}
+                  Rs. {computedPrice.toLocaleString()}
                 </span>
                 <span className="text-xs uppercase tracking-widest text-stone-400">
                   (Tax and duty included)
@@ -624,7 +624,7 @@ export default function ProductDetail() {
                   onClick={handleAddToBag}
                   className="flex-1 bg-stone-950 text-white rounded-xl py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-stone-900 transition-colors flex items-center justify-center gap-2 shadow-md shadow-stone-900/10"
                 >
-                  <ShoppingBag size={15} /> Add Masterpiece to Bag
+                  <ShoppingBag size={15} /> Inquire Now
                 </button>
               </div>
 
@@ -728,7 +728,7 @@ export default function ProductDetail() {
                     {related.name}
                   </h4>
                   <p className="text-xs font-bold text-stone-900">
-                    Starts from LKR {related.price.toLocaleString()}
+                    Starts from Rs. {related.price.toLocaleString()}
                   </p>
                 </div>
               </Link>

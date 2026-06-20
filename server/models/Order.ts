@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IOrder extends Document {
   user: mongoose.Types.ObjectId;
+  inquiryRef: string;
   orderItems: {
     productId: string;
     name: string;
@@ -18,9 +19,7 @@ export interface IOrder extends Document {
     country: string;
   };
   totalPrice: number;
-  isPaid: boolean;
-  paidAt?: Date;
-  status: 'order_confirmed' | 'crafting' | 'finished' | 'ready_for_collection';
+  status: 'pending' | 'availability_confirmed' | 'crafting' | 'completed' | 'declined';
 }
 
 const orderSchema = new Schema(
@@ -29,6 +28,11 @@ const orderSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: 'User',
+    },
+    inquiryRef: {
+      type: String,
+      required: true,
+      unique: true,
     },
     orderItems: [
       {
@@ -52,19 +56,11 @@ const orderSchema = new Schema(
       required: true,
       default: 0.0,
     },
-    isPaid: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    paidAt: {
-      type: Date,
-    },
     status: {
       type: String,
       required: true,
-      enum: ['order_confirmed', 'crafting', 'finished', 'ready_for_collection'],
-      default: 'order_confirmed',
+      enum: ['pending', 'availability_confirmed', 'crafting', 'completed', 'declined'],
+      default: 'pending',
     },
   },
   { timestamps: true }

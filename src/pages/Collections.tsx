@@ -165,9 +165,9 @@ export default function Collections() {
       : MOCK_PRODUCTS.filter(p => p.category === activeCategory);
 
     if (urlFilters.price) {
-      if (urlFilters.price === 'Under LKR 150K') products = products.filter(p => p.price < 150000);
-      else if (urlFilters.price === 'LKR 150K - 600K') products = products.filter(p => p.price >= 150000 && p.price <= 600000);
-      else if (urlFilters.price === 'Over LKR 600K') products = products.filter(p => p.price > 600000);
+      if (urlFilters.price === 'Under Rs. 150K') products = products.filter(p => p.price < 150000);
+      else if (urlFilters.price === 'Rs. 150K - 600K') products = products.filter(p => p.price >= 150000 && p.price <= 600000);
+      else if (urlFilters.price === 'Over Rs. 600K') products = products.filter(p => p.price > 600000);
     }
     
     if (maxPrice < maxProductPrice) {
@@ -312,7 +312,7 @@ export default function Collections() {
           <div className="flex-1 md:max-w-md flex flex-col justify-start">
             <h4 className="font-serif text-2xl text-[var(--color-ink)] mb-8 opacity-0 pointer-events-none hidden md:block">Budget</h4>
             <label className="text-[12px] uppercase font-bold tracking-widest text-gray-800 mb-6">
-              Maximum Budget: <span className="text-[var(--color-gold)]">LKR {maxPrice.toLocaleString()}</span>
+              Maximum Budget: <span className="text-[var(--color-gold)]">Rs. {maxPrice.toLocaleString()}</span>
             </label>
             <div className="w-full relative mt-2">
               <input 
@@ -326,7 +326,7 @@ export default function Collections() {
               />
               <div className="flex justify-between mt-3 text-[11px] text-[#a09a8a] uppercase font-bold tracking-wider">
                 <span>Any</span>
-                <span>LKR {maxProductPrice.toLocaleString()}</span>
+                <span>Rs. {maxProductPrice.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -471,7 +471,7 @@ export default function Collections() {
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-gold)] mb-2 font-bold">{product.category}</p>
                 <h3 className="font-serif text-lg md:text-xl mb-2 text-[var(--color-ink)]">{product.name}</h3>
                 <p className="text-sm opacity-70 mb-4 line-clamp-2 px-2 h-10">{product.description}</p>
-                <p className="font-sans font-medium text-lg text-[var(--color-ink)]">Starts from LKR {product.price.toLocaleString()}</p>
+                <p className="font-sans font-medium text-lg text-[var(--color-ink)]">Starts from Rs. {product.price.toLocaleString()}</p>
               </div>
             </motion.div>
           );

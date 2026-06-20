@@ -315,7 +315,7 @@ export default function Profile() {
                   onClick={() => setActiveTab('orders')} 
                   className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'orders' ? 'bg-[var(--color-ink)] text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
-                  <ShoppingBag size={16} /> Orders
+                  <ShoppingBag size={16} /> My Inquiries
                 </button>
                 
                 {user?.role === 'administrator' && (
@@ -679,14 +679,15 @@ export default function Profile() {
 
                 {activeTab === 'orders' && (
                   <>
-                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-6">My Orders</h2>
+                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">My Atelier Inquiries</h2>
+                    <p className="text-xs text-gray-500 mb-6">Track real-time workshop slot checks and availability confirmations of your designs.</p>
                     
                     {ordersLoading ? (
                       <div className="py-12 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
                     ) : orders.length === 0 ? (
                       <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
                         <ShoppingBag size={32} className="mx-auto mb-4 opacity-20" />
-                        <p className="text-sm">You haven't placed any orders yet.</p>
+                        <p className="text-sm">You haven't submitted any inquiries yet.</p>
                       </div>
                     ) : (
                       <div className="space-y-6">
@@ -694,73 +695,83 @@ export default function Profile() {
                           <div key={order._id} className="border border-gray-100 rounded-lg overflow-hidden">
                             <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center flex-wrap gap-4">
                               <div>
-                                <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Order Placed</p>
+                                <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Inquiry Sent</p>
                                 <p className="text-sm font-semibold">{new Date(order.createdAt).toLocaleDateString()}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Total</p>
-                                <p className="text-sm font-semibold">${order.totalPrice}</p>
+                                <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Estimated Value</p>
+                                <p className="text-sm font-semibold">Rs. {Number(order.totalPrice || 0).toLocaleString()}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Order #</p>
-                                <p className="text-sm font-mono text-[var(--color-ink)]">{order._id}</p>
+                                <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Inquiry Reference Code</p>
+                                <p className="text-sm font-mono font-bold text-amber-700">{order.inquiryRef || 'INQ-PENDING'}</p>
                               </div>
                               <div>
                                 <span className={`px-3 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold
-                                  ${order.status === 'order_confirmed' ? 'bg-blue-100 text-blue-700' : ''}
+                                  ${order.status === 'pending' ? 'bg-orange-100 text-orange-700' : ''}
+                                  ${order.status === 'availability_confirmed' ? 'bg-blue-100 text-blue-700' : ''}
                                   ${order.status === 'crafting' ? 'bg-yellow-100 text-[var(--color-gold-dark)]' : ''}
-                                  ${order.status === 'finished' ? 'bg-indigo-100 text-indigo-700' : ''}
-                                  ${order.status === 'ready_for_collection' ? 'bg-green-100 text-green-700' : ''}
+                                  ${order.status === 'completed' ? 'bg-green-100 text-green-700' : ''}
+                                  ${order.status === 'declined' ? 'bg-red-100 text-red-700' : ''}
                                 `}>
                                   {order.status.replace(/_/g, ' ')}
                                 </span>
                               </div>
                             </div>
                             
-                            {/* Order Tracker */}
-                            <div className="px-8 py-6 border-b border-gray-100">
-                              <div className="relative">
-                                {/* Track Line */}
-                                <div className="absolute top-1/2 left-0 w-full h-[2px] bg-gray-200 -translate-y-1/2"></div>
-                                <div 
-                                  className="absolute top-1/2 left-0 h-[2px] bg-[var(--color-gold)] -translate-y-1/2 transition-all duration-500"
-                                  style={{
-                                    width: 
-                                      order.status === 'order_confirmed' ? '0%' :
-                                      order.status === 'crafting' ? '33.33%' :
-                                      order.status === 'finished' ? '66.66%' :
-                                      '100%'
-                                  }}
-                                ></div>
+                            {/* Inquiry Tracker */}
+                            {order.status !== 'declined' ? (
+                              <div className="px-8 py-6 border-b border-gray-100 bg-white">
+                                <div className="relative">
+                                  {/* Track Line */}
+                                  <div className="absolute top-1/2 left-0 w-full h-[2px] bg-gray-200 -translate-y-1/2"></div>
+                                  <div 
+                                    className="absolute top-1/2 left-0 h-[2px] bg-[var(--color-gold)] -translate-y-1/2 transition-all duration-500"
+                                    style={{
+                                      width: 
+                                        order.status === 'pending' ? '0%' :
+                                        order.status === 'availability_confirmed' ? '33.33%' :
+                                        order.status === 'crafting' ? '66.66%' :
+                                        '100%'
+                                    }}
+                                  ></div>
 
-                                {/* Status Points */}
-                                <div className="relative flex justify-between">
-                                  {[
-                                    { id: 'order_confirmed', label: 'Order Confirmed' },
-                                    { id: 'crafting', label: 'Crafting' },
-                                    { id: 'finished', label: 'Finished' },
-                                    { id: 'ready_for_collection', label: 'Ready for Collection' }
-                                  ].map((step, index) => {
-                                    const isActive = 
-                                      order.status === step.id || 
-                                      (order.status === 'ready_for_collection') ||
-                                      (order.status === 'finished' && index <= 2) ||
-                                      (order.status === 'crafting' && index <= 1);
-                                      
-                                    return (
-                                      <div key={step.id} className="flex flex-col items-center">
-                                        <div className={`w-4 h-4 rounded-full border-2 bg-white z-10 transition-colors ${isActive ? 'border-[var(--color-gold)]' : 'border-gray-300'}`}>
-                                          {isActive && <div className="w-2 h-2 bg-[var(--color-gold)] rounded-full mx-auto mt-[2px]"></div>}
+                                  {/* Status Points */}
+                                  <div className="relative flex justify-between">
+                                    {[
+                                      { id: 'pending', label: 'Pending Review' },
+                                      { id: 'availability_confirmed', label: 'Confirmed' },
+                                      { id: 'crafting', label: 'Crafting' },
+                                      { id: 'completed', label: 'Collection / Handover' }
+                                    ].map((step, index) => {
+                                      const indexMap: Record<string, number> = {
+                                        'pending': 0,
+                                        'availability_confirmed': 1,
+                                        'crafting': 2,
+                                        'completed': 3
+                                      };
+                                      const currentIdx = indexMap[order.status] ?? 0;
+                                      const isActive = currentIdx >= index;
+                                        
+                                      return (
+                                        <div key={step.id} className="flex flex-col items-center">
+                                          <div className={`w-4 h-4 rounded-full border-2 bg-white z-10 transition-colors ${isActive ? 'border-[var(--color-gold)]' : 'border-gray-300'}`}>
+                                            {isActive && <div className="w-2 h-2 bg-[var(--color-gold)] rounded-full mx-auto mt-[2px]"></div>}
+                                          </div>
+                                          <span className={`text-[9px] uppercase tracking-wider mt-3 font-bold text-center w-24 ${isActive ? 'text-[var(--color-ink)]' : 'text-gray-400'}`}>
+                                            {step.label}
+                                          </span>
                                         </div>
-                                        <span className={`text-[10px] uppercase tracking-widest mt-3 font-semibold text-center w-20 ${isActive ? 'text-[var(--color-ink)]' : 'text-gray-400'}`}>
-                                          {step.label}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
+                                      )
+                                    })}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            ) : (
+                              <div className="px-8 py-4 bg-red-50 border-b border-gray-100 text-xs text-red-700 italic font-semibold">
+                                * The requested workshop slot or material selection has been marked as unavailable for your customization. Please contact customer care.
+                              </div>
+                            )}
 
                             <div className="p-4 space-y-4">
                               {order.orderItems.map((item: any, idx: number) => (
