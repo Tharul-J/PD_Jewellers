@@ -19,41 +19,31 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.NODE_ENV === "production" ? 3000 : 3001;
 
   // Middleware
   app.use(cors());
   app.use(express.json());
 
-  // connect to MongoDB if URI is provided
+  // Connect to MongoDB
   if (process.env.MONGODB_URI) {
-    // Handle any runtime Mongoose connection errors gracefully to prevent uncaught exception crashes
     mongoose.connection.on('error', (err) => {
-      console.log("Mongoose background connection status update:", err.message || "Offline");
+      console.log("Mongoose connection error:", err.message || "Offline");
     });
-
-    const mongoOptions = {
-      serverSelectionTimeoutMS: 2000, // Timeout after 2 seconds if host is unreachable
-    };
-
-    mongoose.connect(process.env.MONGODB_URI, mongoOptions).then(() => {
+    mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 }).then(() => {
       console.log("Connected to MongoDB established successfully.");
-    }).catch(async (err) => {
-      console.log("MongoDB connection was bypassed (unreachable host). Running app in high-fidelity mock/offline mode.");
-      try {
-        await mongoose.disconnect();
-      } catch (e) {}
+    }).catch(async () => {
+      console.log("MongoDB connection was bypassed (unreachable host). Running in mock/offline mode.");
+      try { await mongoose.disconnect(); } catch (e) {}
     });
   } else {
-    console.log("MONGODB_URI environment variable is not set. Running app in high-fidelity mock/offline mode.");
+    console.log("MONGODB_URI not set. Running in mock/offline mode.");
   }
 
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", db: mongoose.connection.readyState === 1 ? "connected" : "disconnected" });
   });
-  
-  // Register routers
   app.use("/api/users", userRoutes);
   app.use("/api/orders", orderRoutes);
   app.use("/api/models", modelRoutes);
@@ -61,19 +51,12 @@ async function startServer() {
   app.use("/api/pricing", pricingRoutes);
   app.use("/api/products", productRoutes);
 
-  // Make uploads folder static
+  // Static uploads folder
   const uploadsDir = path.join(process.cwd(), 'uploads');
   app.use('/uploads', express.static(uploadsDir));
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const viteModule = await import("vite");
-    const vite = await viteModule.createServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
+  // Production: serve built frontend
+  if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -82,7 +65,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`API server running on http://localhost:${PORT}`);
   });
 }
 
