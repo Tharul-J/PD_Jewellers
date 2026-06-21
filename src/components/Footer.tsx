@@ -43,7 +43,7 @@ export function Footer() {
           <ul className="space-y-4 opacity-70 text-[13px] tracking-wide">
             <li><Link to="/collections" className="hover:text-[#D4AF37] transition-colors">Collection</Link></li>
             <li><Link to="/configurator" className="hover:text-[#D4AF37] transition-colors">Make Your Own</Link></li>
-            <li><Link to="/#about" className="hover:text-[#D4AF37] transition-colors">About Us</Link></li>
+            <li><Link to="/about" className="hover:text-[#D4AF37] transition-colors">About Us</Link></li>
             <li><Link to="/materials" className="hover:text-[#D4AF37] transition-colors">Blog</Link></li>
           </ul>
         </div>

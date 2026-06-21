@@ -16,6 +16,7 @@ import Home from './pages/Home';
 import Collections from './pages/Collections';
 import Configurator from './pages/Configurator';
 import Materials from './pages/Materials';
+import AboutUs from './pages/AboutUs';
 import Inquiry from './pages/Inquiry';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -48,6 +49,11 @@ function AnimatedRoutes() {
           <Route path="materials" element={
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
               <Materials />
+            </motion.div>
+          } />
+          <Route path="about" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <AboutUs />
             </motion.div>
           } />
           <Route path="inquiry" element={

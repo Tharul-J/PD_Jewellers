@@ -49,7 +49,7 @@ export default function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState('US 7');
   const [selectedFont, setSelectedFont] = useState<keyof typeof FONTS>('helvetiker');
   const [selectedPendantShape, setSelectedPendantShape] = useState<'standard' | 'heart' | 'wing'>('standard');
-  const [activeTab, setActiveTab] = useState<'details' | 'specifications' | 'delivery'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'specifications'>('details');
   const [quantity, setQuantity] = useState(1);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareTooltip, setShowShareTooltip] = useState(false);
@@ -359,34 +359,13 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            {/* Virtual Try-On Bar */}
-            <div className="bg-gradient-to-r from-[#edd19b]/5 via-[#fcf8f0] to-[#edd19b]/10 border border-[#edd19b]/25 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-center sm:text-left">
-                <h4 className="text-[12px] uppercase font-bold tracking-[0.15em] text-stone-800 flex items-center gap-1.5 justify-center sm:justify-start">
-                  <Sparkles size={13} className="text-yellow-600 animate-pulse" />
-                  Try before purchase
-                </h4>
-                <p className="text-[11px] text-stone-500 mt-1 font-sans">Leverage our AR engine to simulate sizing and wrist-glow under clean lighting.</p>
-              </div>
-              <button 
-                onClick={() => setIsAROpen(true)}
-                className="bg-transparent border-2 border-stone-900 text-stone-900 hover:bg-stone-900 hover:text-white px-6 py-3 text-xs tracking-widest uppercase font-bold transition-all shrink-0 rounded-xl"
-              >
-                Launch Virtual Try-On
-              </button>
-            </div>
 
             {/* Visual Hallmark Certification Cards */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-xl border border-stone-200/50 text-center flex flex-col items-center justify-center">
                 <ShieldCheck className="text-amber-600 mb-1.5" size={20} />
                 <span className="text-[9px] uppercase font-bold tracking-widest text-stone-800">ISO Certified</span>
                 <span className="text-[8px] text-stone-400 mt-0.5 font-sans">99.9% Hallmark Guarantee</span>
-              </div>
-              <div className="bg-white p-4 rounded-xl border border-stone-200/50 text-center flex flex-col items-center justify-center">
-                <Truck className="text-amber-600 mb-1.5" size={20} />
-                <span className="text-[9px] uppercase font-bold tracking-widest text-stone-800">Insured Cargo</span>
-                <span className="text-[8px] text-stone-400 mt-0.5 font-sans">Worldwide Express Delivery</span>
               </div>
               <div className="bg-white p-4 rounded-xl border border-stone-200/50 text-center flex flex-col items-center justify-center">
                 <RotateCcw className="text-amber-600 mb-1.5" size={20} />
@@ -419,185 +398,219 @@ export default function ProductDetail() {
             </div>
 
             {/* All Customizable Option Forms */}
-            <div className="space-y-6">
-              
-              {/* Option 1: Premium Metals Alloys */}
-              <div>
-                <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3 flex items-center justify-between">
-                  <span>Sovereign Metal Grade</span>
-                  <span className="text-amber-700 font-serif lowercase italic">{METALS[selectedMetal].name}</span>
-                </h3>
-                <div className="grid grid-cols-3 gap-3">
-                  {(Object.keys(METALS) as Array<keyof typeof METALS>).map((mKey) => (
-                    <button
-                      key={mKey}
-                      onClick={() => setSelectedMetal(mKey)}
-                      className={`p-3 border rounded-xl flex flex-col items-center gap-2 transition-all ${
-                        selectedMetal === mKey 
-                          ? 'border-amber-600 bg-amber-50/25 shadow-sm' 
-                          : 'border-stone-200 bg-white hover:border-stone-400'
-                      }`}
-                    >
-                      <div 
-                        className="w-10 h-10 rounded-full border border-black/10 shadow-inner relative flex items-center justify-center"
-                        style={{ backgroundColor: METALS[mKey].color }}
-                      >
-                        {selectedMetal === mKey && (
-                          <div className="w-5 h-5 rounded-full bg-stone-900 border border-white flex items-center justify-center">
-                            <Check size={11} className="text-amber-400" />
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-semibold text-stone-700 text-center tracking-tight leading-tight">
-                        {METALS[mKey].name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Option 2: Center focal Gemstone (Visible if custom or original has stone) */}
-              {(isCustomProduct || catalogProduct?.hasStones) && (
+            {isCustomProduct ? (
+              <div className="space-y-6">
+                
+                {/* Option 1: Premium Metals Alloys */}
                 <div>
                   <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3 flex items-center justify-between">
-                    <span>Accent Gemstone Selection</span>
-                    <span className="text-amber-700 font-serif lowercase italic">{STONES[selectedStone].name}</span>
+                    <span>Sovereign Metal Grade</span>
+                    <span className="text-amber-700 font-serif lowercase italic">{METALS[selectedMetal].name}</span>
                   </h3>
-                  <div className="grid grid-cols-5 gap-2">
-                    {(Object.keys(STONES) as Array<keyof typeof STONES>).map((sKey) => (
+                  <div className="grid grid-cols-3 gap-3">
+                    {(Object.keys(METALS) as Array<keyof typeof METALS>).map((mKey) => (
                       <button
-                        key={sKey}
-                        onClick={() => setSelectedStone(sKey)}
-                        className={`p-2 border rounded-xl flex flex-col items-center gap-1.5 transition-all ${
-                          selectedStone === sKey 
-                            ? 'border-amber-600 bg-amber-50/30' 
-                            : 'border-stone-200 bg-white hover:border-stone-300'
+                        key={mKey}
+                        onClick={() => setSelectedMetal(mKey)}
+                        className={`p-3 border rounded-xl flex flex-col items-center gap-2 transition-all ${
+                          selectedMetal === mKey 
+                            ? 'border-amber-600 bg-amber-50/25 shadow-sm' 
+                            : 'border-stone-200 bg-white hover:border-stone-400'
                         }`}
-                        title={STONES[sKey].name}
                       >
                         <div 
-                          className="w-8 h-8 rounded-full border border-stone-200 shadow-inner relative flex items-center justify-center opacity-90 hover:opacity-100"
-                          style={{ backgroundColor: STONES[sKey].color }}
+                          className="w-10 h-10 rounded-full border border-black/10 shadow-inner relative flex items-center justify-center"
+                          style={{ backgroundColor: METALS[mKey].color }}
                         >
-                          {selectedStone === sKey && (
-                            <Check size={12} className="text-stone-900 stroke-[3] mix-blend-difference" />
+                          {selectedMetal === mKey && (
+                            <div className="w-5 h-5 rounded-full bg-stone-900 border border-white flex items-center justify-center">
+                              <Check size={11} className="text-amber-400" />
+                            </div>
                           )}
                         </div>
-                        <span className="text-[8px] font-sans font-bold text-stone-600 text-center truncate w-full">
-                          {STONES[sKey].name}
+                        <span className="text-[10px] font-semibold text-stone-700 text-center tracking-tight leading-tight">
+                          {METALS[mKey].name}
                         </span>
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
 
-              {/* Option 3: Dimensions/Size selection */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700">
-                    Bespoke Dimension Scale
-                  </h3>
-                  <button 
-                    onClick={() => setIsSizeOpen(true)}
-                    className="text-[10px] uppercase tracking-wider text-[#cca150] font-bold hover:underline flex items-center gap-1"
-                  >
-                    <Info size={11} /> Size Guide
-                  </button>
-                </div>
-                <select
-                  value={selectedSize}
-                  onChange={(e) => setSelectedSize(e.target.value)}
-                  className="w-full p-4 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-amber-500 uppercase tracking-widest text-xs font-bold appearance-none transition-all cursor-pointer shadow-sm"
-                >
-                  <option value="US 4">US 4 (Inner Radius 14.8mm)</option>
-                  <option value="US 5">US 5 (Inner Radius 15.7mm)</option>
-                  <option value="US 6">US 6 (Inner Radius 16.5mm)</option>
-                  <option value="US 7">US 7 (Inner Radius 17.3mm)</option>
-                  <option value="US 8">US 8 (Inner Radius 18.1mm)</option>
-                  <option value="US 9">US 9 (Inner Radius 18.9mm)</option>
-                  <option value="US 10">US 10 (Inner Radius 19.8mm)</option>
-                  <option value="US 11">US 11 (Inner Radius 20.6mm)</option>
-                  <option value="US 12">US 12 (Inner Radius 21.4mm)</option>
-                </select>
-              </div>
-
-              {/* Option 4: Custom Diamond Laser Engraving Toggle & Text */}
-              <div className="border border-stone-200 p-5 rounded-xl bg-white space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Type size={16} className="text-amber-700" />
-                    <span className="text-xs uppercase tracking-widest font-bold text-stone-800">Add Micro-Laser Engraving</span>
-                  </div>
-                  <button 
-                    onClick={() => setWantEngraving(!wantEngraving)}
-                    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${wantEngraving ? 'bg-amber-600' : 'bg-gray-300'}`}
-                  >
-                    <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${wantEngraving ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-                </div>
-
-                {wantEngraving && (
-                  <div className="space-y-4 pt-1 animate-in fade-in slide-in-from-top-1">
-                    <div>
-                      <div className="flex justify-between items-center text-[9px] uppercase tracking-wider text-stone-500 mb-1.5">
-                        <span className="font-bold text-stone-600">Engraving Inscription</span>
-                        <span>{engravingText.length}/10 letters</span>
-                      </div>
-                      <input
-                        type="text"
-                        value={engravingText}
-                        onChange={(e) => setEngravingText(e.target.value.slice(0, 10))}
-                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-500 uppercase tracking-widest text-xs tracking-wide shadow-inner"
-                        placeholder="e.g. FOREVER, PATHUM..."
-                      />
-                    </div>
-
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wider text-stone-500 mb-1.5 font-bold">Inlay Font Calligraphy</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(Object.keys(FONTS) as Array<keyof typeof FONTS>).slice(0, 4).map((fKey) => (
-                          <button
-                            key={fKey}
-                            onClick={() => setSelectedFont(fKey)}
-                            className={`p-2.5 rounded-xl text-[9px] uppercase tracking-wider border text-center font-bold transition-all ${
-                              selectedFont === fKey 
-                                ? 'border-amber-600 bg-amber-50/10 text-stone-950 font-extrabold' 
-                                : 'border-stone-200 bg-white hover:border-stone-400'
-                            }`}
+                {/* Option 2: Center focal Gemstone (Visible if custom or original has stone) */}
+                {(isCustomProduct || catalogProduct?.hasStones) && (
+                  <div>
+                    <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3 flex items-center justify-between">
+                      <span>Accent Gemstone Selection</span>
+                      <span className="text-amber-700 font-serif lowercase italic">{STONES[selectedStone].name}</span>
+                    </h3>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(Object.keys(STONES) as Array<keyof typeof STONES>).map((sKey) => (
+                        <button
+                          key={sKey}
+                          onClick={() => setSelectedStone(sKey)}
+                          className={`p-2 border rounded-xl flex flex-col items-center gap-1.5 transition-all ${
+                            selectedStone === sKey 
+                              ? 'border-amber-600 bg-amber-50/30' 
+                              : 'border-stone-200 bg-white hover:border-stone-300'
+                          }`}
+                          title={STONES[sKey].name}
+                        >
+                          <div 
+                            className="w-8 h-8 rounded-full border border-stone-200 shadow-inner relative flex items-center justify-center opacity-90 hover:opacity-100"
+                            style={{ backgroundColor: STONES[sKey].color }}
                           >
-                            {FONTS[fKey].name}
-                          </button>
-                        ))}
-                      </div>
+                            {selectedStone === sKey && (
+                              <Check size={12} className="text-stone-900 stroke-[3] mix-blend-difference" />
+                            )}
+                          </div>
+                          <span className="text-[8px] font-sans font-bold text-stone-600 text-center truncate w-full">
+                            {STONES[sKey].name}
+                          </span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Option 5: Pendant Shape selection (Custom Pendants helper) */}
-              {isCustomProduct && queryType === 'pendant' && (
+                {/* Option 3: Dimensions/Size selection */}
                 <div>
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3">
-                    Heritage Pendant Frame Shape
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['standard', 'heart', 'wing'] as const).map((shape) => (
-                      <button
-                        key={shape}
-                        onClick={() => setSelectedPendantShape(shape)}
-                        className={`py-3 px-4 text-xs tracking-widest border rounded-xl capitalize font-bold transition-all ${
-                          selectedPendantShape === shape ? 'border-amber-600 bg-amber-50/20 text-stone-900' : 'border-stone-200 bg-white hover:border-stone-300'
-                        }`}
-                      >
-                        {shape}
-                      </button>
-                    ))}
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700">
+                      Bespoke Dimension Scale
+                    </h3>
+                    <button 
+                      onClick={() => setIsSizeOpen(true)}
+                      className="text-[10px] uppercase tracking-wider text-[#cca150] font-bold hover:underline flex items-center gap-1"
+                    >
+                      <Info size={11} /> Size Guide
+                    </button>
+                  </div>
+                  <select
+                    value={selectedSize}
+                    onChange={(e) => setSelectedSize(e.target.value)}
+                    className="w-full p-4 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-amber-500 uppercase tracking-widest text-xs font-bold appearance-none transition-all cursor-pointer shadow-sm"
+                  >
+                    <option value="US 4">US 4 (Inner Radius 14.8mm)</option>
+                    <option value="US 5">US 5 (Inner Radius 15.7mm)</option>
+                    <option value="US 6">US 6 (Inner Radius 16.5mm)</option>
+                    <option value="US 7">US 7 (Inner Radius 17.3mm)</option>
+                    <option value="US 8">US 8 (Inner Radius 18.1mm)</option>
+                    <option value="US 9">US 9 (Inner Radius 18.9mm)</option>
+                    <option value="US 10">US 10 (Inner Radius 19.8mm)</option>
+                    <option value="US 11">US 11 (Inner Radius 20.6mm)</option>
+                    <option value="US 12">US 12 (Inner Radius 21.4mm)</option>
+                  </select>
+                </div>
+
+                {/* Option 4: Custom Diamond Laser Engraving Toggle & Text */}
+                <div className="border border-stone-200 p-5 rounded-xl bg-white space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Type size={16} className="text-amber-700" />
+                      <span className="text-xs uppercase tracking-widest font-bold text-stone-800">Add Micro-Laser Engraving</span>
+                    </div>
+                    <button 
+                      onClick={() => setWantEngraving(!wantEngraving)}
+                      className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${wantEngraving ? 'bg-amber-600' : 'bg-gray-300'}`}
+                    >
+                      <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${wantEngraving ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+
+                  {wantEngraving && (
+                    <div className="space-y-4 pt-1 animate-in fade-in slide-in-from-top-1">
+                      <div>
+                        <div className="flex justify-between items-center text-[9px] uppercase tracking-wider text-stone-500 mb-1.5">
+                          <span className="font-bold text-stone-600">Engraving Inscription</span>
+                          <span>{engravingText.length}/10 letters</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={engravingText}
+                          onChange={(e) => setEngravingText(e.target.value.slice(0, 10))}
+                          className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-500 uppercase tracking-widest text-xs tracking-wide shadow-inner"
+                          placeholder="e.g. FOREVER, PATHUM..."
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-[9px] uppercase tracking-wider text-stone-500 mb-1.5 font-bold">Inlay Font Calligraphy</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(Object.keys(FONTS) as Array<keyof typeof FONTS>).slice(0, 4).map((fKey) => (
+                            <button
+                              key={fKey}
+                              onClick={() => setSelectedFont(fKey)}
+                              className={`p-2.5 rounded-xl text-[9px] uppercase tracking-wider border text-center font-bold transition-all ${
+                                selectedFont === fKey 
+                                  ? 'border-amber-600 bg-amber-50/10 text-stone-950 font-extrabold' 
+                                  : 'border-stone-200 bg-white hover:border-stone-400'
+                              }`}
+                            >
+                              {FONTS[fKey].name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Option 5: Pendant Shape selection (Custom Pendants helper) */}
+                {isCustomProduct && queryType === 'pendant' && (
+                  <div>
+                    <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3">
+                      Heritage Pendant Frame Shape
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['standard', 'heart', 'wing'] as const).map((shape) => (
+                        <button
+                          key={shape}
+                          onClick={() => setSelectedPendantShape(shape)}
+                          className={`py-3 px-4 text-xs tracking-widest border rounded-xl capitalize font-bold transition-all ${
+                            selectedPendantShape === shape ? 'border-amber-600 bg-amber-50/20 text-stone-900' : 'border-stone-200 bg-white hover:border-stone-300'
+                          }`}
+                        >
+                          {shape}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            ) : (
+              <div className="bg-stone-50/60 border border-stone-200/60 p-6 rounded-2xl space-y-4 font-sans shadow-[inset_0_1px_3px_rgba(0,0,0,0.01)]">
+                <div className="flex items-center justify-between">
+                  <span className="inline-block bg-stone-900 text-white text-[9px] uppercase tracking-[0.15em] font-bold px-3 py-1 rounded-md">
+                    Original Ready-To-Wear Curation
+                  </span>
+                  <span className="text-[9px] uppercase font-bold text-[#cca150] tracking-widest">Permanent Showroom</span>
+                </div>
+                <p className="text-xs text-stone-500 leading-relaxed font-sans">
+                  This masterpiece belongs to our collection series and is configured as styled by our master lapidaries. We preserve the signature carat weights, diamond clarity grades, and sovereign metal selections on these specific heritage releases to guarantee cohesive value and pristine original design alignment. No further customization is applicable.
+                </p>
+                <div className="text-[11px] text-stone-500 font-medium flex flex-col gap-2.5 border-t border-stone-200/50 pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-400">Standard Metal Alloy</span>
+                    <span className="font-bold text-stone-800 uppercase tracking-widest font-mono">
+                      {catalogProduct ? (catalogProduct.name.toLowerCase().includes('platinum') ? 'Platinum 950' : (catalogProduct.name.toLowerCase().includes('white gold') ? '18K White Gold' : (catalogProduct.name.toLowerCase().includes('rose gold') ? '18K Rose Gold' : '22K Gold Sovereign'))) : 'Solid Precious Metal'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-400">Gemstone Accents</span>
+                    <span className="font-bold text-stone-800">
+                      {catalogProduct?.hasStones ? 'Genuine Fine Gemstones' : 'Classic Solid Metal Band'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-400">Inquiry Dispatch Code</span>
+                    <span className="font-mono text-xs font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded">
+                      REG-CURAT-{id?.toUpperCase()}
+                    </span>
                   </div>
                 </div>
-              )}
-
-            </div>
+              </div>
+            )}
 
             {/* Quantity Selector, Add to Bag & Buy Direct Actions */}
             <div className="pt-4 border-t border-stone-200/60 space-y-4">
@@ -655,12 +668,6 @@ export default function ProductDetail() {
                 >
                   Heritage Spec
                 </button>
-                <button 
-                  onClick={() => setActiveTab('delivery')}
-                  className={`flex-1 py-3 text-[10px] uppercase tracking-widest font-bold border-b-2 transition-all ${activeTab === 'delivery' ? 'border-[#cca150] text-stone-950 bg-stone-50/40' : 'border-transparent text-stone-400 hover:text-stone-700'}`}
-                >
-                  Insured Delivery
-                </button>
               </div>
               <div className="p-6 text-xs text-stone-600 leading-relaxed font-sans space-y-3">
                 {activeTab === 'details' && (
@@ -681,13 +688,6 @@ export default function ProductDetail() {
                     <div className="text-stone-800 font-medium">{(isCustomProduct || catalogProduct?.hasStones) ? STONES[selectedStone].name : 'No stones (Solid plain)'}</div>
                     <div className="text-stone-400">Country of birth:</div>
                     <div className="text-stone-800 font-medium">Sri Lanka (Colombo House)</div>
-                  </div>
-                )}
-                {activeTab === 'delivery' && (
-                  <div className="space-y-2">
-                    <p className="font-bold text-stone-800">Secure Insured Transport</p>
-                    <p>We provide full-insured premium courier delivery to your residences globally, protected in a double-sealed mahogany casing. We guarantee door-to-door security dispatch.</p>
-                    <p className="text-[11px] text-[#cca150] font-bold">Standard dispatch: 3-5 business days.</p>
                   </div>
                 )}
               </div>

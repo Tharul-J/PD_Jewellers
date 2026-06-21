@@ -70,7 +70,7 @@ export function Navbar() {
           <div className="hidden lg:flex flex-1 items-center justify-center gap-6 xl:gap-8 text-[10px] xl:text-[11px] font-medium tracking-[0.2em] uppercase text-[var(--color-ink)]">
             <Link to="/collections" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">Collection</Link>
             <Link to="/configurator" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">Make Your Own</Link>
-            <Link to="/#about" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">About Us</Link>
+            <Link to="/about" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">About Us</Link>
             <Link to="/materials" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">Blog</Link>
           </div>
 

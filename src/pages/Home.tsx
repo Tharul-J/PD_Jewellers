@@ -133,29 +133,27 @@ export default function Home() {
                          <MapPin size={16} />
                          <span className="text-[10px] uppercase font-bold tracking-widest">Visit Us</span>
                       </div>
-                      <a href="https://maps.app.goo.gl/cNBJc2rsfr2PvYq66" target="_blank" rel="noopener noreferrer" className="text-sm opacity-80 hover:text-[var(--color-gold)] transition-colors block leading-relaxed">
+                      <Link to="/about" className="text-sm opacity-80 hover:text-[var(--color-gold)] transition-colors block leading-relaxed font-semibold">
                          No 5 Main Street,<br/>
                          Gampaha, Sri Lanka
-                      </a>
+                      </Link>
                    </div>
                    <div>
                       <div className="flex items-center gap-2 mb-3 text-[var(--color-gold-dark)]">
                          <Phone size={16} />
-                         <span className="text-[10px] uppercase font-bold tracking-widest">Contact</span>
+                         <span className="text-[10px] uppercase font-bold tracking-widest">Contact Us</span>
                       </div>
-                      <p className="text-sm opacity-80 leading-relaxed">
+                      <p className="text-sm opacity-80 leading-relaxed font-semibold">
                          0332 222 735
                       </p>
                    </div>
-                   <div className="col-span-1 sm:col-span-2">
-                      <div className="flex items-center gap-2 mb-3 text-[var(--color-gold-dark)]">
-                         <Clock size={16} />
-                         <span className="text-[10px] uppercase font-bold tracking-widest">Opening Hours</span>
-                      </div>
-                      <div className="text-sm opacity-80 grid gap-1">
-                         <div className="flex justify-between max-w-[250px]"><span>Monday - Saturday</span><span>9:00 AM – 6:00 PM</span></div>
-                         <div className="flex justify-between max-w-[250px]"><span>Sunday</span><span>Closed</span></div>
-                      </div>
+                   <div className="col-span-1 sm:col-span-2 pt-2">
+                      <Link to="/about" className="inline-flex items-center gap-2.5 px-6 py-4 bg-stone-900 border border-stone-800 hover:bg-[#cca150] text-[#E5CCAB] hover:text-stone-950 transition-all duration-300 text-[10px] uppercase tracking-widest font-black shadow-md rounded-xl group/btn">
+                        Discover Our Full Story & Map
+                        <svg className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"></path>
+                        </svg>
+                      </Link>
                    </div>
                 </div>
              </div>
