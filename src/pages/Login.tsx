@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
@@ -13,6 +13,13 @@ export default function Login() {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (sessionStorage.getItem('pd_session_expired')) {
+      setError('Your session has expired. Please sign in again.');
+      sessionStorage.removeItem('pd_session_expired');
+    }
+  }, []);
 
   const handleQuickLogin = (demoEmail: string, demoPass: string) => {
     setEmail(demoEmail);
@@ -162,7 +169,7 @@ export default function Login() {
                 <input type="checkbox" id="remember" className="rounded text-amber-500 focus:ring-amber-500 border-stone-300" />
                 <label htmlFor="remember" className="text-xs text-stone-500 select-none">Remember this ledger</label>
               </div>
-              <Link to="/profile" className="text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors">Forgot Access Code?</Link>
+              <span className="text-xs text-stone-400">Change password via your profile after signing in.</span>
             </div>
 
             <button 

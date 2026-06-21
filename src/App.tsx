@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { useAuth } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
@@ -23,6 +25,21 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import ProductDetail from './pages/ProductDetail';
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'administrator') return <Navigate to="/profile" replace />;
+  return <>{children}</>;
+}
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -57,9 +74,11 @@ function AnimatedRoutes() {
             </motion.div>
           } />
           <Route path="inquiry" element={
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
-              <Inquiry />
-            </motion.div>
+            <ProtectedRoute>
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+                <Inquiry />
+              </motion.div>
+            </ProtectedRoute>
           } />
           <Route path="login" element={
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
@@ -72,14 +91,18 @@ function AnimatedRoutes() {
             </motion.div>
           } />
           <Route path="profile" element={
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
-              <Profile />
-            </motion.div>
+            <ProtectedRoute>
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+                <Profile />
+              </motion.div>
+            </ProtectedRoute>
           } />
           <Route path="admin" element={
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
-              <Admin />
-            </motion.div>
+            <AdminRoute>
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+                <Admin />
+              </motion.div>
+            </AdminRoute>
           } />
           <Route path="product/:id" element={
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">

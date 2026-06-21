@@ -13,7 +13,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { usePricing } from '../context/PricingContext';
 import { useAuth } from '../context/AuthContext';
-import { MOCK_PRODUCTS } from './Collections';
+import { MOCK_PRODUCTS } from '../data/products';
 import { METALS, STONES, FONTS } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { PendantModel } from '../components/PendantModel';

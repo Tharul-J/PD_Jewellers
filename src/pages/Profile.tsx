@@ -20,60 +20,13 @@ export default function Profile() {
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
   const navigate = useNavigate();
   
-  const [profileData, setProfileData] = useState<any>(() => {
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      try {
-        const parsedUser = JSON.parse(userInfo);
-        const stored = localStorage.getItem(`profile_${parsedUser._id}`);
-        if (stored) {
-          const parsedStored = JSON.parse(stored);
-          if (parsedStored.email === 'john@example.com' || parsedStored.phone === 'Not provided' || !parsedStored.phone || !parsedStored.createdAt) {
-            localStorage.removeItem(`profile_${parsedUser._id}`);
-            return null;
-          }
-          return parsedStored;
-        }
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
+  const [profileData, setProfileData] = useState<any>(null);
 
-  const [loading, setLoading] = useState(() => {
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      try {
-        const parsedUser = JSON.parse(userInfo);
-        const stored = localStorage.getItem(`profile_${parsedUser._id}`);
-        if (stored) {
-          const parsedStored = JSON.parse(stored);
-          if (parsedStored.email === 'john@example.com' || parsedStored.phone === 'Not provided' || !parsedStored.phone || !parsedStored.createdAt) {
-            return true;
-          }
-          return false; // Already have cached data, bypass initial full screen spinner
-        }
-      } catch (e) {}
-    }
-    return true;
-  });
+  const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs'>('account');
   
-  const [orders, setOrders] = useState<any[]>(() => {
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      try {
-        const parsedUser = JSON.parse(userInfo);
-        const stored = localStorage.getItem(`orders_${parsedUser._id}`);
-        return stored ? JSON.parse(stored) : [];
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [orders, setOrders] = useState<any[]>([]);
 
   const [ordersLoading, setOrdersLoading] = useState(false);
 
@@ -145,7 +98,6 @@ export default function Profile() {
       const data = await response.json();
       if (response.ok) {
         setProfileData(data);
-        localStorage.setItem(`profile_${user._id}`, JSON.stringify(data));
         syncAuthContext({
           _id: data._id,
           name: data.name,
@@ -220,7 +172,6 @@ export default function Profile() {
         const data = await response.json();
         if (response.ok) {
           setProfileData(data);
-          localStorage.setItem(`profile_${user._id}`, JSON.stringify(data));
         }
       } catch (error) {
         console.error("Error fetching profile", error);
@@ -243,7 +194,6 @@ export default function Profile() {
           if (res.ok) {
             const data = await res.json();
             setOrders(data);
-            localStorage.setItem(`orders_${user._id}`, JSON.stringify(data));
           }
         } catch (error) {
           console.error("Error fetching orders", error);

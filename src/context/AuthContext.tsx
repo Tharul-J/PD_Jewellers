@@ -23,7 +23,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for user in localStorage on mount
     const storedUser = localStorage.getItem('userInfo');
     if (storedUser) {
       try {
@@ -33,6 +32,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setIsLoading(false);
+  }, []);
+
+  // Intercept any 401 response while a user session is active and expire it.
+  useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const response = await originalFetch(...args);
+      if (response.status === 401 && localStorage.getItem('userInfo')) {
+        localStorage.removeItem('userInfo');
+        setUser(null);
+        sessionStorage.setItem('pd_session_expired', '1');
+      }
+      return response;
+    };
+    return () => { window.fetch = originalFetch; };
   }, []);
 
   const login = (userData: User) => {

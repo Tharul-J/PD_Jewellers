@@ -1,3 +1,6 @@
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import express from "express";
 import path from "path";
 import cors from "cors";
@@ -10,6 +13,7 @@ import orderRoutes from "./server/routes/orderRoutes.js";
 import modelRoutes from "./server/routes/modelRoutes.js";
 import uploadRoutes from "./server/routes/uploadRoutes.js";
 import pricingRoutes from "./server/routes/pricingRoutes.js";
+import productRoutes from "./server/routes/productRoutes.js";
 
 dotenv.config();
 
@@ -55,6 +59,7 @@ async function startServer() {
   app.use("/api/models", modelRoutes);
   app.use("/api/upload", uploadRoutes);
   app.use("/api/pricing", pricingRoutes);
+  app.use("/api/products", productRoutes);
 
   // Make uploads folder static
   const uploadsDir = path.join(process.cwd(), 'uploads');

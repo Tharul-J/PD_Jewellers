@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IPricing } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign, Sparkles, TrendingUp, ArrowUpRight, CreditCard, Sliders, RefreshCw } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, Sparkles, TrendingUp, ArrowUpRight, CreditCard, Sliders, RefreshCw, LayoutList, Pencil, Trash2 } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { pricing, updatePricing } = usePricing();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'products' | 'orders' | 'pricing'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'products' | 'catalog' | 'orders' | 'pricing'>('dashboard');
   const [usersList, setUsersList] = useState<any[]>([]);
   const [ordersList, setOrdersList] = useState<any[]>([]);
   const [modelsList, setModelsList] = useState<any[]>([]);
@@ -19,7 +19,17 @@ export default function Admin() {
   const [savingPricing, setSavingPricing] = useState(false);
   const [newModel, setNewModel] = useState({ name: '', category: 'ring', basePrice: 1000 });
   const [file, setFile] = useState<File | null>(null);
-  
+
+  // Catalog CRUD state
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [productForm, setProductForm] = useState({ name: '', category: 'Rings', description: '', price: '', image: '' });
+  const [productFile, setProductFile] = useState<File | null>(null);
+  const [savingProduct, setSavingProduct] = useState(false);
+
   const chartData = [
     { month: 'Jan', revenue: 420000, orders: 12, designs: 15, activeRate: '98.4%', label: 'January' },
     { month: 'Feb', revenue: 650000, orders: 18, designs: 28, activeRate: '99.1%', label: 'February' },
@@ -133,6 +143,102 @@ export default function Admin() {
     }
   };
 
+  const fetchCatalog = async () => {
+    setCatalogLoading(true);
+    try {
+      const res = await fetch('/api/products', { headers: { Authorization: `Bearer ${user?.token}` } });
+      if (res.ok) setProductsList(await res.json());
+    } catch (e) {
+      console.error('Failed to fetch catalog');
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'catalog' && user?.role === 'administrator') {
+      fetchCatalog();
+    }
+  }, [activeTab]);
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSavingProduct(true);
+    try {
+      let imageUrl = productForm.image;
+      if (productFile) {
+        const fd = new FormData();
+        fd.append('file', productFile);
+        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+        if (!upRes.ok) throw new Error('Image upload failed');
+        const upData = await upRes.json();
+        imageUrl = upData.url;
+      }
+      const body = { ...productForm, price: Number(productForm.price), image: imageUrl };
+      const url = editingProduct ? `/api/products/${editingProduct._id}` : '/api/products';
+      const method = editingProduct ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        let message = `Server error (${res.status})`;
+        try { const err = await res.json(); message = err.message || message; } catch {}
+        throw new Error(message);
+      }
+      await fetchCatalog();
+      setShowProductForm(false);
+      setEditingProduct(null);
+      setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '' });
+      setProductFile(null);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSavingProduct(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (res.ok) {
+        setProductsList(prev => prev.filter(p => p._id !== id));
+        setDeleteConfirmId(null);
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Delete failed');
+      }
+    } catch (e) {
+      alert('Delete failed');
+    }
+  };
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setProductForm({
+      name: product.name,
+      category: product.category,
+      description: product.description || '',
+      price: String(product.price),
+      image: product.image || '',
+    });
+    setProductFile(null);
+    setShowProductForm(true);
+    setDeleteConfirmId(null);
+  };
+
+  const handleCancelProductForm = () => {
+    setEditingProduct(null);
+    setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '' });
+    setProductFile(null);
+    setShowProductForm(false);
+  };
+
   if (!user || user.role !== 'administrator') {
     return null;
   }
@@ -146,7 +252,8 @@ export default function Admin() {
           {[
             { id: 'dashboard', label: 'Dashboard', icon: Activity },
             { id: 'users', label: 'Users', icon: Users },
-            { id: 'products', label: 'Products', icon: Package },
+            { id: 'catalog', label: 'Catalog', icon: LayoutList },
+            { id: 'products', label: '3D Models', icon: Package },
             { id: 'orders', label: 'Inquiries', icon: ShoppingCart },
             { id: 'pricing', label: 'Pricing', icon: DollarSign }
           ].map((item) => (
@@ -175,8 +282,10 @@ export default function Admin() {
         >
           <div className="mb-10 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-serif text-[var(--color-ink)] tracking-tight capitalize">{activeTab === 'orders' ? 'Inquiries' : activeTab}</h1>
-              <p className="text-sm text-gray-500 mt-2">Manage your platform's {activeTab === 'orders' ? 'Inquiries' : activeTab}.</p>
+              <h1 className="text-3xl font-serif text-[var(--color-ink)] tracking-tight capitalize">
+                {activeTab === 'orders' ? 'Inquiries' : activeTab === 'products' ? '3D Models' : activeTab === 'catalog' ? 'Catalog Products' : activeTab}
+              </h1>
+              <p className="text-sm text-gray-500 mt-2">Manage your platform's {activeTab === 'orders' ? 'inquiries' : activeTab === 'products' ? '3D models' : activeTab === 'catalog' ? 'product catalog' : activeTab}.</p>
             </div>
             
             {/* Mobile Tab Select */}
@@ -188,7 +297,8 @@ export default function Admin() {
                >
                  <option value="dashboard">Dashboard</option>
                  <option value="users">Users</option>
-                 <option value="products">Products</option>
+                 <option value="catalog">Catalog</option>
+                 <option value="products">3D Models</option>
                  <option value="orders">Inquiries</option>
                  <option value="pricing">Pricing</option>
                </select>
@@ -741,6 +851,187 @@ export default function Admin() {
                       No models found.
                     </div>
                   )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'catalog' && (
+            <div className="space-y-6">
+              {/* Add / Edit Form */}
+              {showProductForm && (
+                <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-8">
+                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                    <h2 className="text-lg font-serif text-[var(--color-ink)]">{editingProduct ? 'Edit Product' : 'New Product'}</h2>
+                    <button onClick={handleCancelProductForm} className="text-xs text-gray-400 hover:text-gray-700 uppercase tracking-wider font-semibold">Cancel</button>
+                  </div>
+                  <form onSubmit={handleSaveProduct}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Product Name *</label>
+                        <input
+                          type="text" required
+                          value={productForm.name}
+                          onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                          placeholder="e.g. 22K Classic Gold Ring"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Category *</label>
+                        <select
+                          value={productForm.category}
+                          onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400"
+                        >
+                          {['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants'].map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Price (Rs.) *</label>
+                        <input
+                          type="number" required min="0"
+                          value={productForm.price}
+                          onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                          placeholder="e.g. 155000"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Product Image</label>
+                        <input
+                          type="file" accept=".jpg,.jpeg,.png,.webp"
+                          onChange={(e) => {
+                            setProductFile(e.target.files ? e.target.files[0] : null);
+                            if (e.target.files?.[0]) setProductForm(f => ({ ...f, image: '' }));
+                          }}
+                          className="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[var(--color-ink)] file:text-white cursor-pointer"
+                        />
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex-1 h-px bg-gray-100" />
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">or paste URL</span>
+                          <div className="flex-1 h-px bg-gray-100" />
+                        </div>
+                        <input
+                          type="url"
+                          value={productForm.image}
+                          onChange={(e) => {
+                            setProductForm({ ...productForm, image: e.target.value });
+                            if (e.target.value) setProductFile(null);
+                          }}
+                          className="w-full mt-2 p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                          placeholder="https://example.com/image.jpg"
+                        />
+                        {productForm.image && !productFile && (
+                          <img src={productForm.image} alt="preview" className="mt-2 h-16 w-16 object-cover rounded border border-gray-100" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Description</label>
+                        <textarea
+                          rows={3}
+                          value={productForm.description}
+                          onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400 resize-none"
+                          placeholder="Brief product description..."
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2 border-t border-gray-50">
+                      <button type="button" onClick={handleCancelProductForm} className="px-5 py-2.5 border border-gray-200 text-xs uppercase tracking-wider font-semibold text-gray-600 rounded hover:bg-gray-50 transition-colors">
+                        Cancel
+                      </button>
+                      <button
+                        type="submit" disabled={savingProduct}
+                        className="px-6 py-2.5 bg-[var(--color-ink)] text-white text-xs uppercase tracking-widest font-bold rounded hover:bg-black transition-colors disabled:opacity-50"
+                      >
+                        {savingProduct ? 'Saving…' : editingProduct ? 'Update Product' : 'Add Product'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Product Table */}
+              <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                  <h2 className="text-base font-serif text-[var(--color-ink)]">
+                    All Products <span className="text-sm text-gray-400 font-sans font-normal ml-1">({productsList.length})</span>
+                  </h2>
+                  {!showProductForm && (
+                    <button
+                      onClick={() => { handleCancelProductForm(); setShowProductForm(true); }}
+                      className="px-4 py-2 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest font-bold rounded hover:bg-black transition-colors"
+                    >
+                      + Add Product
+                    </button>
+                  )}
+                </div>
+                {catalogLoading ? (
+                  <div className="py-20 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                          <th className="py-3 px-4 font-semibold border-b border-gray-100 w-16">Image</th>
+                          <th className="py-3 px-4 font-semibold border-b border-gray-100">Name</th>
+                          <th className="py-3 px-4 font-semibold border-b border-gray-100">Category</th>
+                          <th className="py-3 px-4 font-semibold border-b border-gray-100">SKU</th>
+                          <th className="py-3 px-4 font-semibold border-b border-gray-100">Price</th>
+                          <th className="py-3 px-4 font-semibold border-b border-gray-100 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm divide-y divide-gray-100">
+                        {productsList.map((product) => (
+                          <tr key={product._id} className={`transition-colors ${deleteConfirmId === product._id ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                            <td className="py-3 px-4">
+                              {product.image ? (
+                                <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded border border-gray-100" />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-100 rounded border border-gray-100 flex items-center justify-center text-[10px] text-gray-300">N/A</div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 font-medium text-[var(--color-ink)] max-w-[180px] truncate">{product.name}</td>
+                            <td className="py-3 px-4 text-gray-500 text-xs">{product.category}</td>
+                            <td className="py-3 px-4 font-mono text-[10px] text-gray-400">{product.id}</td>
+                            <td className="py-3 px-4 font-semibold text-gray-700">Rs. {Number(product.price).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-right">
+                              {deleteConfirmId === product._id ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="text-xs text-red-600 font-medium mr-1">Delete?</span>
+                                  <button onClick={() => handleDeleteProduct(product._id)} className="px-3 py-1 text-xs bg-red-600 text-white rounded font-semibold hover:bg-red-700 transition-colors">Yes</button>
+                                  <button onClick={() => setDeleteConfirmId(null)} className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded font-semibold hover:bg-gray-200 transition-colors">No</button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleEditProduct(product)}
+                                    className="p-1.5 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 hover:text-[var(--color-ink)] transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeleteConfirmId(product._id); setShowProductForm(false); setEditingProduct(null); }}
+                                    className="p-1.5 border border-red-100 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {productsList.length === 0 && !catalogLoading && (
+                      <div className="text-center py-12 text-gray-500 text-sm">No products found.</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
