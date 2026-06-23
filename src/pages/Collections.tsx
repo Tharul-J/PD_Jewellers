@@ -1,13 +1,23 @@
-import { useState, useMemo, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { ShoppingBag, Heart, Share2, Facebook, Twitter, Link as LinkIcon, X } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ShoppingBag, Heart, Share2, Facebook, Twitter, Link as LinkIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/products';
 export { MOCK_PRODUCTS };
 
-const CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants'];
+const CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal', 'Mens'];
+
+const CATEGORY_BANNERS: Record<string, string> = {
+  'Rings':     '/banners/Rings_Banner.png',
+  'Necklaces': '/banners/Necklaces_Banner.png',
+  'Earrings':  '/banners/Earrings_Banner.png',
+  'Bracelets': '/banners/Bracelets_Banner.png',
+  'Pendants':  '/banners/Pendants_Banner.png',
+  'Bridal':    '/banners/Bridal_Banner.png',
+  'Mens':      '/banners/Mens_Banner.png',
+};
 
 export default function Collections() {
   const location = useLocation();
@@ -31,6 +41,17 @@ export default function Collections() {
 
   const maxProductPrice = Math.max(...allProducts.map(p => p.price));
   const [maxPrice, setMaxPrice] = useState(maxProductPrice);
+
+  const ALL_BANNERS = Object.values(CATEGORY_BANNERS);
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const nextBanner = useCallback(() => setBannerIndex(i => (i + 1) % ALL_BANNERS.length), [ALL_BANNERS.length]);
+  const prevBanner = useCallback(() => setBannerIndex(i => (i - 1 + ALL_BANNERS.length) % ALL_BANNERS.length), [ALL_BANNERS.length]);
+
+  useEffect(() => {
+    if (activeCategory !== 'All') return;
+    const t = setInterval(nextBanner, 4000);
+    return () => clearInterval(t);
+  }, [activeCategory, nextBanner]);
 
   useEffect(() => {
     fetch('/api/products')
@@ -76,9 +97,14 @@ export default function Collections() {
   const { toggleWishlistItem, isInWishlist } = useWishlist();
 
   const filteredProducts = useMemo(() => {
-    let products = activeCategory === 'All'
-      ? [...allProducts]
-      : allProducts.filter(p => p.category === activeCategory);
+    let products =
+      activeCategory === 'All'
+        ? [...allProducts]
+        : activeCategory === 'Bridal'
+        ? allProducts.filter(p => ['Rings', 'Necklaces', 'Earrings'].includes(p.category) && p.hasStones === true)
+        : activeCategory === 'Mens'
+        ? allProducts.filter(p => ['Rings', 'Bracelets'].includes(p.category))
+        : allProducts.filter(p => p.category === activeCategory);
 
     if (urlFilters.price) {
       if (urlFilters.price === 'Under Rs. 150K') products = products.filter(p => p.price < 150000);
@@ -138,6 +164,69 @@ export default function Collections() {
           </button>
         ))}
       </div>
+
+      {/* All — auto-sliding banner carousel */}
+      {activeCategory === 'All' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-10 rounded-xl overflow-hidden shadow-sm relative group"
+        >
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={bannerIndex}
+              src={ALL_BANNERS[bannerIndex]}
+              alt="Collections Banner"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6 }}
+              className="w-full block"
+            />
+          </AnimatePresence>
+
+          <button
+            onClick={prevBanner}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            onClick={nextBanner}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50"
+          >
+            <ChevronRight size={18} />
+          </button>
+
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+            {ALL_BANNERS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setBannerIndex(i)}
+                className={`h-1.5 rounded-full transition-all ${i === bannerIndex ? 'w-6 bg-[var(--color-gold)]' : 'w-1.5 bg-white/60 hover:bg-white'}`}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Category Banner — full image, no cropping */}
+      {activeCategory !== 'All' && CATEGORY_BANNERS[activeCategory] && (
+        <motion.div
+          key={activeCategory}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-10 rounded-xl overflow-hidden shadow-sm"
+        >
+          <img
+            src={CATEGORY_BANNERS[activeCategory]}
+            alt={`${activeCategory} Collection`}
+            className="w-full block"
+          />
+        </motion.div>
+      )}
 
       {/* Advanced Filters Bar */}
       <div className="flex justify-end gap-4 items-center mb-8 pb-4">

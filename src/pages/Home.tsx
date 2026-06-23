@@ -7,51 +7,68 @@ import { ImageSlider } from '../components/ImageSlider';
 
 const FEATURED_PRODUCTS: Product[] = [
   {
-    id: '1',
-    name: 'Royal Sapphire Necklace',
-    price: 'Starts from Rs. 4,200,000',
-    image: 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80',
-    category: 'Necklace'
+    id: 'NE007',
+    name: 'Swarovski Zirconia Choker Necklace',
+    price: 'Starts from Rs. 540,000',
+    image: 'https://www.swarnamahal.lk/cdn/shop/products/NE0000974A.jpg?v=1593000004',
+    category: 'Necklaces'
   },
   {
-    id: '2',
-    name: 'Diamond Solitaire Ring',
-    price: 'Starts from Rs. 6,500,000',
-    image: 'https://images.unsplash.com/photo-1605100804763-247f661c9e94?auto=format&fit=crop&q=80',
+    id: 'RI004',
+    name: '18K Yellow Gold Star Ring with Stone',
+    price: 'Starts from Rs. 132,000',
+    image: 'https://www.swarnamahal.lk/cdn/shop/products/RI0002319-C.jpg?v=1678276684',
     category: 'Rings'
   },
   {
-    id: '3',
-    name: 'Gold Heritage Bangle',
-    price: 'Starts from Rs. 2,800,000',
-    image: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80',
+    id: 'BR009',
+    name: '18K White Gold Diamond Bracelet',
+    price: 'Starts from Rs. 850,000',
+    image: 'https://www.swarnamahal.lk/cdn/shop/products/07DR19-18K195C.jpg?v=1593069723',
     category: 'Bracelets'
   },
   {
-    id: '4',
-    name: 'Emerald Drop Earrings',
-    price: 'Starts from Rs. 3,400,000',
-    image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80',
+    id: 'ES009',
+    name: 'Cubic Zirconia Drop Earrings',
+    price: 'Starts from Rs. 71,000',
+    image: 'https://www.swarnamahal.lk/cdn/shop/products/ES0000155-B.jpg?v=1678266378',
     category: 'Earrings'
   },
   {
-    id: '5',
-    name: 'Platinum Wedding Band',
-    price: 'Starts from Rs. 1,800,000',
-    image: 'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&q=80',
+    id: 'RI015',
+    name: '22K Blossom Stone Studded Ladies Ring',
+    price: 'Starts from Rs. 98,000',
+    image: 'https://www.swarnamahal.lk/cdn/shop/products/RI0002032A.jpg?v=1644819654',
     category: 'Rings'
   },
   {
-    id: '6',
-    name: 'Ruby Pendant Necklace',
-    price: 'Starts from Rs. 3,100,000',
-    image: 'https://images.unsplash.com/photo-1599643477874-c689ff887d19?auto=format&fit=crop&q=80',
-    category: 'Necklace'
+    id: 'NE001',
+    name: 'Swarovski Zirconia Premium Necklace',
+    price: 'Starts from Rs. 520,000',
+    image: 'https://www.swarnamahal.lk/cdn/shop/products/NE0001014B.jpg?v=1593000311',
+    category: 'Necklaces'
   }
+];
+
+const COLLECTION_BANNERS = [
+  '/banners/Rings_Banner.png',
+  '/banners/Necklaces_Banner.png',
+  '/banners/Earrings_Banner.png',
+  '/banners/Bracelets_Banner.png',
+  '/banners/Pendants_Banner.png',
+  '/banners/Bridal_Banner.png',
+  '/banners/Mens_Banner.png',
 ];
 
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [collBanner, setCollBanner] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setCollBanner(i => (i + 1) % COLLECTION_BANNERS.length), 4000);
+    return () => clearInterval(t);
+  }, []);
+
   const sliderImages = [
     "https://images.unsplash.com/photo-1596944924616-7b38e7cfac36?auto=format&fit=crop&q=80&w=2000",
     "https://images.unsplash.com/photo-1577741314755-048d8525d31e?auto=format&fit=crop&q=80&w=2000",
@@ -199,56 +216,89 @@ export default function Home() {
 
       {/* Collection Section */}
       <section className="py-24 px-6 max-w-7xl mx-auto">
-         <div className="flex justify-between items-end mb-16">
-            <h2 className="text-3xl md:text-5xl font-serif leading-tight">
-               DISCOVER THE ELEGANCE<br/>IN OUR COLLECTION
-            </h2>
-            <div className="hidden md:flex items-center gap-4 text-[10px] tracking-[0.2em] uppercase font-medium hover:text-[var(--color-gold)] transition-colors cursor-pointer">
-              <span className="w-8 h-[1px] bg-[var(--color-gold)]"></span>
-              Explore Now
-            </div>
+
+         {/* Collection Banner Slider (replaces old text header) */}
+         <div className="relative rounded-2xl overflow-hidden mb-16 group shadow-md">
+           <AnimatePresence mode="wait">
+             <motion.img
+               key={collBanner}
+               src={COLLECTION_BANNERS[collBanner]}
+               alt="Collection Banner"
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               transition={{ duration: 0.7 }}
+               className="w-full block"
+             />
+           </AnimatePresence>
+
+           {/* Overlay with Explore button */}
+           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-8 md:p-12">
+             <Link
+               to="/collections"
+               className="inline-flex items-center gap-3 px-7 py-3.5 bg-[var(--color-gold)] hover:bg-[var(--color-gold-dark)] text-[var(--color-ink)] font-black text-[10px] uppercase tracking-widest transition-all duration-300 rounded-lg shadow-lg hover:shadow-xl hover:scale-105"
+             >
+               Explore Collections
+               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+             </Link>
+           </div>
+
+           {/* Prev / Next */}
+           <button onClick={() => setCollBanner(i => (i - 1 + COLLECTION_BANNERS.length) % COLLECTION_BANNERS.length)} className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50">
+             <ChevronLeft size={18} />
+           </button>
+           <button onClick={() => setCollBanner(i => (i + 1) % COLLECTION_BANNERS.length)} className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50">
+             <ChevronRight size={18} />
+           </button>
+
+           {/* Dots */}
+           <div className="absolute bottom-4 right-8 flex gap-1.5">
+             {COLLECTION_BANNERS.map((_, i) => (
+               <button key={i} onClick={() => setCollBanner(i)} className={`h-1.5 rounded-full transition-all ${i === collBanner ? 'w-5 bg-[var(--color-gold)]' : 'w-1.5 bg-white/50 hover:bg-white'}`} />
+             ))}
+           </div>
          </div>
-         
+
          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-            
-            {/* Card 1 */}
-            <div className="flex flex-col group cursor-pointer">
+
+            {/* Card 1 — Rings */}
+            <Link to="/collections?category=rings" className="flex flex-col group cursor-pointer">
                <div className="w-full h-[400px] overflow-hidden rounded-t-[200px] border border-[var(--color-gold)]/10 mb-6 bg-white p-2">
-                 <img src="https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&q=80" alt="Timeless Rings" className="w-full h-full object-cover rounded-t-[200px] transition-transform duration-700 group-hover:scale-105" />
+                 <img src="https://www.swarnamahal.lk/cdn/shop/products/RI0002319-C.jpg?v=1678276684" alt="Timeless Rings" className="w-full h-full object-cover rounded-t-[200px] transition-transform duration-700 group-hover:scale-105" />
                </div>
-               <h3 className="text-xl font-serif mb-4">TIMELESS RINGS FOR EVERY MOMENT</h3>
+               <h3 className="text-xl font-serif mb-4 group-hover:text-[var(--color-gold-dark)] transition-colors">TIMELESS RINGS FOR EVERY MOMENT</h3>
                <p className="text-xs opacity-70 mb-6 leading-relaxed">Discover timeless rings designed for every moment, combining elegance, quality, and lasting beauty.</p>
                <div className="flex items-center gap-4 text-[9px] tracking-[0.2em] uppercase font-medium text-[var(--color-gold-dark)]">
                  <span className="w-8 h-[1px] bg-[var(--color-gold-dark)]"></span>
                  Explore Now
                </div>
-            </div>
+            </Link>
 
-            {/* Card 2 */}
-            <div className="flex flex-col group cursor-pointer md:mt-16">
+            {/* Card 2 — Necklaces */}
+            <Link to="/collections?category=necklaces" className="flex flex-col group cursor-pointer md:mt-16">
                <div className="w-full h-[350px] overflow-hidden rounded-t-[200px] border border-[var(--color-gold)]/10 mb-6 bg-white p-2">
-                 <img src="https://images.unsplash.com/photo-1599643477874-c689ff887d19?auto=format&fit=crop&q=80" alt="Necklaces" className="w-full h-full object-cover rounded-t-[200px] transition-transform duration-700 group-hover:scale-105" />
+                 <img src="https://www.swarnamahal.lk/cdn/shop/products/NE0000974A.jpg?v=1593000004" alt="Necklaces" className="w-full h-full object-cover rounded-t-[200px] transition-transform duration-700 group-hover:scale-105" />
                </div>
-               <h3 className="text-xl font-serif mb-4">NECKLACES THAT RADIATE ELEGANCE</h3>
+               <h3 className="text-xl font-serif mb-4 group-hover:text-[var(--color-gold-dark)] transition-colors">NECKLACES THAT RADIATE ELEGANCE</h3>
                <p className="text-xs opacity-70 mb-6 leading-relaxed">Necklaces designed to radiate elegance, adding sophistication and timeless charm to every outfit.</p>
                <div className="flex items-center gap-4 text-[9px] tracking-[0.2em] uppercase font-medium text-[var(--color-gold-dark)]">
                  <span className="w-8 h-[1px] bg-[var(--color-gold-dark)]"></span>
                  Explore Now
                </div>
-            </div>
+            </Link>
 
-            {/* Card 3 */}
-            <div className="flex flex-col group cursor-pointer md:mt-32">
+            {/* Card 3 — Bracelets */}
+            <Link to="/collections?category=bracelets" className="flex flex-col group cursor-pointer md:mt-32">
                <div className="w-full h-[450px] overflow-hidden rounded-t-[200px] border border-[var(--color-gold)]/10 mb-6 bg-white p-2">
-                 <img src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80" alt="Pendants" className="w-full h-full object-cover rounded-t-[200px] transition-transform duration-700 group-hover:scale-105" />
+                 <img src="https://www.swarnamahal.lk/cdn/shop/products/07DR19-18K195C.jpg?v=1593069723" alt="Bracelets" className="w-full h-full object-cover rounded-t-[200px] transition-transform duration-700 group-hover:scale-105" />
                </div>
-               <h3 className="text-xl font-serif mb-4">GRACEFUL ELEGANCE IN EVERY PENDANT</h3>
-               <p className="text-xs opacity-70 mb-6 leading-relaxed">Each pendant embodies graceful elegance, offering timeless beauty and a refined touch to any look.</p>
+               <h3 className="text-xl font-serif mb-4 group-hover:text-[var(--color-gold-dark)] transition-colors">GRACEFUL ELEGANCE IN EVERY BRACELET</h3>
+               <p className="text-xs opacity-70 mb-6 leading-relaxed">Each bracelet embodies graceful elegance, offering timeless beauty and a refined touch to any look.</p>
                <div className="flex items-center gap-4 text-[9px] tracking-[0.2em] uppercase font-medium text-[var(--color-gold-dark)]">
                  <span className="w-8 h-[1px] bg-[var(--color-gold-dark)]"></span>
                  Explore Now
                </div>
-            </div>
+            </Link>
 
          </div>
       </section>
