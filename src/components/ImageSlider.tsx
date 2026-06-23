@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const IMAGES = [
-  "https://images.unsplash.com/photo-1573408301145-b98c46544ea0?auto=format&fit=crop&q=80", // Jewelry exterior/interior
-  "https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80", // Close up
-  "https://images.unsplash.com/photo-1588444837495-c6cfeb53f32d?auto=format&fit=crop&q=80", // Rings/Legacy
-  "https://images.unsplash.com/photo-1605100804763-247f661c9e94?auto=format&fit=crop&q=80", // Diamonds
+  "https://i.pinimg.com/736x/21/4e/51/214e51fb17c1097fbca6cd89ae5030d2.jpg",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTE8cO1imuaDgCe4AT3nM6HGa9ekI0srUJY4Nl0w3KvfQ&s=10",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwygJ-n733e9mqzXB18l9WqbUyVazaYgPBSIsPhtqv0A&s=10",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSI5JXA3vIrGwdHC8yP6VuZMRa8bdZPiGI7htLDkyGqDw&s=10",
 ];
 
 export function ImageSlider() {
