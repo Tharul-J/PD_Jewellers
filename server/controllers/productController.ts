@@ -5,6 +5,7 @@ import { MOCK_PRODUCTS } from '../../src/data/products.js';
 
 const CATEGORY_PREFIX: Record<string, string> = {
   Rings: 'RI', Necklaces: 'NE', Earrings: 'ES', Bracelets: 'BR', Pendants: 'PE',
+  Bridal: 'BRL', Mens: 'MNS',
 };
 
 // @desc    Get all products

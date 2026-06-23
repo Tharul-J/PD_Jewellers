@@ -14,6 +14,8 @@ import modelRoutes from "./server/routes/modelRoutes.js";
 import uploadRoutes from "./server/routes/uploadRoutes.js";
 import pricingRoutes from "./server/routes/pricingRoutes.js";
 import productRoutes from "./server/routes/productRoutes.js";
+import blogRoutes from "./server/routes/blogRoutes.js";
+import { seedBlogPosts } from "./server/controllers/blogController.js";
 
 dotenv.config();
 
@@ -30,8 +32,9 @@ async function startServer() {
     mongoose.connection.on('error', (err) => {
       console.log("Mongoose connection error:", err.message || "Offline");
     });
-    mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 }).then(() => {
+    mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 }).then(async () => {
       console.log("Connected to MongoDB established successfully.");
+      await seedBlogPosts();
     }).catch(async () => {
       console.log("MongoDB connection was bypassed (unreachable host). Running in mock/offline mode.");
       try { await mongoose.disconnect(); } catch (e) {}
@@ -50,6 +53,7 @@ async function startServer() {
   app.use("/api/upload", uploadRoutes);
   app.use("/api/pricing", pricingRoutes);
   app.use("/api/products", productRoutes);
+  app.use("/api/blog", blogRoutes);
 
   // Static uploads folder
   const uploadsDir = path.join(process.cwd(), 'uploads');

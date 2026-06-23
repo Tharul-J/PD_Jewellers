@@ -25,6 +25,7 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import ProductDetail from './pages/ProductDetail';
+import Blog from './pages/Blog';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -103,6 +104,11 @@ function AnimatedRoutes() {
                 <Admin />
               </motion.div>
             </AdminRoute>
+          } />
+          <Route path="blog" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <Blog />
+            </motion.div>
           } />
           <Route path="product/:id" element={
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">

@@ -25,7 +25,7 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, setIsCartOpen } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { pricing } = usePricing();
   const { user } = useAuth();
@@ -188,7 +188,7 @@ export default function ProductDetail() {
   };
 
   const handleAddToBag = () => {
-    const itemToAddId = isCustomProduct 
+    const itemToAddId = isCustomProduct
       ? `custom-${queryType}-${queryStyle}-${selectedMetal}-${selectedStone}-${selectedFont}-${engravingText}-${selectedSize}`
       : `${id}-${selectedMetal}-${selectedStone}-${selectedSize}-${wantEngraving ? 'engraved' : 'plain'}`;
 
@@ -205,12 +205,14 @@ export default function ProductDetail() {
       },
       quantity: quantity
     });
+    setIsCartOpen(false);
+    navigate('/inquiry');
   };
 
   const handleToggleWishlist = () => {
-    const itemToAddId = isCustomProduct 
+    const itemToAddId = isCustomProduct
       ? `custom-${queryType}-${queryStyle}-${selectedMetal}-${selectedStone}-${selectedFont}-${engravingText}-${selectedSize}`
-      : `${id}-${selectedMetal}-${selectedStone}-${selectedSize}-${wantEngraving ? 'engraved' : 'plain'}`;
+      : (id || '');
 
     toggleWishlistItem({
       productId: itemToAddId,

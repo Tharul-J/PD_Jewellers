@@ -71,7 +71,7 @@ export function Navbar() {
             <Link to="/collections" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">Collection</Link>
             <Link to="/configurator" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">Make Your Own</Link>
             <Link to="/about" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">About Us</Link>
-            <Link to="/materials" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">Blog</Link>
+            <Link to="/blog" className="transition-colors hover:text-[var(--color-gold)] whitespace-nowrap">Blog</Link>
           </div>
 
           {/* Right: User Icons */}

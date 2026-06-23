@@ -63,6 +63,18 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user]);
 
+  // Keep other open tabs in sync when this tab updates localStorage
+  useEffect(() => {
+    if (!user) return;
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === `wishlist_${user._id}` && e.newValue !== null) {
+        try { setWishlist(JSON.parse(e.newValue)); } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [user]);
+
   const toggleWishlistItem = async (item: WishlistItem) => {
     if (!user) return; // Ignore if not logged in
     

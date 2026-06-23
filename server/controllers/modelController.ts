@@ -60,6 +60,35 @@ export const createModel = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// @desc    Update a configurable model's details
+// @route   PUT /api/models/:id
+// @access  Private/Admin
+export const updateModel = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, category, basePrice, glbUrl } = req.body;
+    if (mongoose.connection.readyState !== 1) {
+      const idx = mockModelsSeed.findIndex(m => m._id === req.params.id);
+      if (idx === -1) { res.status(404).json({ message: 'Model not found' }); return; }
+      if (name !== undefined) mockModelsSeed[idx].name = name;
+      if (category !== undefined) mockModelsSeed[idx].category = category;
+      if (basePrice !== undefined) mockModelsSeed[idx].basePrice = basePrice;
+      if (glbUrl !== undefined) mockModelsSeed[idx].glbUrl = glbUrl;
+      res.json(mockModelsSeed[idx]);
+      return;
+    }
+    const model = await ConfigurableModel.findById(req.params.id);
+    if (!model) { res.status(404).json({ message: 'Model not found' }); return; }
+    if (name !== undefined) model.name = name;
+    if (category !== undefined) model.category = category as 'ring' | 'pendant';
+    if (basePrice !== undefined) model.basePrice = Number(basePrice);
+    if (glbUrl !== undefined) model.glbUrl = glbUrl;
+    const updated = await model.save();
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
 // @desc    Update a configurable model status
 // @route   PUT /api/models/:id/status
 // @access  Private/Admin

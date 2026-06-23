@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
 import { LogOut, User as UserIcon, Settings, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { METALS, STONES, FONTS } from '../constants';
 
 const PRESET_AVATARS = [
   { name: 'Emerald Monarch', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200' },
@@ -15,9 +17,18 @@ const PRESET_AVATARS = [
   { name: 'Onyx Classic', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200' },
 ];
 
+const STATUS_LABELS: Record<string, string> = {
+  pending:                'Pending Review',
+  availability_confirmed: 'Confirmed',
+  crafting:               'Crafting',
+  completed:              'Collection / Handover',
+  declined:               'Declined',
+};
+
 export default function Profile() {
   const { user, logout } = useAuth();
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
+  const { addToCart, setIsCartOpen } = useCart();
   const navigate = useNavigate();
   
   const [profileData, setProfileData] = useState<any>(null);
@@ -204,6 +215,12 @@ export default function Profile() {
       fetchOrders();
     }
   }, [activeTab, user]);
+
+  const handleAddToInquiry = (item: any) => {
+    addToCart({ id: item.productId, name: item.name, price: Number(item.price), image: item.image });
+    setIsCartOpen(false);
+    navigate('/inquiry');
+  };
 
   const handleLogout = () => {
     logout();
@@ -611,11 +628,17 @@ export default function Profile() {
                             <div className="px-4 text-center flex-1 flex flex-col">
                               <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] mb-1 font-bold">{item.category}</p>
                               <h3 className="font-serif text-sm md:text-md mb-2 text-[var(--color-ink)] flex-1">{item.name}</h3>
-                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-4">${Number(item.price).toLocaleString()}</p>
+                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-4">Rs. {Number(item.price).toLocaleString()}</p>
                               
-                              <Link 
-                                to={item.isCustom ? "/configurator" : `/collections`}
-                                className="w-full text-center border border-[var(--color-ink)] text-[var(--color-ink)] py-2 text-[10px] uppercase tracking-widest hover:bg-[var(--color-ink)] hover:text-white transition-colors mt-auto"
+                              <button
+                                onClick={() => handleAddToInquiry(item)}
+                                className="w-full text-center bg-[var(--color-ink)] text-white py-2 text-[10px] uppercase tracking-widest hover:bg-black transition-colors mb-2"
+                              >
+                                Add to Inquiry
+                              </button>
+                              <Link
+                                to={item.isCustom ? "/configurator" : `/product/${item.productId}`}
+                                className="w-full text-center border border-gray-200 text-gray-500 py-2 text-[10px] uppercase tracking-widest hover:border-[var(--color-ink)] hover:text-[var(--color-ink)] transition-colors mt-auto"
                               >
                                 View Details
                               </Link>
@@ -637,7 +660,10 @@ export default function Profile() {
                     ) : orders.length === 0 ? (
                       <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
                         <ShoppingBag size={32} className="mx-auto mb-4 opacity-20" />
-                        <p className="text-sm">You haven't submitted any inquiries yet.</p>
+                        <p className="text-sm mb-6">You haven't submitted any inquiries yet.</p>
+                        <Link to="/collections" className="inline-block px-6 py-3 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest hover:bg-black transition-colors">
+                          Browse Collections
+                        </Link>
                       </div>
                     ) : (
                       <div className="space-y-6">
@@ -664,7 +690,7 @@ export default function Profile() {
                                   ${order.status === 'completed' ? 'bg-green-100 text-green-700' : ''}
                                   ${order.status === 'declined' ? 'bg-red-100 text-red-700' : ''}
                                 `}>
-                                  {order.status.replace(/_/g, ' ')}
+                                  {STATUS_LABELS[order.status] ?? order.status.replace(/_/g, ' ')}
                                 </span>
                               </div>
                             </div>
@@ -734,7 +760,7 @@ export default function Profile() {
                                     <p className="text-xs text-gray-500 capitalize">{item.category}</p>
                                   </div>
                                   <div>
-                                    <p className="text-sm font-semibold">${item.price}</p>
+                                    <p className="text-sm font-semibold">Rs. {Number(item.price).toLocaleString()}</p>
                                   </div>
                                 </div>
                               ))}
@@ -766,7 +792,7 @@ export default function Profile() {
                               <h3 className="font-serif text-lg text-[var(--color-ink)]">
                                 {config.type === 'ring' ? 'Custom Ring' : 'Custom Pendant'}
                               </h3>
-                              <p className="font-semibold">${config.price}</p>
+                              <p className="font-semibold">Rs. {Number(config.price).toLocaleString()}</p>
                             </div>
                             
                             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-6">
@@ -800,19 +826,36 @@ export default function Profile() {
                               )}
                             </dl>
                             
-                            <button 
+                            <button
                               onClick={() => {
+                                // Resolve stored value to internal key; fall back to name-based lookup
+                                // for any legacy entries that stored display names instead of keys.
+                                const resolveKey = <T extends Record<string, { name: string }>>(
+                                  map: T, value: string | undefined, fallback: keyof T
+                                ): string => {
+                                  if (!value) return fallback as string;
+                                  if (value in map) return value;
+                                  const found = Object.entries(map).find(
+                                    ([, v]) => v.name.toLowerCase() === value.toLowerCase()
+                                  );
+                                  return found ? found[0] : fallback as string;
+                                };
+
+                                const metalKey  = resolveKey(METALS, config.metal, 'silver');
+                                const stoneKey  = resolveKey(STONES, config.stone, 'aquamarine');
+                                const fontKey   = resolveKey(FONTS,  config.fontStyle, 'helvetiker');
+
                                 localStorage.setItem('cfg_modelType', config.type || 'ring');
                                 if (config.ringSize) localStorage.setItem('cfg_ringSize', config.ringSize);
-                                if (config.metal) localStorage.setItem('cfg_metal', config.metal);
-                                if (config.stone) localStorage.setItem('cfg_stone', config.stone);
+                                localStorage.setItem('cfg_metal', metalKey);
+                                localStorage.setItem('cfg_stone', stoneKey);
                                 if (config.engravingText) {
                                   localStorage.setItem('cfg_engraveWant', 'true');
                                   localStorage.setItem('cfg_customText', config.engravingText);
                                 } else {
                                   localStorage.setItem('cfg_engraveWant', 'false');
                                 }
-                                if (config.fontStyle) localStorage.setItem('cfg_fontStyle', config.fontStyle);
+                                localStorage.setItem('cfg_fontStyle', fontKey);
                                 if (config.pendantShape) localStorage.setItem('cfg_pendantShape', config.pendantShape);
                                 navigate('/configurator');
                               }}
