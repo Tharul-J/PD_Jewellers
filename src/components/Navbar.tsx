@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Search, User, Menu, Phone, Sparkles, Heart } from 'lucide-react';
+import { ShoppingBag, Search, User, Menu, Sparkles, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -33,20 +33,6 @@ export function Navbar() {
 
   return (
     <div className={`fixed w-full z-40 top-0 transition-transform duration-500 bg-[var(--color-paper)] shadow-sm ${isHidden ? 'translate-y-[-100%]' : 'translate-y-0'}`}>
-      {/* Top Announcement Bar */}
-      <div className="bg-[var(--color-ink)] text-white text-[10px] sm:text-[11px] py-2 px-6 flex justify-between items-center font-sans tracking-widest uppercase transition-opacity duration-300">
-        <div className="hidden sm:flex items-center gap-4 opacity-80">
-          <span className="flex items-center gap-1"><Phone size={12} /> 033 222 2735 | 070 442 2735</span>
-          <span>PD jewellers, No. 05, Main Street, Gampaha</span>
-        </div>
-        <div className="mx-auto mt-0.5 opacity-90 tracking-[0.2em] sm:mx-0">
-          Sri Lanka
-        </div>
-        <div className="hidden sm:flex items-center gap-4 opacity-80">
-          <span>Book an Appointment</span>
-        </div>
-      </div>
-
       {/* Main Navbar */}
       <nav className="border-b border-black/5">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between">
@@ -60,9 +46,12 @@ export function Navbar() {
 
           {/* Left: Logo */}
           <div className="flex-1 flex justify-center lg:justify-start">
-            <Link to="/" className="flex flex-col items-center lg:items-start justify-center">
-              <span className="text-2xl md:text-3xl font-serif text-gold-gradient tracking-wider whitespace-nowrap">PD JEWELLERS</span>
-              <span className="text-[8px] xl:text-[9px] uppercase tracking-[0.4em] text-[var(--color-gold-dark)] mt-1 opacity-80 whitespace-nowrap">Fine Jewellery</span>
+            <Link to="/" className="flex items-center justify-center lg:justify-start">
+              <img
+                src="/logo.png"
+                alt="P Dedigamuwa Jewellers"
+                className="h-14 md:h-16 w-auto object-contain"
+              />
             </Link>
           </div>
           

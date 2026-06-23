@@ -6,10 +6,15 @@ export function Footer() {
     <footer className="bg-[#1A1816] text-[#E5CCAB] py-24 px-6 mt-0">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-16 md:gap-12">
         <div className="md:col-span-4">
-          <Link to="/" className="text-4xl md:text-5xl font-serif tracking-widest text-[#D4AF37] block w-max">
-            PDJ
+          <Link to="/" className="inline-block mb-6">
+            <div className="bg-white/95 rounded-2xl p-4 inline-block shadow-md shadow-black/20">
+              <img
+                src="/logo.png"
+                alt="P Dedigamuwa Jewellers"
+                className="h-24 w-auto object-contain"
+              />
+            </div>
           </Link>
-          <div className="text-[10px] tracking-[0.3em] font-sans uppercase text-[#E5CCAB]/80 mt-4 mb-2">P Dedigamuwa Jewellers</div>
           <p className="opacity-60 max-w-sm text-xs leading-loose mb-8 font-serif italic text-white/50">
             Over 110 years of unparalleled craftsmanship and timeless elegance.
           </p>

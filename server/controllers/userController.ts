@@ -463,3 +463,48 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ message: 'Server Error', error });
   }
 };
+
+// @desc    Update user role
+// @route   PUT /api/users/:id
+// @access  Private/Admin
+export const updateUserRole = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database required for user management' });
+      return;
+    }
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) { res.status(404).json({ message: 'User not found' }); return; }
+    if (String(user._id) === String(req.user._id)) {
+      res.status(400).json({ message: 'Cannot change your own role' });
+      return;
+    }
+    user.role = req.body.role;
+    const updated = await user.save();
+    res.json({ _id: updated._id, name: updated.name, email: updated.email, role: updated.role, createdAt: updated.createdAt });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Delete a user
+// @route   DELETE /api/users/:id
+// @access  Private/Admin
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database required for user management' });
+      return;
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) { res.status(404).json({ message: 'User not found' }); return; }
+    if (String(user._id) === String(req.user._id)) {
+      res.status(400).json({ message: 'Cannot delete your own account' });
+      return;
+    }
+    await user.deleteOne();
+    res.json({ message: 'User removed' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};

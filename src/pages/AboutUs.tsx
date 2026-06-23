@@ -50,25 +50,34 @@ export default function AboutUs() {
       <section className="py-20 px-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           
-          {/* Main Showcase Image (Provided by User) */}
-          <motion.div 
+          {/* Logo + Shop images */}
+          <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="lg:col-span-7 relative group"
+            className="lg:col-span-7 flex flex-col gap-5"
           >
-            <div className="absolute -inset-2 bg-gradient-to-r from-[#edd19b]/20 to-amber-100/10 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity duration-500 z-0"></div>
-            
-            <div className="relative rounded-2xl overflow-hidden shadow-xl border border-stone-200/80 aspect-[4/3] bg-stone-100">
-              <img 
-                src="https://lh3.googleusercontent.com/gps-cs-s/APNQkAFOXRWyHYwVF0hyXmReTsu_EDKipryhvComE2j49pwpp_ZHSB03y907RPJLRwaKw3y51dMBWSyLX9bRBDYk3i520exJAy5HhrBtikgbVDDaCflLA9St7lzWpNSiBJcXaxwClNVN=s680-w680-h510-rw"
-                alt="P Dedigamuwa Jewellers Boutique Showroom Front"
+            {/* Logo panel */}
+            <div className="relative">
+              <div className="absolute -inset-2 bg-gradient-to-r from-[#edd19b]/20 to-amber-100/10 rounded-2xl blur-lg opacity-70 z-0" />
+              <div className="relative rounded-2xl border border-stone-200/80 shadow-xl bg-white flex items-center justify-center py-10 px-8">
+                <img
+                  src="/logo.png"
+                  alt="P Dedigamuwa Jewellers — Over 110 Years of Excellence"
+                  className="max-h-56 w-auto object-contain"
+                />
+              </div>
+            </div>
+
+            {/* Shop photo */}
+            <div className="relative rounded-2xl overflow-hidden shadow-lg border border-stone-200/80 aspect-video">
+              <img
+                src="/shop.png"
+                alt="P Dedigamuwa Jewellers Showroom, Gampaha"
                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                referrerPolicy="no-referrer"
               />
-              
-              <div className="absolute bottom-5 left-5 bg-stone-900/95 backdrop-blur-md text-[#E5CCAB] px-4 py-2 rounded-lg text-[9px] uppercase tracking-widest font-mono font-bold shadow-md border border-white/5">
+              <div className="absolute bottom-4 left-4 bg-stone-900/95 backdrop-blur-md text-[#E5CCAB] px-4 py-2 rounded-lg text-[9px] uppercase tracking-widest font-mono font-bold shadow-md border border-white/5">
                 Authentic Showroom, Gampaha
               </div>
             </div>

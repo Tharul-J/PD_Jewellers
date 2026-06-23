@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IPricing } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, UserX } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal', 'Mens'];
@@ -64,8 +64,13 @@ export default function Admin() {
   const [modelForm, setModelForm] = useState({ name: '', category: 'ring', basePrice: 1000, glbUrl: '' });
   const [savingModel, setSavingModel] = useState(false);
 
-  // Inquiry expand state
+  // Inquiry expand + delete state
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
+
+  // User CRUD state
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
 
   const [priceForm, setPriceForm] = useState<Partial<IPricing>>({});
 
@@ -119,6 +124,57 @@ export default function Admin() {
     } catch (error) {
       console.error('Error updating order', error);
     }
+  };
+
+  const handleDeleteOrder = async (id: string) => {
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (res.ok) {
+        setOrdersList(prev => prev.filter(o => o._id !== id));
+        setDeleteOrderId(null);
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Delete failed');
+      }
+    } catch { alert('Delete failed'); }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (res.ok) {
+        setUsersList(prev => prev.filter(u => u._id !== id));
+        setDeleteUserId(null);
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Delete failed');
+      }
+    } catch { alert('Delete failed'); }
+  };
+
+  const handleToggleUserRole = async (usr: any) => {
+    const newRole = usr.role === 'administrator' ? 'customer' : 'administrator';
+    setTogglingUserId(usr._id);
+    try {
+      const res = await fetch(`/api/users/${usr._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (res.ok) {
+        setUsersList(prev => prev.map(u => u._id === usr._id ? { ...u, role: newRole } : u));
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Update failed');
+      }
+    } catch { alert('Update failed'); }
+    finally { setTogglingUserId(null); }
   };
 
   const handleUploadModel = async (e: React.FormEvent) => {
@@ -440,36 +496,40 @@ export default function Admin() {
   if (!user || user.role !== 'administrator') return null;
 
   return (
-    <div className="min-h-screen pt-32 pb-24 bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-100 fixed h-full left-0 pt-8 px-4 hidden md:block">
-        <h2 className="text-xl font-serif text-[var(--color-ink)] mb-8 px-4">Admin Panel</h2>
-        <nav className="space-y-2 mb-6">
-          {[
-            { id: 'dashboard', label: 'Dashboard', icon: Activity },
-            { id: 'users', label: 'Users', icon: Users },
-            { id: 'catalog', label: 'Catalog', icon: LayoutList },
-            { id: 'categories', label: 'Categories', icon: Tag },
-            { id: 'products', label: '3D Models', icon: Package },
-            { id: 'orders', label: 'Inquiries', icon: ShoppingCart },
-            { id: 'pricing', label: 'Pricing', icon: DollarSign },
-            { id: 'blog', label: 'Blog', icon: BookOpen },
-          ].map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${
-                activeTab === item.id
-                  ? 'bg-[var(--color-ink)] text-white'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-[var(--color-ink)]'
-              }`}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="border-t border-gray-100 pt-4">
+      <aside className="w-64 bg-white border-r border-gray-100 fixed top-[112px] md:top-[128px] left-0 h-[calc(100vh-112px)] md:h-[calc(100vh-128px)] hidden md:flex flex-col z-10">
+        {/* Scrollable nav area */}
+        <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col">
+          <h2 className="text-xl font-serif text-[var(--color-ink)] mb-6 px-4">Admin Panel</h2>
+          <nav className="space-y-1 flex-1">
+            {[
+              { id: 'dashboard', label: 'Dashboard', icon: Activity },
+              { id: 'users', label: 'Users', icon: Users },
+              { id: 'catalog', label: 'Catalog', icon: LayoutList },
+              { id: 'categories', label: 'Categories', icon: Tag },
+              { id: 'products', label: '3D Models', icon: Package },
+              { id: 'orders', label: 'Inquiries', icon: ShoppingCart },
+              { id: 'pricing', label: 'Pricing', icon: DollarSign },
+              { id: 'blog', label: 'Blog', icon: BookOpen },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === item.id
+                    ? 'bg-[var(--color-ink)] text-white'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-[var(--color-ink)]'
+                }`}
+              >
+                <item.icon size={18} />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+        {/* Pinned sign-out */}
+        <div className="flex-shrink-0 border-t border-gray-100 px-4 py-4">
           <button
             onClick={() => { logout(); navigate('/'); }}
             className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-50 rounded-md transition-colors"
@@ -481,7 +541,7 @@ export default function Admin() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 max-w-7xl mx-auto px-4 md:px-8 w-full">
+      <main className="flex-1 md:ml-64 max-w-7xl mx-auto px-4 md:px-8 w-full pt-8 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -527,58 +587,71 @@ export default function Admin() {
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
             <>
-              {/* Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {/* Stat Cards — gold theme */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
                 {[
-                  { label: 'Total Products', value: productsList.length, icon: LayoutList, iconColor: 'text-amber-600', bg: 'bg-amber-50 border border-amber-100' },
-                  { label: 'Registered Customers', value: customerCount, icon: Users, iconColor: 'text-blue-600', bg: 'bg-blue-50 border border-blue-100' },
-                  { label: 'Total Inquiries', value: ordersList.length, icon: ShoppingCart, iconColor: 'text-orange-600', bg: 'bg-orange-50 border border-orange-100' },
-                  { label: '3D Models', value: modelsList.length, icon: Package, iconColor: 'text-purple-600', bg: 'bg-purple-50 border border-purple-100' },
+                  { label: 'Catalog Products', value: productsList.length, icon: LayoutList, sub: 'In collection', gradient: 'from-amber-500 via-yellow-400 to-amber-300', shadow: 'shadow-amber-200/60' },
+                  { label: 'Customers', value: customerCount, icon: Users, sub: 'Registered', gradient: 'from-stone-800 via-stone-700 to-stone-800', shadow: 'shadow-stone-400/30' },
+                  { label: 'Inquiries', value: ordersList.length, icon: ShoppingCart, sub: 'Total received', gradient: 'from-amber-700 via-amber-600 to-yellow-500', shadow: 'shadow-amber-300/50' },
+                  { label: '3D Models', value: modelsList.length, icon: Package, sub: 'Uploaded', gradient: 'from-yellow-600 via-amber-500 to-yellow-400', shadow: 'shadow-yellow-300/50' },
                 ].map((stat, i) => (
-                  <div key={i} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{stat.label}</span>
-                      <div className={`p-2 rounded-lg ${stat.bg}`}>
-                        <stat.icon className={stat.iconColor} size={18} />
+                  <div key={i} className={`relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${stat.gradient} shadow-lg ${stat.shadow}`}>
+                    {/* Decorative rings */}
+                    <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10" />
+                    <div className="absolute -bottom-8 -right-2 w-20 h-20 rounded-full bg-white/5" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between mb-5">
+                        <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+                          <stat.icon size={20} className="text-white" />
+                        </div>
+                        <span className="text-white/60 text-[9px] font-bold uppercase tracking-widest text-right leading-tight">{stat.sub}</span>
                       </div>
+                      <h3 className="text-4xl font-serif font-bold text-white mb-1">
+                        {loading ? <span className="text-white/50">—</span> : stat.value}
+                      </h3>
+                      <p className="text-white/75 text-[10px] font-semibold uppercase tracking-widest">{stat.label}</p>
                     </div>
-                    <h3 className="text-3xl font-serif font-bold text-[var(--color-ink)]">
-                      {loading ? '—' : stat.value}
-                    </h3>
                   </div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Inquiry Status Breakdown */}
-                <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
-                  <h2 className="text-base font-serif text-[var(--color-ink)] mb-5">Inquiries by Status</h2>
+                <div className="bg-white rounded-2xl border border-amber-100 p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-base font-serif text-[var(--color-ink)]">Inquiries by Status</h2>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">{ordersList.length} total</span>
+                  </div>
                   {loading ? (
                     <div className="py-8 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
                   ) : ordersList.length === 0 ? (
                     <p className="text-sm text-gray-400 text-center py-8">No inquiries yet</p>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3.5">
                       {statusBreakdown.map(({ key, label, count }) => {
                         const pct = ordersList.length > 0 ? Math.round((count / ordersList.length) * 100) : 0;
-                        const barColor: Record<string, string> = {
-                          pending: 'bg-orange-400',
-                          availability_confirmed: 'bg-blue-400',
-                          crafting: 'bg-amber-400',
-                          completed: 'bg-green-500',
-                          declined: 'bg-red-400',
+                        const style: Record<string, { bar: string; badge: string; text: string }> = {
+                          pending: { bar: 'from-orange-400 to-orange-300', badge: 'bg-orange-100 text-orange-700', text: 'text-orange-600' },
+                          availability_confirmed: { bar: 'from-blue-500 to-blue-400', badge: 'bg-blue-100 text-blue-700', text: 'text-blue-600' },
+                          crafting: { bar: 'from-amber-500 to-yellow-400', badge: 'bg-amber-100 text-amber-700', text: 'text-amber-600' },
+                          completed: { bar: 'from-green-500 to-emerald-400', badge: 'bg-green-100 text-green-700', text: 'text-green-600' },
+                          declined: { bar: 'from-red-500 to-rose-400', badge: 'bg-red-100 text-red-700', text: 'text-red-600' },
                         };
+                        const s = style[key] || style.pending;
                         return (
                           <div key={key}>
-                            <div className="flex justify-between text-xs mb-1.5">
-                              <span className="text-gray-600 font-medium">{label}</span>
-                              <span className="text-gray-400 font-mono">{count}</span>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${s.bar} flex-shrink-0`} />
+                                <span className="text-xs text-gray-600 font-medium">{label}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.badge}`}>{count}</span>
+                                <span className="text-[10px] text-gray-400 font-mono w-8 text-right">{pct}%</span>
+                              </div>
                             </div>
-                            <div className="h-2 bg-gray-100 rounded-full">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${barColor[key]}`}
-                                style={{ width: `${pct}%` }}
-                              />
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full bg-gradient-to-r ${s.bar} transition-all duration-700`} style={{ width: `${pct}%` }} />
                             </div>
                           </div>
                         );
@@ -588,25 +661,30 @@ export default function Admin() {
                 </div>
 
                 {/* Products by Category */}
-                <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
-                  <h2 className="text-base font-serif text-[var(--color-ink)] mb-5">Products by Category</h2>
+                <div className="bg-white rounded-2xl border border-amber-100 p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-base font-serif text-[var(--color-ink)]">Products by Category</h2>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">{productsList.length} total</span>
+                  </div>
                   {loading ? (
                     <div className="py-8 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
                   ) : categoryCounts.length === 0 ? (
                     <p className="text-sm text-gray-400 text-center py-8">No products yet</p>
                   ) : (
-                    <div className="space-y-4">
-                      {categoryCounts.map(({ name, count }) => {
+                    <div className="space-y-3.5">
+                      {categoryCounts.map(({ name, count }, idx) => {
                         const maxCount = Math.max(...categoryCounts.map(c => c.count), 1);
                         const pct = Math.round((count / maxCount) * 100);
+                        const bars = ['from-amber-500 to-yellow-400','from-yellow-600 to-amber-400','from-amber-400 to-yellow-300','from-orange-400 to-amber-300'];
+                        const bar = bars[idx % bars.length];
                         return (
                           <div key={name}>
-                            <div className="flex justify-between text-xs mb-1.5">
-                              <span className="text-gray-600 font-medium">{name}</span>
-                              <span className="text-gray-400 font-mono">{count}</span>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs text-gray-600 font-medium">{name}</span>
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">{count}</span>
                             </div>
-                            <div className="h-2 bg-gray-100 rounded-full">
-                              <div className="h-full rounded-full bg-amber-400 transition-all duration-500" style={{ width: `${pct}%` }} />
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full bg-gradient-to-r ${bar} transition-all duration-700`} style={{ width: `${pct}%` }} />
                             </div>
                           </div>
                         );
@@ -694,29 +772,68 @@ export default function Admin() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                        <th className="py-4 px-6 font-semibold border-b border-gray-100">ID</th>
                         <th className="py-4 px-6 font-semibold border-b border-gray-100">Name</th>
                         <th className="py-4 px-6 font-semibold border-b border-gray-100">Email</th>
                         <th className="py-4 px-6 font-semibold border-b border-gray-100">Role</th>
                         <th className="py-4 px-6 font-semibold border-b border-gray-100">Joined</th>
+                        <th className="py-4 px-6 font-semibold border-b border-gray-100 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm divide-y divide-gray-100">
-                      {usersList.map(usr => (
-                        <tr key={usr._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-4 px-6 font-mono text-xs text-gray-400">{usr._id.substring(0, 8)}...</td>
-                          <td className="py-4 px-6 font-medium text-[var(--color-ink)]">{usr.name}</td>
-                          <td className="py-4 px-6 text-gray-600">{usr.email}</td>
-                          <td className="py-4 px-6">
-                            <span className={`px-2 py-1 text-[10px] uppercase tracking-wide rounded-full font-semibold ${
-                              usr.role === 'administrator' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {usr.role}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6 text-gray-500">{new Date(usr.createdAt).toLocaleDateString()}</td>
-                        </tr>
-                      ))}
+                      {usersList.map(usr => {
+                        const isSelf = usr._id === user?._id;
+                        const isAdmin = usr.role === 'administrator';
+                        return (
+                          <tr key={usr._id} className={`transition-colors ${deleteUserId === usr._id ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isAdmin ? 'bg-gradient-to-br from-amber-500 to-yellow-400' : 'bg-gradient-to-br from-blue-500 to-blue-400'}`}>
+                                  {usr.name?.charAt(0).toUpperCase() || '?'}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-[var(--color-ink)]">{usr.name}</p>
+                                  {isSelf && <span className="text-[9px] text-amber-600 font-bold uppercase tracking-wider">You</span>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6 text-gray-600 text-xs">{usr.email}</td>
+                            <td className="py-4 px-6">
+                              <button
+                                onClick={() => !isSelf && handleToggleUserRole(usr)}
+                                disabled={isSelf || togglingUserId === usr._id}
+                                title={isSelf ? 'Cannot change your own role' : `Click to make ${isAdmin ? 'Customer' : 'Admin'}`}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold transition-all ${
+                                  isAdmin
+                                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                } ${isSelf ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} disabled:opacity-50`}
+                              >
+                                {isAdmin ? <Shield size={10} /> : <Users size={10} />}
+                                {togglingUserId === usr._id ? '…' : usr.role}
+                              </button>
+                            </td>
+                            <td className="py-4 px-6 text-gray-500 text-xs">{new Date(usr.createdAt).toLocaleDateString()}</td>
+                            <td className="py-4 px-6 text-right">
+                              {deleteUserId === usr._id ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="text-xs text-red-600 font-medium">Delete?</span>
+                                  <button onClick={() => handleDeleteUser(usr._id)} className="px-3 py-1 text-xs bg-red-600 text-white rounded font-semibold hover:bg-red-700 transition-colors">Yes</button>
+                                  <button onClick={() => setDeleteUserId(null)} className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded font-semibold hover:bg-gray-200 transition-colors">No</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => !isSelf && setDeleteUserId(usr._id)}
+                                  disabled={isSelf}
+                                  title={isSelf ? 'Cannot delete yourself' : 'Delete user'}
+                                  className={`p-1.5 border border-red-100 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors ${isSelf ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                >
+                                  <UserX size={13} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   {usersList.length === 0 && (
@@ -1181,20 +1298,30 @@ export default function Admin() {
                         <th className="py-4 px-4 font-semibold border-b border-gray-100">Inquiry Code</th>
                         <th className="py-4 px-4 font-semibold border-b border-gray-100">Customer</th>
                         <th className="py-4 px-4 font-semibold border-b border-gray-100">Est. Price</th>
-                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Date Received</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Date</th>
                         <th className="py-4 px-4 font-semibold border-b border-gray-100">Status</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm">
                       {ordersList.map(order => {
                         const isExpanded = expandedOrderId === order._id;
+                        const isPendingDelete = deleteOrderId === order._id;
                         const items: any[] = order.orderItems || [];
+                        const statusStyle: Record<string, { pill: string; chevron: string }> = {
+                          pending: { pill: 'bg-orange-100 text-orange-700 border border-orange-200 focus:ring-orange-300', chevron: 'text-orange-400' },
+                          availability_confirmed: { pill: 'bg-blue-100 text-blue-700 border border-blue-200 focus:ring-blue-300', chevron: 'text-blue-400' },
+                          crafting: { pill: 'bg-amber-100 text-amber-700 border border-amber-200 focus:ring-amber-300', chevron: 'text-amber-500' },
+                          completed: { pill: 'bg-green-100 text-green-700 border border-green-200 focus:ring-green-300', chevron: 'text-green-500' },
+                          declined: { pill: 'bg-red-100 text-red-700 border border-red-200 focus:ring-red-300', chevron: 'text-red-400' },
+                        };
+                        const ss = statusStyle[order.status] || statusStyle.pending;
                         return (
                           <>
                             <tr
                               key={order._id}
-                              className={`transition-colors cursor-pointer ${isExpanded ? 'bg-amber-50/40' : 'hover:bg-gray-50'} border-b border-gray-100`}
-                              onClick={() => setExpandedOrderId(isExpanded ? null : order._id)}
+                              className={`transition-colors cursor-pointer ${isPendingDelete ? 'bg-red-50' : isExpanded ? 'bg-amber-50/40' : 'hover:bg-gray-50'} border-b border-gray-100`}
+                              onClick={() => !isPendingDelete && setExpandedOrderId(isExpanded ? null : order._id)}
                             >
                               <td className="py-4 px-4 text-gray-400">
                                 {isExpanded
@@ -1203,31 +1330,45 @@ export default function Admin() {
                               </td>
                               <td className="py-4 px-4 font-mono text-xs font-bold text-amber-700">{order.inquiryRef || 'INQ-PENDING'}</td>
                               <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{order.user?.name || 'Unknown'}</td>
-                              <td className="py-4 px-4 text-gray-600">Rs. {Number(order.totalPrice || 0).toLocaleString()}</td>
-                              <td className="py-4 px-4 text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</td>
+                              <td className="py-4 px-4 font-semibold text-gray-700">Rs. {Number(order.totalPrice || 0).toLocaleString()}</td>
+                              <td className="py-4 px-4 text-gray-500 text-xs">{new Date(order.createdAt).toLocaleDateString()}</td>
                               <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
-                                <select
-                                  value={order.status}
-                                  onChange={e => handleUpdateOrderStatus(order._id, e.target.value)}
-                                  className={`p-1 border border-gray-200 rounded-md text-xs font-semibold focus:outline-none focus:border-[var(--color-gold)] capitalize
-                                    ${order.status === 'pending' ? 'bg-orange-50 text-orange-700' : ''}
-                                    ${order.status === 'availability_confirmed' ? 'bg-blue-50 text-blue-700' : ''}
-                                    ${order.status === 'crafting' ? 'bg-yellow-50 text-[var(--color-gold-dark)]' : ''}
-                                    ${order.status === 'completed' ? 'bg-green-50 text-green-700' : ''}
-                                    ${order.status === 'declined' ? 'bg-red-50 text-red-700' : ''}
-                                  `}
-                                >
-                                  <option value="pending">Pending Review</option>
-                                  <option value="availability_confirmed">Availability Confirmed</option>
-                                  <option value="crafting">Crafting</option>
-                                  <option value="completed">Completed / Collection</option>
-                                  <option value="declined">Declined / Slot full</option>
-                                </select>
+                                <div className="relative inline-flex items-center">
+                                  <select
+                                    value={order.status}
+                                    onChange={e => handleUpdateOrderStatus(order._id, e.target.value)}
+                                    className={`appearance-none pl-3 pr-7 py-1.5 rounded-full text-[11px] font-bold cursor-pointer focus:outline-none focus:ring-2 transition-colors ${ss.pill}`}
+                                  >
+                                    <option value="pending">Pending Review</option>
+                                    <option value="availability_confirmed">Availability Confirmed</option>
+                                    <option value="crafting">Crafting</option>
+                                    <option value="completed">Completed / Collection</option>
+                                    <option value="declined">Declined / Slot full</option>
+                                  </select>
+                                  <ChevronDown size={11} className={`absolute right-2 pointer-events-none ${ss.chevron}`} />
+                                </div>
+                              </td>
+                              <td className="py-4 px-4 text-right" onClick={e => e.stopPropagation()}>
+                                {isPendingDelete ? (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <span className="text-xs text-red-600 font-medium">Delete?</span>
+                                    <button onClick={() => handleDeleteOrder(order._id)} className="px-2.5 py-1 text-xs bg-red-600 text-white rounded font-semibold hover:bg-red-700 transition-colors">Yes</button>
+                                    <button onClick={() => setDeleteOrderId(null)} className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded font-semibold hover:bg-gray-200 transition-colors">No</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => { setDeleteOrderId(order._id); setExpandedOrderId(null); }}
+                                    className="p-1.5 border border-red-100 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    title="Delete inquiry"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
                               </td>
                             </tr>
                             {isExpanded && (
                               <tr key={`${order._id}-items`} className="bg-amber-50/20 border-b border-gray-100">
-                                <td colSpan={6} className="px-8 py-4">
+                                <td colSpan={7} className="px-8 py-4">
                                   {items.length === 0 ? (
                                     <p className="text-xs text-gray-400 italic">No item details available.</p>
                                   ) : (

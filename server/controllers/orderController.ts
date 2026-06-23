@@ -177,3 +177,20 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ message: 'Server Error', error });
   }
 };
+
+// @desc    Delete an inquiry
+// @route   DELETE /api/orders/:id
+// @access  Private/Admin
+export const deleteOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database required for order management' });
+      return;
+    }
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) { res.status(404).json({ message: 'Inquiry not found' }); return; }
+    res.json({ message: 'Inquiry removed' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};

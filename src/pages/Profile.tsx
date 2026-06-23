@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Settings, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { METALS, STONES, FONTS } from '../constants';
 
@@ -172,6 +172,10 @@ export default function Profile() {
       navigate('/login');
       return;
     }
+    if (user.role === 'administrator') {
+      navigate('/admin');
+      return;
+    }
 
     const fetchProfile = async () => {
       try {
@@ -285,12 +289,6 @@ export default function Profile() {
                   <ShoppingBag size={16} /> My Inquiries
                 </button>
                 
-                {user?.role === 'administrator' && (
-                  <button onClick={() => navigate('/admin')} className="flex items-center gap-3 w-full p-3 text-left text-sm font-medium text-[var(--color-gold)] hover:bg-yellow-50 transition-colors rounded-sm mt-4">
-                    <Settings size={16} /> Admin Dashboard
-                  </button>
-                )}
-
                 <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-left text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-sm mt-8 border-t border-gray-200 pt-6">
                   <LogOut size={16} /> Sign Out
                 </button>

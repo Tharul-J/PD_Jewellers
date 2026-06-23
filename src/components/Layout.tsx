@@ -9,6 +9,7 @@ export function Layout() {
   useScrollToTop();
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const isAdmin = location.pathname.startsWith('/admin');
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -17,7 +18,7 @@ export function Layout() {
       <main className={`flex-grow ${isHome ? '' : 'pt-[112px] md:pt-[128px]'}`}>
         <Outlet />
       </main>
-      <Footer />
+      {!isAdmin && <Footer />}
     </div>
   );
 }
