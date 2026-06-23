@@ -12,12 +12,10 @@ export default defineConfig(() => {
       },
     },
     optimizeDeps: {
-      // Heavy 3D/ML packages excluded from pre-bundling to avoid memory spikes.
-      exclude: ['three', '@react-three/xr', '@mediapipe/tasks-vision'],
-      // Force this CJS transitive dep (pulled in by zustand via @react-three/*)
-      // to be pre-bundled into ESM, otherwise it's served as raw CommonJS and
-      // the browser throws "does not provide an export named 'default'".
-      include: ['use-sync-external-store/shim/with-selector'],
+      // @mediapipe and three are excluded — they're massive and ship their own ESM.
+      // @react-three/xr is NOT excluded: it pulls in CJS deps (use-sync-external-store)
+      // that the browser can't load raw, so Vite must pre-bundle them.
+      exclude: ['three', '@mediapipe/tasks-vision'],
     },
     server: {
       port: 3000,
