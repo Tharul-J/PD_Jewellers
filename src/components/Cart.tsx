@@ -166,7 +166,7 @@ export function Cart() {
                           setIsCartOpen(false);
                           navigate('/collections');
                         }}
-                        className="bg-stone-900 text-white px-5 py-2.5 uppercase tracking-widest text-[9px] font-bold hover:bg-black transition-colors rounded-xl shadow-md"
+                        className="btn-richbrown text-white px-5 py-2.5 uppercase tracking-widest text-[9px] font-bold transition-colors rounded-xl shadow-md"
                         id="sidebar-explore-btn"
                       >
                         Explore Showroom
@@ -255,7 +255,7 @@ export function Cart() {
                     setIsCartOpen(false);
                     navigate('/inquiry');
                   }}
-                  className="w-full py-4 bg-stone-950 text-white uppercase tracking-[0.2em] text-xs font-bold hover:bg-black transition-colors rounded-xl shadow-lg shadow-stone-850/10"
+                  className="w-full py-4 btn-richbrown text-white uppercase tracking-[0.2em] text-xs font-bold transition-colors rounded-xl shadow-lg shadow-stone-850/10"
                   id="submit-inquiry-btn"
                 >
                   Submit Inquiry Request

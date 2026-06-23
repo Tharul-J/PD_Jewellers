@@ -34,6 +34,14 @@ body {
   background-size: 200% auto;
 }
 
+/* Dark warm-brown gradient — replaces all solid black/ink buttons */
+.btn-richbrown {
+  background: linear-gradient(135deg, #2c1a08 0%, #3f2511 40%, #2b1909 70%, #1b1007 100%);
+}
+.btn-richbrown:hover {
+  background: linear-gradient(135deg, #4a2d12 0%, #5e3814 40%, #442b0e 70%, #2c180a 100%);
+}
+
 h1, h2, h3, h4, h5, h6, .font-serif {
   font-family: var(--font-serif);
 }

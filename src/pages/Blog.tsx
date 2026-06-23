@@ -303,7 +303,7 @@ function GallerySection() {
   ];
 
   return (
-    <section className="py-24 bg-[var(--color-ink)] text-white overflow-hidden">
+    <section className="py-24 text-white overflow-hidden" style={{ backgroundImage: 'url(https://files.123freevectors.com/wp-content/original/150776-abstract-dark-brown-diagonal-shiny-lines-background.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="max-w-5xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
@@ -396,10 +396,18 @@ function GallerySection() {
   );
 }
 
+const HERO_IMAGES = GALLERY_ITEMS.map(g => g.url);
+
 export default function Blog() {
   const [posts, setPosts] = useState<BlogPost[]>(SEED_POSTS);
   const [activeCategory, setActiveCategory] = useState('All');
   const [openPost, setOpenPost] = useState<BlogPost | null>(null);
+  const [heroIdx, setHeroIdx] = useState(2);
+
+  useEffect(() => {
+    const t = setInterval(() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length), 3000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     fetch('/api/blog')
@@ -413,21 +421,65 @@ export default function Blog() {
 
   return (
     <div className="min-h-screen bg-[var(--color-paper)]">
-      {/* Hero */}
-      <section className="relative py-24 md:py-32 bg-[var(--color-ink)] text-center overflow-hidden">
-        <div className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #D4AF37 0%, transparent 60%), radial-gradient(circle at 70% 50%, #D4AF37 0%, transparent 60%)' }}
-        />
-        <div className="relative max-w-3xl mx-auto px-4">
-          <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-[var(--color-gold)] mb-4 flex items-center justify-center gap-2">
-            <BookOpen size={14} /> The Journal
+      {/* Hero Image Slider */}
+      <section className="relative overflow-hidden" style={{ height: '68vh', minHeight: '420px' }}>
+        <AnimatePresence mode="popLayout">
+          <motion.img
+            key={heroIdx}
+            src={HERO_IMAGES[heroIdx]}
+            initial={{ opacity: 0, scale: 1.04 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.0, ease: 'easeInOut' }}
+            className="absolute inset-0 w-full h-full object-cover"
+            alt="PD Jewellers gallery"
+          />
+        </AnimatePresence>
+
+        {/* Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/90 via-stone-900/40 to-stone-900/20 pointer-events-none" />
+        <div className="absolute inset-0 bg-[var(--color-ink)]/20 pointer-events-none" />
+
+        {/* Gold corner frames */}
+        <div className="absolute top-5 left-5 w-10 h-10 border-t-2 border-l-2 border-[#D4AF37]/60 pointer-events-none" />
+        <div className="absolute top-5 right-5 w-10 h-10 border-t-2 border-r-2 border-[#D4AF37]/60 pointer-events-none" />
+        <div className="absolute bottom-16 left-5 w-10 h-10 border-b-2 border-l-2 border-[#D4AF37]/60 pointer-events-none" />
+        <div className="absolute bottom-16 right-5 w-10 h-10 border-b-2 border-r-2 border-[#D4AF37]/60 pointer-events-none" />
+
+        {/* Prev / Next */}
+        <button
+          onClick={() => setHeroIdx(i => (i - 1 + HERO_IMAGES.length) % HERO_IMAGES.length)}
+          className="absolute left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <button
+          onClick={() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length)}
+          className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+        >
+          <ChevronRight size={20} />
+        </button>
+
+        {/* Text + dots */}
+        <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 px-4 text-center text-white">
+          <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-[var(--color-gold)] mb-3 flex items-center justify-center gap-2">
+            <BookOpen size={13} /> The Journal
           </p>
-          <h1 className="text-5xl md:text-6xl font-serif text-white mb-4 leading-tight">
+          <h1 className="text-5xl md:text-6xl font-serif text-white mb-3 leading-tight drop-shadow-lg">
             The Jewellery Blog
           </h1>
-          <p className="text-white/60 text-base max-w-xl mx-auto leading-relaxed">
+          <p className="text-white/65 text-sm max-w-xl mx-auto leading-relaxed mb-6">
             Stories, guides, and expertise from Sri Lanka's leading fine jewellery artisans.
           </p>
+          <div className="flex gap-2">
+            {HERO_IMAGES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setHeroIdx(i)}
+                className={`rounded-full transition-all duration-500 ${i === heroIdx ? 'bg-[#D4AF37] w-5 h-2' : 'w-2 h-2 bg-white/35 hover:bg-white/65'}`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
@@ -440,7 +492,7 @@ export default function Blog() {
               onClick={() => setActiveCategory(cat)}
               className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all ${
                 activeCategory === cat
-                  ? 'bg-[var(--color-ink)] text-white'
+                  ? 'btn-richbrown text-white'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-[var(--color-ink)]'
               }`}
             >

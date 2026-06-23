@@ -1,7 +1,26 @@
-import { motion } from 'motion/react';
-import { MapPin, Phone, Clock, Gem, Award, ShieldCheck, Mail, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { MapPin, Phone, Clock, Gem, Award, ShieldCheck, Mail, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const HERO_IMAGES = [
+  "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
+  "https://www.caratlane.com/blog/wp-content/uploads/2025/04/gold-jewellery-22-carat.jpg",
+  "https://jevarmart.com/assets/images/slider/slide_69b25c0bf2d9a.jpg",
+  "https://static.vecteezy.com/system/resources/thumbnails/055/167/270/small/gold-bangles-are-displayed-in-a-shop-photo.jpg",
+  "https://www.dheejewels.com/cdn/shop/articles/jewelry-necklace_1277133-4219.jpg?v=1749706461&width=2048",
+  "https://media.istockphoto.com/id/118199633/photo/jewelry.jpg?b=1&s=1024x1024&w=0&k=20&c=KwtWosbuJX4l9pJdRCGuqCxK-gAGcN2m6kcX-Ru8w6Y=",
+  "https://static.vecteezy.com/system/resources/thumbnails/024/654/275/small/shiny-gemstone-necklace-reflects-elegance-and-glamour-generated-by-ai-free-photo.jpg",
+  "https://t4.ftcdn.net/jpg/08/13/39/89/360_F_813398976_T2ZiKgGaYXeI2Iwk6zpqFnAl1BRbO4Lz.jpg",
+];
 
 export default function AboutUs() {
+  const [heroSlide, setHeroSlide] = useState(5);
+
+  useEffect(() => {
+    const t = setInterval(() => setHeroSlide(i => (i + 1) % HERO_IMAGES.length), 3000);
+    return () => clearInterval(t);
+  }, []);
+
   const stats = [
     { value: '110+', label: 'Years of Legacy', desc: 'Preserving heritage craftsmanship since 1912.' },
     { value: '100%', label: 'Certified Sovereign Metal', desc: 'Prudence, standard Hallmarking, and lifetime guarantee.' },
@@ -12,38 +31,88 @@ export default function AboutUs() {
   return (
     <div className="w-full bg-[var(--color-paper)] text-[var(--color-ink)] pt-24 min-h-screen">
       
-      {/* Editorial Page Header & Hero Banner */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-amber-50/25 to-transparent border-b border-stone-200/40 py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center space-y-4">
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
+      {/* Hero Image Slider */}
+      <section className="relative w-full overflow-hidden" style={{ height: '72vh', minHeight: '480px' }}>
+        {/* Sliding images */}
+        <AnimatePresence mode="popLayout">
+          <motion.img
+            key={heroSlide}
+            src={HERO_IMAGES[heroSlide]}
+            initial={{ opacity: 0, scale: 1.04 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.1, ease: 'easeInOut' }}
+            className="absolute inset-0 w-full h-full object-cover"
+            alt="P Dedigamuwa Jewellers"
+          />
+        </AnimatePresence>
+
+        {/* Multi-layer gradient for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/85 via-stone-900/35 to-stone-900/15 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-stone-900/30 to-transparent pointer-events-none" />
+
+        {/* Gold corner frames */}
+        <div className="absolute top-6 left-6 w-10 h-10 border-t-2 border-l-2 border-[#D4AF37]/70 pointer-events-none" />
+        <div className="absolute top-6 right-6 w-10 h-10 border-t-2 border-r-2 border-[#D4AF37]/70 pointer-events-none" />
+        <div className="absolute bottom-20 left-6 w-10 h-10 border-b-2 border-l-2 border-[#D4AF37]/70 pointer-events-none" />
+        <div className="absolute bottom-20 right-6 w-10 h-10 border-b-2 border-r-2 border-[#D4AF37]/70 pointer-events-none" />
+
+        {/* Text content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-end pb-14 px-6 text-white text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="flex items-center justify-center gap-3 text-[#cca150] text-[10px] sm:text-[11px] uppercase tracking-[0.3em] font-sans font-bold"
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="flex items-center justify-center gap-3 text-[#e8c97a] text-[10px] sm:text-[11px] uppercase tracking-[0.3em] font-sans font-bold mb-4"
           >
-            <span className="w-8 h-[1px] bg-[#cca150]"></span>
+            <span className="w-8 h-[1px] bg-[#e8c97a]" />
             ESTABLISHED IN 1912 IN GAMPAHA, SRI LANKA
-            <span className="w-8 h-[1px] bg-[#cca150]"></span>
+            <span className="w-8 h-[1px] bg-[#e8c97a]" />
           </motion.div>
-          
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
+
+          <motion.h1
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight text-stone-900 leading-tight"
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight text-white leading-tight mb-4 max-w-3xl drop-shadow-lg"
           >
             OUR LEGACY OF ELEGANCE
           </motion.h1>
-          
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
+
+          <motion.p
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xs sm:text-sm text-stone-500 font-serif italic max-w-xl mx-auto mt-4 leading-relaxed"
+            transition={{ duration: 0.7, delay: 0.3 }}
+            className="text-xs sm:text-sm text-white/70 font-serif italic max-w-xl leading-relaxed mb-7"
           >
             "Crafting generational trust and unparalleled jewelry masterpieces, balancing Sri Lanka's deepest artistic heritage with contemporary design."
           </motion.p>
+
+          {/* Dot indicators */}
+          <div className="flex gap-2">
+            {HERO_IMAGES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setHeroSlide(i)}
+                className={`rounded-full transition-all duration-500 ${i === heroSlide ? 'bg-[#D4AF37] w-6 h-2' : 'w-2 h-2 bg-white/35 hover:bg-white/65'}`}
+              />
+            ))}
+          </div>
         </div>
+
+        {/* Prev / Next arrows */}
+        <button
+          onClick={() => setHeroSlide(i => (i - 1 + HERO_IMAGES.length) % HERO_IMAGES.length)}
+          className="absolute left-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <button
+          onClick={() => setHeroSlide(i => (i + 1) % HERO_IMAGES.length)}
+          className="absolute right-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+        >
+          <ChevronRight size={22} />
+        </button>
       </section>
 
       {/* Main Feature Story (Row with Image and Text) */}

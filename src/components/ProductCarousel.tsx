@@ -97,10 +97,10 @@ export function ProductCarousel({
               className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full`}
             >
               {visibleProducts.map((product) => (
-                <div key={product.id} className="group cursor-pointer">
+                <Link key={product.id} to={`/products/${product.id}`} className="group block">
                   <div className="relative h-[300px] overflow-hidden mb-6 bg-gray-50 p-4 border border-gray-100 group-hover:border-[var(--color-gold)]/30 transition-colors">
-                    <img 
-                      src={product.image} 
+                    <img
+                      src={product.image}
                       alt={product.name}
                       className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-110"
                     />
@@ -111,7 +111,7 @@ export function ProductCarousel({
                     <h3 className="text-lg font-serif text-[var(--color-ink)] mb-2 group-hover:text-[var(--color-gold)] transition-colors">{product.name}</h3>
                     <p className="text-sm tracking-wide text-gray-500">{product.price}</p>
                   </div>
-                </div>
+                </Link>
               ))}
             </motion.div>
           </AnimatePresence>

@@ -113,7 +113,7 @@ export default function Inquiry() {
           <div className="flex gap-4">
             <Link 
               to="/profile" 
-              className="bg-[var(--color-ink)] text-white px-8 py-4 uppercase tracking-[0.22em] text-[10px] font-bold hover:bg-black transition-colors rounded-xl shadow-lg shadow-stone-950/10"
+              className="btn-richbrown text-white px-8 py-4 uppercase tracking-[0.22em] text-[10px] font-bold transition-colors rounded-xl shadow-lg shadow-stone-950/10"
             >
               Track Status in Profile
             </Link>
@@ -137,7 +137,7 @@ export default function Inquiry() {
         </p>
         <Link 
           to="/collections" 
-          className="bg-[var(--color-ink)] text-white px-8 py-4 uppercase tracking-widest text-[10px] font-bold hover:bg-black transition-colors rounded-xl shadow-md"
+          className="btn-richbrown text-white px-8 py-4 uppercase tracking-widest text-[10px] font-bold transition-colors rounded-xl shadow-md"
         >
           Explore Collections
         </Link>
@@ -311,7 +311,7 @@ export default function Inquiry() {
             <button 
                type="submit" 
                disabled={isProcessing || !user}
-               className="w-full bg-stone-950 hover:bg-stone-900 text-white py-5 uppercase tracking-[0.22em] text-[11px] font-extrabold hover:bg-black transition-colors shadow-xl rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+               className="w-full btn-richbrown text-white py-5 uppercase tracking-[0.22em] text-[11px] font-extrabold transition-colors shadow-xl rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isProcessing ? <LoadingSpinner fullScreen={false} /> : "Transmit Official Inquiry to Admin"}
             </button>

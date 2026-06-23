@@ -266,25 +266,25 @@ export default function Profile() {
               <div className="space-y-2">
                 <button 
                   onClick={() => setActiveTab('account')} 
-                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'account' ? 'bg-[var(--color-ink)] text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'account' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <UserIcon size={16} /> My Account
                 </button>
                 <button 
                   onClick={() => setActiveTab('wishlist')} 
-                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'wishlist' ? 'bg-[var(--color-ink)] text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'wishlist' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <Heart size={16} /> Wishlist ({wishlist.length})
                 </button>
                 <button 
                   onClick={() => setActiveTab('configs')} 
-                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'configs' ? 'bg-[var(--color-ink)] text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'configs' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <Palette size={16} /> Saved Designs ({profileData?.savedConfigurations?.length || 0})
                 </button>
                 <button 
                   onClick={() => setActiveTab('orders')} 
-                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'orders' ? 'bg-[var(--color-ink)] text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'orders' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <ShoppingBag size={16} /> My Inquiries
                 </button>
@@ -518,7 +518,7 @@ export default function Profile() {
                       </button>
                       <button 
                         type="submit"
-                        className="px-5 py-2 bg-[var(--color-ink)] hover:bg-black text-white transition-colors text-[10px] uppercase tracking-widest font-semibold flex items-center gap-2"
+                        className="px-5 py-2 btn-richbrown text-white transition-colors text-[10px] uppercase tracking-widest font-semibold flex items-center gap-2"
                         disabled={actionLoading}
                       >
                         {actionLoading ? 'Saving...' : 'Save Changes'}
@@ -582,7 +582,7 @@ export default function Profile() {
                       </button>
                       <button 
                         type="submit"
-                        className="px-5 py-2 bg-[var(--color-ink)] hover:bg-black text-white transition-colors text-[10px] uppercase tracking-widest font-semibold"
+                        className="px-5 py-2 btn-richbrown text-white transition-colors text-[10px] uppercase tracking-widest font-semibold"
                         disabled={actionLoading}
                       >
                         {actionLoading ? 'Updating...' : 'Update Password'}
@@ -601,7 +601,7 @@ export default function Profile() {
                       <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
                         <Heart size={32} className="mx-auto mb-4 opacity-20" />
                         <p className="text-sm mb-6">Your wishlist is currently empty.</p>
-                        <Link to="/collections" className="inline-block px-6 py-3 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest hover:bg-black transition-colors">
+                        <Link to="/collections" className="inline-block px-6 py-3 btn-richbrown text-white text-[10px] uppercase tracking-widest transition-colors">
                           Explore Collections
                         </Link>
                       </div>
@@ -630,7 +630,7 @@ export default function Profile() {
                               
                               <button
                                 onClick={() => handleAddToInquiry(item)}
-                                className="w-full text-center bg-[var(--color-ink)] text-white py-2 text-[10px] uppercase tracking-widest hover:bg-black transition-colors mb-2"
+                                className="w-full text-center btn-richbrown text-white py-2 text-[10px] uppercase tracking-widest transition-colors mb-2"
                               >
                                 Add to Inquiry
                               </button>
@@ -659,7 +659,7 @@ export default function Profile() {
                       <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
                         <ShoppingBag size={32} className="mx-auto mb-4 opacity-20" />
                         <p className="text-sm mb-6">You haven't submitted any inquiries yet.</p>
-                        <Link to="/collections" className="inline-block px-6 py-3 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest hover:bg-black transition-colors">
+                        <Link to="/collections" className="inline-block px-6 py-3 btn-richbrown text-white text-[10px] uppercase tracking-widest transition-colors">
                           Browse Collections
                         </Link>
                       </div>
@@ -778,7 +778,7 @@ export default function Profile() {
                       <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
                         <Palette size={32} className="mx-auto mb-4 opacity-20" />
                         <p className="text-sm mb-6">You haven't saved any custom designs yet.</p>
-                        <Link to="/configurator" className="inline-block px-6 py-3 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest hover:bg-black transition-colors">
+                        <Link to="/configurator" className="inline-block px-6 py-3 btn-richbrown text-white text-[10px] uppercase tracking-widest transition-colors">
                           Start Designing
                         </Link>
                       </div>

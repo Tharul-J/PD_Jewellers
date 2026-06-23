@@ -518,7 +518,7 @@ export default function Admin() {
                 onClick={() => setActiveTab(item.id as any)}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                   activeTab === item.id
-                    ? 'bg-[var(--color-ink)] text-white'
+                    ? 'btn-richbrown text-white'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-[var(--color-ink)]'
                 }`}
               >
@@ -902,7 +902,7 @@ export default function Admin() {
                       </button>
                       <button
                         type="submit" disabled={savingModel}
-                        className="px-6 py-2.5 bg-[var(--color-ink)] text-white text-xs uppercase tracking-widest font-bold rounded hover:bg-black transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest font-bold rounded transition-colors disabled:opacity-50"
                       >
                         {savingModel ? 'Saving…' : 'Update Model'}
                       </button>
@@ -955,13 +955,13 @@ export default function Admin() {
                       <input
                         type="file" accept=".glb,.gltf"
                         onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
-                        className="w-full text-sm mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-semibold file:bg-[var(--color-ink)] file:text-white hover:file:bg-black cursor-pointer"
+                        className="w-full text-sm mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-semibold file:btn-richbrown file:text-white cursor-pointer"
                       />
                     </div>
                   </div>
                   <button
                     type="submit" disabled={uploading}
-                    className="px-6 py-2 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest rounded-sm hover:bg-black transition-colors disabled:opacity-50"
+                    className="px-6 py-2 btn-richbrown text-white text-[10px] uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
                   >
                     {uploading ? 'Uploading...' : 'Upload Model'}
                   </button>
@@ -1076,7 +1076,7 @@ export default function Admin() {
                             setProductFile(e.target.files ? e.target.files[0] : null);
                             if (e.target.files?.[0]) setProductForm(f => ({ ...f, image: '' }));
                           }}
-                          className="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[var(--color-ink)] file:text-white cursor-pointer"
+                          className="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:btn-richbrown file:text-white cursor-pointer"
                         />
                         <div className="flex items-center gap-2 mt-2">
                           <div className="flex-1 h-px bg-gray-100" />
@@ -1114,7 +1114,7 @@ export default function Admin() {
                       </button>
                       <button
                         type="submit" disabled={savingProduct}
-                        className="px-6 py-2.5 bg-[var(--color-ink)] text-white text-xs uppercase tracking-widest font-bold rounded hover:bg-black transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest font-bold rounded transition-colors disabled:opacity-50"
                       >
                         {savingProduct ? 'Saving…' : editingProduct ? 'Update Product' : 'Add Product'}
                       </button>
@@ -1143,7 +1143,7 @@ export default function Admin() {
                     {!showProductForm && (
                       <button
                         onClick={() => { handleCancelProductForm(); setShowProductForm(true); }}
-                        className="px-4 py-2 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest font-bold rounded hover:bg-black transition-colors"
+                        className="px-4 py-2 btn-richbrown text-white text-[10px] uppercase tracking-widest font-bold rounded transition-colors"
                       >
                         + Add Product
                       </button>
@@ -1238,7 +1238,7 @@ export default function Admin() {
                   <button
                     onClick={handleAddCategory}
                     disabled={!newCategoryName.trim()}
-                    className="px-5 py-2.5 bg-[var(--color-ink)] text-white text-xs uppercase tracking-widest font-bold rounded hover:bg-black transition-colors disabled:opacity-40"
+                    className="px-5 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest font-bold rounded transition-colors disabled:opacity-40"
                   >
                     Add
                   </button>
@@ -1491,7 +1491,7 @@ export default function Admin() {
                 <div className="flex justify-end">
                   <button
                     type="submit" disabled={savingPricing}
-                    className="px-6 py-3 bg-[var(--color-ink)] text-white text-xs uppercase tracking-widest rounded-sm hover:bg-black transition-colors disabled:opacity-50"
+                    className="px-6 py-3 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
                   >
                     {savingPricing ? 'Saving...' : 'Save Pricing'}
                   </button>
@@ -1583,7 +1583,7 @@ export default function Admin() {
                       </button>
                       <button
                         type="submit" disabled={savingBlog}
-                        className="px-6 py-2.5 bg-[var(--color-ink)] text-white text-xs uppercase tracking-widest font-bold rounded hover:bg-black transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest font-bold rounded transition-colors disabled:opacity-50"
                       >
                         {savingBlog ? 'Saving…' : editingBlog ? 'Update Article' : 'Publish Article'}
                       </button>
@@ -1600,7 +1600,7 @@ export default function Admin() {
                   {!showBlogForm && (
                     <button
                       onClick={() => { handleCancelBlogForm(); setShowBlogForm(true); }}
-                      className="px-4 py-2 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest font-bold rounded hover:bg-black transition-colors"
+                      className="px-4 py-2 btn-richbrown text-white text-[10px] uppercase tracking-widest font-bold rounded transition-colors"
                     >
                       + New Article
                     </button>

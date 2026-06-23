@@ -9,6 +9,17 @@ export { MOCK_PRODUCTS };
 
 const CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal', 'Mens'];
 
+const HERO_IMAGES = [
+  "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
+  "https://www.caratlane.com/blog/wp-content/uploads/2025/04/gold-jewellery-22-carat.jpg",
+  "https://jevarmart.com/assets/images/slider/slide_69b25c0bf2d9a.jpg",
+  "https://static.vecteezy.com/system/resources/thumbnails/055/167/270/small/gold-bangles-are-displayed-in-a-shop-photo.jpg",
+  "https://www.dheejewels.com/cdn/shop/articles/jewelry-necklace_1277133-4219.jpg?v=1749706461&width=2048",
+  "https://media.istockphoto.com/id/118199633/photo/jewelry.jpg?b=1&s=1024x1024&w=0&k=20&c=KwtWosbuJX4l9pJdRCGuqCxK-gAGcN2m6kcX-Ru8w6Y=",
+  "https://static.vecteezy.com/system/resources/thumbnails/024/654/275/small/shiny-gemstone-necklace-reflects-elegance-and-glamour-generated-by-ai-free-photo.jpg",
+  "https://t4.ftcdn.net/jpg/08/13/39/89/360_F_813398976_T2ZiKgGaYXeI2Iwk6zpqFnAl1BRbO4Lz.jpg",
+];
+
 const CATEGORY_BANNERS: Record<string, string> = {
   'Rings':     '/banners/Rings_Banner.png',
   'Necklaces': '/banners/Necklaces_Banner.png',
@@ -46,6 +57,13 @@ export default function Collections() {
   const [bannerIndex, setBannerIndex] = useState(0);
   const nextBanner = useCallback(() => setBannerIndex(i => (i + 1) % ALL_BANNERS.length), [ALL_BANNERS.length]);
   const prevBanner = useCallback(() => setBannerIndex(i => (i - 1 + ALL_BANNERS.length) % ALL_BANNERS.length), [ALL_BANNERS.length]);
+
+  const [heroIdx, setHeroIdx] = useState(7);
+
+  useEffect(() => {
+    const t = setInterval(() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length), 3000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (activeCategory !== 'All') return;
@@ -142,15 +160,88 @@ export default function Collections() {
   }, [activeCategory, urlFilters, maxPrice, maxProductPrice, karatageFilter, stonesFilter, sortBy, allProducts]);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-20">
-      <div className="text-center mb-16">
-        <h1 className="text-5xl font-serif mb-6 text-gold-gradient">The Masterpieces</h1>
-        <div className="w-24 h-0.5 bg-gold-gradient mx-auto mb-6"></div>
-        <p className="max-w-2xl mx-auto text-sm text-[var(--color-ink)] opacity-80">
-          Discover our full range of exquisite pieces, each crafted with unparalleled attention to detail and beauty.
-        </p>
-      </div>
+    <div className="w-full bg-[var(--color-paper)]">
 
+      {/* Hero Image Slider */}
+      <section className="relative overflow-hidden" style={{ height: '68vh', minHeight: '420px' }}>
+        <AnimatePresence mode="popLayout">
+          <motion.img
+            key={heroIdx}
+            src={HERO_IMAGES[heroIdx]}
+            initial={{ opacity: 0, scale: 1.04 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.0, ease: 'easeInOut' }}
+            className="absolute inset-0 w-full h-full object-cover"
+            alt="PD Jewellers Collection"
+          />
+        </AnimatePresence>
+
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/88 via-stone-900/38 to-stone-900/18 pointer-events-none" />
+
+        {/* Gold corner frames */}
+        <div className="absolute top-5 left-5 w-10 h-10 border-t-2 border-l-2 border-[#D4AF37]/65 pointer-events-none" />
+        <div className="absolute top-5 right-5 w-10 h-10 border-t-2 border-r-2 border-[#D4AF37]/65 pointer-events-none" />
+        <div className="absolute bottom-14 left-5 w-10 h-10 border-b-2 border-l-2 border-[#D4AF37]/65 pointer-events-none" />
+        <div className="absolute bottom-14 right-5 w-10 h-10 border-b-2 border-r-2 border-[#D4AF37]/65 pointer-events-none" />
+
+        {/* Prev / Next */}
+        <button
+          onClick={() => setHeroIdx(i => (i - 1 + HERO_IMAGES.length) % HERO_IMAGES.length)}
+          className="absolute left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <button
+          onClick={() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length)}
+          className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+        >
+          <ChevronRight size={20} />
+        </button>
+
+        {/* Text + dots */}
+        <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 px-4 text-center text-white">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="flex items-center gap-3 text-[#e8c97a] text-[10px] uppercase tracking-[0.3em] font-bold mb-3"
+          >
+            <span className="w-6 h-[1px] bg-[#e8c97a]" />
+            P DEDIGAMUWA JEWELLERS
+            <span className="w-6 h-[1px] bg-[#e8c97a]" />
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="text-5xl md:text-6xl font-serif text-white leading-tight mb-3 drop-shadow-lg"
+            style={{ fontStyle: 'italic' }}
+          >
+            The Masterpieces
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.3 }}
+            className="text-sm text-white/65 max-w-lg leading-relaxed mb-6"
+          >
+            Discover our full range of exquisite pieces, each crafted with unparalleled attention to detail and beauty.
+          </motion.p>
+          <div className="flex gap-2">
+            {HERO_IMAGES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setHeroIdx(i)}
+                className={`rounded-full transition-all duration-500 ${i === heroIdx ? 'bg-[#D4AF37] w-5 h-2' : 'w-2 h-2 bg-white/35 hover:bg-white/65'}`}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Products content */}
+      <div className="max-w-7xl mx-auto px-6 py-16">
       <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12 border-b border-black/5 pb-8 overflow-x-auto whitespace-nowrap">
         {CATEGORIES.map(category => (
           <button
@@ -232,7 +323,7 @@ export default function Collections() {
       <div className="flex justify-end gap-4 items-center mb-8 pb-4">
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 border border-black px-6 py-3 uppercase tracking-widest text-xs font-bold hover:bg-black hover:text-white transition-colors"
+          className="flex items-center gap-2 border border-[#3f2511] px-6 py-3 uppercase tracking-widest text-xs font-bold btn-richbrown text-white transition-colors"
         >
           {showFilters ? 'Hide Filters' : 'Filter By'}
           {showFilters ? <X size={16} /> : <span className="text-lg leading-none font-normal">+</span>}
@@ -482,6 +573,7 @@ export default function Collections() {
           );
         })
       )}
+      </div>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { Facebook, Instagram, Twitter, Youtube } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="bg-[#1A1816] text-[#E5CCAB] py-24 px-6 mt-0">
+    <footer className="text-[#E5CCAB] py-24 px-6 mt-0" style={{ backgroundImage: 'url(https://files.123freevectors.com/wp-content/original/150776-abstract-dark-brown-diagonal-shiny-lines-background.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-16 md:gap-12">
         <div className="md:col-span-4">
           <Link to="/" className="inline-block mb-6">
@@ -79,7 +79,7 @@ export function Footer() {
         </div>
       </div>
       
-      <div className="max-w-7xl mx-auto mt-24 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center text-[10px] flex-wrap gap-4 opacity-50 tracking-[0.1em]">
+      <div className="max-w-7xl mx-auto mt-24 pt-8 border-t border-[#D4AF37]/15 flex flex-col md:flex-row justify-between items-center text-[10px] flex-wrap gap-4 opacity-50 tracking-[0.1em]">
         <p>&copy; {new Date().getFullYear()} P DEDIGAMUWA JEWELLERS. ALL RIGHTS RESERVED.</p>
         <div className="flex gap-6 uppercase tracking-[0.15em]">
            <a href="#" className="hover:text-white">Privacy Policy</a>

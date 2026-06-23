@@ -92,7 +92,7 @@ export default function Materials() {
         <p className="text-sm text-gray-500 max-w-lg mx-auto mb-8 leading-relaxed">
           For over a century, our master artisans have transformed these raw, precious elements into breathtaking works of art that endure through generations.
         </p>
-        <button className="px-8 py-3 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest hover:bg-black transition-colors rounded-sm">
+        <button className="px-8 py-3 btn-richbrown text-white text-[10px] uppercase tracking-widest transition-colors rounded-sm">
           Discover Our Collections
         </button>
       </section>

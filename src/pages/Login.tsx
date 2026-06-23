@@ -177,7 +177,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 bg-gradient-to-r from-stone-900 to-stone-950 text-white hover:from-amber-600 hover:to-orange-600 py-4 text-xs tracking-[0.2em] uppercase font-bold rounded-xl transition-all shadow-md shadow-stone-900/10 hover:shadow-orange-500/10 disabled:opacity-50"
+              className="w-full mt-2 btn-richbrown text-white py-4 text-xs tracking-[0.2em] uppercase font-bold rounded-xl transition-all shadow-md shadow-stone-900/10 disabled:opacity-50"
             >
               Sign In
             </button>

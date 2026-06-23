@@ -335,13 +335,13 @@ export default function Configurator() {
             <div className="flex gap-4">
               <button 
                 onClick={() => setModelType('ring')}
-                className={`flex-1 py-3 text-xs uppercase tracking-widest transition-colors border ${modelType === 'ring' ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-white' : 'border-black/10 hover:border-black/50'}`}
+                className={`flex-1 py-3 text-xs uppercase tracking-widest transition-colors border ${modelType === 'ring' ? 'border-transparent btn-richbrown text-white' : 'border-black/10 hover:border-black/50'}`}
               >
                 Ring
               </button>
               <button 
                 onClick={() => setModelType('pendant')}
-                className={`flex-1 py-3 text-xs uppercase tracking-widest transition-colors border ${modelType === 'pendant' ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-white' : 'border-black/10 hover:border-black/50'}`}
+                className={`flex-1 py-3 text-xs uppercase tracking-widest transition-colors border ${modelType === 'pendant' ? 'border-transparent btn-richbrown text-white' : 'border-black/10 hover:border-black/50'}`}
               >
                 Pendant
               </button>
@@ -590,7 +590,7 @@ export default function Configurator() {
           <div className="flex gap-2 mb-2">
             <button 
               onClick={handleAddToCart}
-              className="flex-1 bg-[var(--color-ink)] text-[var(--color-sand)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-opacity"
+              className="flex-1 btn-richbrown text-[var(--color-sand)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-opacity"
             >
               Inquire Now
             </button>

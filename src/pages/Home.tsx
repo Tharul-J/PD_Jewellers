@@ -61,7 +61,7 @@ const COLLECTION_BANNERS = [
 ];
 
 export default function Home() {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(1);
   const [collBanner, setCollBanner] = useState(0);
 
   useEffect(() => {
@@ -70,16 +70,21 @@ export default function Home() {
   }, []);
 
   const sliderImages = [
-    "https://images.unsplash.com/photo-1596944924616-7b38e7cfac36?auto=format&fit=crop&q=80&w=2000",
-    "https://images.unsplash.com/photo-1577741314755-048d8525d31e?auto=format&fit=crop&q=80&w=2000",
-    "https://images.unsplash.com/photo-1621510202164-325bdfa91ec5?auto=format&fit=crop&q=80&w=2000"
+    "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
+    "https://www.caratlane.com/blog/wp-content/uploads/2025/04/gold-jewellery-22-carat.jpg",
+    "https://jevarmart.com/assets/images/slider/slide_69b25c0bf2d9a.jpg",
+    "https://static.vecteezy.com/system/resources/thumbnails/055/167/270/small/gold-bangles-are-displayed-in-a-shop-photo.jpg",
+    "https://www.dheejewels.com/cdn/shop/articles/jewelry-necklace_1277133-4219.jpg?v=1749706461&width=2048",
+    "https://media.istockphoto.com/id/118199633/photo/jewelry.jpg?b=1&s=1024x1024&w=0&k=20&c=KwtWosbuJX4l9pJdRCGuqCxK-gAGcN2m6kcX-Ru8w6Y=",
+    "https://static.vecteezy.com/system/resources/thumbnails/024/654/275/small/shiny-gemstone-necklace-reflects-elegance-and-glamour-generated-by-ai-free-photo.jpg",
+    "https://t4.ftcdn.net/jpg/08/13/39/89/360_F_813398976_T2ZiKgGaYXeI2Iwk6zpqFnAl1BRbO4Lz.jpg",
   ];
 
   const nextSlide = () => setCurrentSlide((p) => (p + 1) % sliderImages.length);
   const prevSlide = () => setCurrentSlide((p) => (p === 0 ? sliderImages.length - 1 : p - 1));
 
   useEffect(() => {
-    const timer = setInterval(nextSlide, 5000);
+    const timer = setInterval(nextSlide, 3000);
     return () => clearInterval(timer);
   }, []);
 
@@ -207,7 +212,7 @@ export default function Home() {
                We source only the finest ethical diamonds, vibrant Ceylon sapphires, deep rubies, and premium 18K & 22K gold. Every piece is crafted to ensure a lifetime of radiant wear.
             </p>
             <div className="flex justify-center">
-               <Link to="/materials" className="px-8 py-3 bg-[var(--color-ink)] text-white text-[10px] uppercase tracking-widest hover:bg-black transition-colors rounded-sm">
+               <Link to="/materials" className="px-8 py-3 btn-richbrown text-white text-[10px] uppercase tracking-widest transition-colors rounded-sm">
                   Discover Our Craftsmanship
                </Link>
             </div>
@@ -233,7 +238,7 @@ export default function Home() {
            </AnimatePresence>
 
            {/* Overlay with Explore button */}
-           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-8 md:p-12">
+           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end justify-end p-8 md:p-12">
              <Link
                to="/collections"
                className="inline-flex items-center gap-3 px-7 py-3.5 bg-[var(--color-gold)] hover:bg-[var(--color-gold-dark)] text-[var(--color-ink)] font-black text-[10px] uppercase tracking-widest transition-all duration-300 rounded-lg shadow-lg hover:shadow-xl hover:scale-105"
@@ -308,51 +313,66 @@ export default function Home() {
       {/* Featured Products Carousel */}
       <ProductCarousel products={FEATURED_PRODUCTS} title="FEATURED PRODUCTS" subtitle="Handpicked for you" />
 
-      {/* Elegant Image Slider */}
-      <section className="py-24 bg-[var(--color-ink)] text-white relative overflow-hidden">
-        <div className="absolute inset-0 z-0">
-           <AnimatePresence mode="popLayout">
-             <motion.img
+      {/* Elegant Image Slider — Prominent Landscape */}
+      <section className="py-20 bg-[var(--color-ink)] text-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-10">
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--color-gold)] font-medium block mb-3">Bespoke Elegance</span>
+            <h2 className="text-4xl md:text-5xl font-serif leading-tight">
+              CAPTURING TIMELESS<br/>MOMENTS IN GOLD
+            </h2>
+            <p className="text-sm opacity-60 max-w-md mx-auto leading-relaxed mt-4">
+              Discover how our expert craftsmanship transforms precious moments into eternal memories.
+            </p>
+          </div>
+
+          {/* Prominent landscape slider card */}
+          <div className="relative rounded-2xl overflow-hidden mx-auto shadow-2xl border border-[#D4AF37]/25" style={{ aspectRatio: '16/7' }}>
+            <AnimatePresence mode="popLayout">
+              <motion.img
                 key={currentSlide}
                 src={sliderImages[currentSlide]}
-                initial={{ opacity: 0, scale: 1.05 }}
-                animate={{ opacity: 0.4, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 1.5, ease: "easeInOut" }}
-                className="w-full h-full object-cover object-center absolute inset-0"
-             />
-           </AnimatePresence>
-           <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-ink)] via-[var(--color-ink)]/50 to-transparent"></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col items-center text-center">
-            <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--color-gold)] mb-6 font-medium">Bespoke Elegance</span>
-            <h2 className="text-4xl md:text-6xl font-serif leading-tight mb-8 max-w-3xl">
-               CAPTURING TIMELESS<br/>MOMENTS IN GOLD
-            </h2>
-            <p className="text-sm opacity-80 max-w-md mx-auto leading-relaxed mb-12">
-               Discover how our expert craftsmanship transforms precious moments into eternal memories. Wear your story with pride.
-            </p>
-            
-            <div className="flex gap-4">
-               <button onClick={prevSlide} className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 hover:border-white/40 transition-colors backdrop-blur-sm">
-                 <ChevronLeft className="w-5 h-5" />
-               </button>
-               <button onClick={nextSlide} className="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 hover:border-white/40 transition-colors backdrop-blur-sm">
-                 <ChevronRight className="w-5 h-5" />
-               </button>
-            </div>
-            
-            <div className="flex gap-2 mt-8">
-               {sliderImages.map((_, i) => (
-                  <button 
-                     key={i} 
-                     onClick={() => setCurrentSlide(i)}
-                     className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${i === currentSlide ? 'bg-[var(--color-gold)] w-6' : 'bg-white/30 hover:bg-white/60'}`}
-                     aria-label={`Go to slide ${i + 1}`}
-                  />
-               ))}
-            </div>
+                initial={{ opacity: 0, scale: 1.04 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.9, ease: "easeInOut" }}
+                className="absolute inset-0 w-full h-full object-cover"
+                alt={`PD Jewellers — slide ${currentSlide + 1}`}
+              />
+            </AnimatePresence>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
+
+            <button
+              onClick={prevSlide}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/30 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/30 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            {/* Gold corner accent */}
+            <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-[#D4AF37]/60 rounded-tl pointer-events-none" />
+            <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-[#D4AF37]/60 rounded-tr pointer-events-none" />
+            <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-[#D4AF37]/60 rounded-bl pointer-events-none" />
+            <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-[#D4AF37]/60 rounded-br pointer-events-none" />
+          </div>
+
+          {/* Dot indicators */}
+          <div className="flex gap-2 justify-center mt-6">
+            {sliderImages.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentSlide(i)}
+                className={`rounded-full transition-all duration-500 ${i === currentSlide ? 'bg-[var(--color-gold)] w-6 h-2' : 'w-2 h-2 bg-white/30 hover:bg-white/60'}`}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
