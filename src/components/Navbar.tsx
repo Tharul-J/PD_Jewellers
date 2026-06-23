@@ -15,6 +15,8 @@ export function Navbar() {
   const isHome = location.pathname === '/';
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   useEffect(() => {
     const handleScroll = () => {
@@ -73,7 +75,7 @@ export function Navbar() {
               >
                 <Sparkles strokeWidth={1.5} size={20} />
               </button>
-              <button className="hover:text-[var(--color-gold)] transition-colors">
+              <button onClick={() => { setSearchOpen(v => !v); setSearchQuery(''); }} className={`flex items-center justify-center p-2 transition-colors ${searchOpen ? 'text-[var(--color-gold)]' : 'hover:text-[var(--color-gold)]'}`}>
                 <Search strokeWidth={1.5} size={20} />
               </button>
               <button 
@@ -108,6 +110,37 @@ export function Navbar() {
       </nav>
       
       <StyleQuiz isOpen={isAssistantOpen} onClose={() => setIsAssistantOpen(false)} />
+
+      {/* Search bar */}
+      {searchOpen && (
+        <div className="border-t border-black/5 bg-[var(--color-paper)] px-6 py-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                navigate(`/collections?search=${encodeURIComponent(searchQuery.trim())}`);
+                setSearchOpen(false);
+                setSearchQuery('');
+              }
+            }}
+            className="max-w-xl mx-auto flex items-center gap-3"
+          >
+            <Search size={16} className="text-gray-400 flex-shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search jewellery by name…"
+              className="flex-1 bg-transparent text-sm text-[var(--color-ink)] placeholder-gray-400 outline-none"
+            />
+            {searchQuery && (
+              <button type="button" onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-[var(--color-ink)] text-xs">✕</button>
+            )}
+            <button type="submit" className="btn-richbrown text-white text-[10px] uppercase tracking-widest px-4 py-1.5 rounded">Search</button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

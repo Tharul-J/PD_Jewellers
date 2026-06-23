@@ -214,14 +214,22 @@ export default function ProductDetail() {
       ? `custom-${queryType}-${queryStyle}-${selectedMetal}-${selectedStone}-${selectedFont}-${engravingText}-${selectedSize}`
       : (id || '');
 
-    toggleWishlistItem({
+    const item = {
       productId: itemToAddId,
       name: productName,
       price: computedPrice.toString(),
       image: mainImage,
       category: isCustomProduct ? 'Custom Configuration' : (catalogProduct?.category || 'Legacy Collection'),
       isCustom: isCustomProduct
-    });
+    };
+
+    if (!user) {
+      localStorage.setItem('pending_wishlist_item', JSON.stringify(item));
+      navigate('/login');
+      return;
+    }
+
+    toggleWishlistItem(item);
   };
 
   if (!finalProductExists) {

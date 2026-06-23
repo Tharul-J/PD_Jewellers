@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, Share2, Facebook, Twitter, Link as LinkIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/products';
 export { MOCK_PRODUCTS };
@@ -38,6 +39,7 @@ export default function Collections() {
   const priceParam = searchParams.get('price');
   const karatageParam = searchParams.get('karatage');
   const stonesParam = searchParams.get('stones');
+  const searchQuery = (searchParams.get('search') || '').toLowerCase().trim();
 
   const [activeCategory, setActiveCategory] = useState('All');
   const [urlFilters, setUrlFilters] = useState<{price?: string}>({});
@@ -113,6 +115,7 @@ export default function Collections() {
 
   const { addToCart } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
+  const { user } = useAuth();
 
   const filteredProducts = useMemo(() => {
     let products =
@@ -156,8 +159,10 @@ export default function Collections() {
       products.sort((a, b) => b.price - a.price);
     }
 
+    if (searchQuery) products = products.filter(p => p.name.toLowerCase().includes(searchQuery));
+
     return products;
-  }, [activeCategory, urlFilters, maxPrice, maxProductPrice, karatageFilter, stonesFilter, sortBy, allProducts]);
+  }, [activeCategory, urlFilters, maxPrice, maxProductPrice, karatageFilter, stonesFilter, sortBy, allProducts, searchQuery]);
 
   return (
     <div className="w-full bg-[var(--color-paper)]">
@@ -505,14 +510,13 @@ export default function Collections() {
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
-                      toggleWishlistItem({
-                        productId: product.id,
-                        name: product.name,
-                        price: product.price.toString(),
-                        image: product.image,
-                        category: product.category,
-                        isCustom: false
-                      });
+                      const item = { productId: product.id, name: product.name, price: product.price.toString(), image: product.image, category: product.category, isCustom: false };
+                      if (!user) {
+                        localStorage.setItem('pending_wishlist_item', JSON.stringify(item));
+                        navigate('/login');
+                        return;
+                      }
+                      toggleWishlistItem(item);
                     }}
                     className="w-9 h-9 flex items-center justify-center bg-white rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
                   >

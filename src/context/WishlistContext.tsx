@@ -42,14 +42,35 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setIsLoading(true);
         try {
           const response = await fetch('/api/users/profile', {
-            headers: {
-              Authorization: `Bearer ${user.token}`
-            }
+            headers: { Authorization: `Bearer ${user.token}` }
           });
           const data = await response.json();
           if (response.ok) {
-            setWishlist(data.wishlist || []);
-            localStorage.setItem(`wishlist_${user._id}`, JSON.stringify(data.wishlist || []));
+            let currentWishlist: WishlistItem[] = data.wishlist || [];
+            setWishlist(currentWishlist);
+            localStorage.setItem(`wishlist_${user._id}`, JSON.stringify(currentWishlist));
+
+            // Auto-add any item the user tried to wishlist before logging in
+            const pending = localStorage.getItem('pending_wishlist_item');
+            if (pending) {
+              localStorage.removeItem('pending_wishlist_item');
+              try {
+                const pendingItem: WishlistItem = JSON.parse(pending);
+                const alreadyIn = currentWishlist.some(w => w.productId === pendingItem.productId);
+                if (!alreadyIn) {
+                  const res = await fetch('/api/users/wishlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+                    body: JSON.stringify(pendingItem)
+                  });
+                  if (res.ok) {
+                    const updated = await res.json();
+                    setWishlist(updated);
+                    localStorage.setItem(`wishlist_${user._id}`, JSON.stringify(updated));
+                  }
+                }
+              } catch {}
+            }
           }
         } catch (error) {
           console.error("Error fetching wishlist", error);
