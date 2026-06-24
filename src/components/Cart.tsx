@@ -246,6 +246,7 @@ export function Cart() {
                 <div className="flex justify-between items-center font-serif text-xl text-stone-900">
                   <span>Total Est. Value</span>
                   <div className="text-right">
+                    <span className="block text-[9px] text-stone-400 font-sans tracking-widest uppercase mb-0.5">Starting from</span>
                     <span className="font-bold">Rs. {cartTotal.toLocaleString()}</span>
                     <span className="block text-[10px] text-stone-500 font-sans tracking-normal font-semibold mt-0.5 animate-pulse">Excludes Handcrafting Overhead</span>
                   </div>

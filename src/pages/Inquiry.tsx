@@ -350,7 +350,10 @@ export default function Inquiry() {
               </div>
               <div className="flex justify-between font-serif text-lg text-stone-900 pt-1 border-t border-stone-100">
                 <span>Total Est. Value</span>
-                <span className="text-right font-semibold">Rs. {cartTotal.toLocaleString()}</span>
+                <div className="text-right">
+                  <span className="block text-[9px] text-stone-400 font-sans tracking-widest uppercase mb-0.5">Starting from</span>
+                  <span className="font-semibold">Rs. {cartTotal.toLocaleString()}</span>
+                </div>
               </div>
               <p className="text-[9px] text-stone-400 font-sans leading-relaxed text-center italic mt-2">
                 * Handcrafting, duty, and secure armored delivery premiums are computed inside the admin quotation review.

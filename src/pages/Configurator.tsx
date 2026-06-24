@@ -591,22 +591,25 @@ export default function Configurator() {
           <div className="flex flex-col mb-4">
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                <span>Base + Metal:</span>
-               <span>Rs. {calculatePrice().breakdown.metal.toLocaleString()}</span>
+               <span>Est. Rs. {calculatePrice().breakdown.metal.toLocaleString()}</span>
             </div>
             {modelType === 'ring' && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                  <span>Stone:</span>
-                 <span>Rs. {calculatePrice().breakdown.stone.toLocaleString()}</span>
+                 <span>Est. Rs. {calculatePrice().breakdown.stone.toLocaleString()}</span>
               </div>
             )}
             {((modelType === 'ring' && engraveWant) || modelType === 'pendant') && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-2 border-b border-black/5 pb-1">
                  <span>Engraving:</span>
-                 <span>Rs. {calculatePrice().breakdown.engraving.toLocaleString()}</span>
+                 <span>Est. Rs. {calculatePrice().breakdown.engraving.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between items-end mt-2">
-              <span className="text-xs uppercase tracking-widest font-bold text-gray-800">Total Price:</span>
+              <div>
+                <span className="block text-[9px] uppercase tracking-widest text-gray-400 mb-0.5">Starting from</span>
+                <span className="text-xs uppercase tracking-widest font-bold text-gray-800">Total Price:</span>
+              </div>
               <span className="font-serif text-2xl text-[var(--color-ink)]">Rs. {calculatePrice().total.toLocaleString()}</span>
             </div>
           </div>

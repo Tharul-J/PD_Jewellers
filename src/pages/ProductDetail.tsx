@@ -398,9 +398,12 @@ export default function ProductDetail() {
 
               {/* Dynamic Price Display */}
               <div className="flex items-baseline gap-3 mt-4 border-b border-stone-200/60 pb-6">
-                <span className="text-3xl font-normal text-stone-900">
-                  Rs. {computedPrice.toLocaleString()}
-                </span>
+                <div>
+                  <span className="block text-[10px] uppercase tracking-widest text-stone-400 mb-0.5">Starting from</span>
+                  <span className="text-3xl font-normal text-stone-900">
+                    Rs. {computedPrice.toLocaleString()}
+                  </span>
+                </div>
                 <span className="text-xs uppercase tracking-widest text-stone-400">
                   (Tax and duty included)
                 </span>
@@ -738,7 +741,7 @@ export default function ProductDetail() {
                     {related.name}
                   </h4>
                   <p className="text-xs font-bold text-stone-900">
-                    Starts from Rs. {related.price.toLocaleString()}
+                    Starting from Rs. {related.price.toLocaleString()}
                   </p>
                 </div>
               </Link>

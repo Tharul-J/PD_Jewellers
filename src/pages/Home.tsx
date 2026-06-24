@@ -9,42 +9,42 @@ const FEATURED_PRODUCTS: Product[] = [
   {
     id: 'NE007',
     name: 'Swarovski Zirconia Choker Necklace',
-    price: 'Starts from Rs. 540,000',
+    price: 'Starting from Rs. 540,000',
     image: 'https://www.swarnamahal.lk/cdn/shop/products/NE0000974A.jpg?v=1593000004',
     category: 'Necklaces'
   },
   {
     id: 'RI004',
     name: '18K Yellow Gold Star Ring with Stone',
-    price: 'Starts from Rs. 132,000',
+    price: 'Starting from Rs. 132,000',
     image: 'https://www.swarnamahal.lk/cdn/shop/products/RI0002319-C.jpg?v=1678276684',
     category: 'Rings'
   },
   {
     id: 'BR009',
     name: '18K White Gold Diamond Bracelet',
-    price: 'Starts from Rs. 850,000',
+    price: 'Starting from Rs. 850,000',
     image: 'https://www.swarnamahal.lk/cdn/shop/products/07DR19-18K195C.jpg?v=1593069723',
     category: 'Bracelets'
   },
   {
     id: 'ES009',
     name: 'Cubic Zirconia Drop Earrings',
-    price: 'Starts from Rs. 71,000',
+    price: 'Starting from Rs. 71,000',
     image: 'https://www.swarnamahal.lk/cdn/shop/products/ES0000155-B.jpg?v=1678266378',
     category: 'Earrings'
   },
   {
     id: 'RI015',
     name: '22K Blossom Stone Studded Ladies Ring',
-    price: 'Starts from Rs. 98,000',
+    price: 'Starting from Rs. 98,000',
     image: 'https://www.swarnamahal.lk/cdn/shop/products/RI0002032A.jpg?v=1644819654',
     category: 'Rings'
   },
   {
     id: 'NE001',
     name: 'Swarovski Zirconia Premium Necklace',
-    price: 'Starts from Rs. 520,000',
+    price: 'Starting from Rs. 520,000',
     image: 'https://www.swarnamahal.lk/cdn/shop/products/NE0001014B.jpg?v=1593000311',
     category: 'Necklaces'
   }

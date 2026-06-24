@@ -631,7 +631,7 @@ export default function Profile() {
                             <div className="px-4 text-center flex-1 flex flex-col">
                               <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] mb-1 font-bold">{item.category}</p>
                               <h3 className="font-serif text-sm md:text-md mb-2 text-[var(--color-ink)] flex-1">{item.name}</h3>
-                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-4">Rs. {Number(item.price).toLocaleString()}</p>
+                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-4"><span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Starting from</span>Rs. {Number(item.price).toLocaleString()}</p>
                               
                               <button
                                 onClick={() => handleAddToInquiry(item)}
@@ -679,7 +679,7 @@ export default function Profile() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Estimated Value</p>
-                                <p className="text-sm font-semibold">Rs. {Number(order.totalPrice || 0).toLocaleString()}</p>
+                                <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(order.totalPrice || 0).toLocaleString()}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Inquiry Reference Code</p>
@@ -763,7 +763,7 @@ export default function Profile() {
                                     <p className="text-xs text-gray-500 capitalize">{item.category}</p>
                                   </div>
                                   <div>
-                                    <p className="text-sm font-semibold">Rs. {Number(item.price).toLocaleString()}</p>
+                                    <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(item.price).toLocaleString()}</p>
                                   </div>
                                 </div>
                               ))}
@@ -795,7 +795,7 @@ export default function Profile() {
                               <h3 className="font-serif text-lg text-[var(--color-ink)]">
                                 {config.type === 'ring' ? 'Custom Ring' : 'Custom Pendant'}
                               </h3>
-                              <p className="font-semibold">Rs. {Number(config.price).toLocaleString()}</p>
+                              <p className="font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(config.price).toLocaleString()}</p>
                             </div>
                             
                             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-6">

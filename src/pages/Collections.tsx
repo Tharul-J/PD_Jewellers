@@ -571,7 +571,7 @@ export default function Collections() {
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-gold)] mb-2 font-bold">{product.category}</p>
                 <h3 className="font-serif text-lg md:text-xl mb-2 text-[var(--color-ink)]">{product.name}</h3>
                 <p className="text-sm opacity-70 mb-4 line-clamp-2 px-2 h-10">{product.description}</p>
-                <p className="font-sans font-medium text-lg text-[var(--color-ink)]">Starts from Rs. {product.price.toLocaleString()}</p>
+                <p className="font-sans font-medium text-lg text-[var(--color-ink)]">Starting from Rs. {product.price.toLocaleString()}</p>
               </div>
             </motion.div>
           );
