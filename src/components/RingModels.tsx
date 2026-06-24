@@ -29,19 +29,19 @@ class ModelErrorBoundary extends Component<{ children: ReactNode; fallback: Reac
 
 function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl }: any) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene, maxZSize } = useLoadedModel(fileUrl);
-  
+  const { scene, maxZSize, boundingRadius, boundingCenter } = useLoadedModel(fileUrl);
+
   const styledScene = useMemo(() => {
     if (!scene) return new THREE.Group();
     const localClone = scene.clone();
-    
+
     const metalMat = new THREE.MeshPhysicalMaterial({ ...metalMaterial, envMapIntensity: 3 });
     const stoneMat = new THREE.MeshPhysicalMaterial({ ...stoneMaterial, envMapIntensity: 2 });
-    
+
     localClone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        
+
         let isRingBody = false;
         if (mesh.geometry.boundingBox) {
            const bbox = mesh.geometry.boundingBox;
@@ -50,7 +50,7 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noS
               isRingBody = true;
            }
         }
-        
+
         if (isRingBody) {
           mesh.material = metalMat;
         } else {
@@ -58,22 +58,28 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noS
         }
       }
     });
-    
+
     return localClone;
   }, [scene, metalMaterial, stoneMaterial, maxZSize]);
+
+  // Auto-scale: normalize ring to radius=1 so the Configurator's outer scale={1.5}
+  // gives a consistent ~1.5-unit world radius across all ring designs.
+  const autoScale = boundingRadius > 0 ? 1.0 / boundingRadius : 0.4;
+  // Cancel out any off-centre pivot from the exporter
+  const cx = boundingCenter.x, cy = boundingCenter.y, cz = boundingCenter.z;
 
   useFrame((state) => {
     if (groupRef.current && !noSpin) {
       groupRef.current.rotation.y = state.clock.elapsedTime * 0.2;
     }
   });
-  
+
   const fontUrl = FONTS[fontStyle as keyof typeof FONTS]?.url || FONTS.helvetiker.url;
 
   return (
     <group ref={groupRef}>
       <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
-        <primitive object={styledScene} position={[0, -0.2, 0]} scale={0.4} />
+        <primitive object={styledScene} position={[-cx, -cy, -cz]} scale={autoScale} />
         {/* Inner Engraving */}
         {text && text.trim().length > 0 && (
           <group position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -105,6 +111,7 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
 
   return (
     <ModelErrorBoundary
+      key={safeFileUrl}
       fallback={
         <ActualGLBRingModel
           metalMaterial={metalMaterial}
@@ -116,13 +123,13 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
         />
       }
     >
-      <ActualGLBRingModel 
-        metalMaterial={metalMaterial} 
-        stoneMaterial={stoneMaterial} 
-        text={text} 
-        fontStyle={fontStyle} 
-        noSpin={noSpin} 
-        fileUrl={safeFileUrl} 
+      <ActualGLBRingModel
+        metalMaterial={metalMaterial}
+        stoneMaterial={stoneMaterial}
+        text={text}
+        fontStyle={fontStyle}
+        noSpin={noSpin}
+        fileUrl={safeFileUrl}
       />
     </ModelErrorBoundary>
   );

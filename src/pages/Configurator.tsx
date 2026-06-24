@@ -296,7 +296,7 @@ export default function Configurator() {
             <div className="absolute top-6 border border-black/10 right-6 z-10 bg-white/80 p-3 rounded-full text-[10px] uppercase tracking-widest backdrop-blur-sm">
               Drag to Revolve
             </div>
-            <Canvas shadows camera={{ position: [0, 2, 5], fov: 45 }}>
+            <Canvas shadows camera={{ position: [0, 1.5, 4.5], fov: 40 }}>
               <XR store={store}>
                 <ambientLight intensity={0.8} />
                 <spotLight position={[10, 15, 10]} angle={0.3} penumbra={1} intensity={2} castShadow />
@@ -304,7 +304,7 @@ export default function Configurator() {
                 <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                   <group position={[0, 0, -0.6]} scale={1.5}>
                     {modelType === 'ring' ? (
-                       <CustomGLBRingModel style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fileUrl={currentStyleDef?.fileUrl} />
+                       <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fileUrl={currentStyleDef?.fileUrl} />
                     ) : (
                       <PendantModel 
                         text={customText} 
@@ -317,11 +317,12 @@ export default function Configurator() {
                   <Environment preset="city" background blur={0.5} />
                   <ContactShadows position={[0, -1.8, 0]} opacity={0.5} scale={10} blur={2} far={4} />
                 </Suspense>
-                <OrbitControls 
-                  enablePan={false} 
-                  enableZoom={true} 
-                  minPolarAngle={Math.PI/4} 
-                  maxPolarAngle={Math.PI/2} 
+                <OrbitControls
+                  enablePan={false}
+                  enableZoom={true}
+                  target={[0, 0, -0.6]}
+                  minPolarAngle={Math.PI/6}
+                  maxPolarAngle={Math.PI * 0.7}
                   enableDamping={true}
                   dampingFactor={0.05}
                 />
