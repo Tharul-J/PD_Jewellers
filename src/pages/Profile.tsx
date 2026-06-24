@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
@@ -35,7 +35,12 @@ export default function Profile() {
 
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs'>('account');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs'>(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'configs' || tab === 'wishlist' || tab === 'orders') return tab;
+    return 'account';
+  });
   
   const [orders, setOrders] = useState<any[]>([]);
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -14,6 +14,8 @@ export default function Login() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '';
 
   useEffect(() => {
     if (sessionStorage.getItem('pd_session_expired')) {
@@ -43,6 +45,8 @@ export default function Login() {
       login(data);
       if (data.role === 'administrator') {
         navigate('/admin');
+      } else if (redirectTo) {
+        navigate(redirectTo);
       } else {
         navigate('/profile');
       }
@@ -116,7 +120,13 @@ export default function Login() {
         >
           <div className="mb-8 text-center lg:text-left">
             <h1 className="text-3xl font-serif text-stone-900 lg:text-[var(--color-ink)] mb-2 font-normal tracking-tight">Welcome Back</h1>
-            <p className="text-xs text-stone-500 font-sans tracking-wide">Sign in to your account to continue.</p>
+            {redirectTo === '/configurator' ? (
+              <p className="text-xs text-amber-700 font-sans tracking-wide bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+                Sign in to save your custom design to your profile.
+              </p>
+            ) : (
+              <p className="text-xs text-stone-500 font-sans tracking-wide">Sign in to your account to continue.</p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

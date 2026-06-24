@@ -4,9 +4,10 @@ import { Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import { FONTS } from '../constants';
 
-export function PendantModel({ text, metalMaterial, fontStyle, shape = 'standard' }: any) {
+export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false, shape = 'standard' }: any) {
   const groupRef = useRef<THREE.Group>(null);
-  const fontUrl = FONTS[fontStyle as keyof typeof FONTS]?.url || FONTS.helvetiker.url;
+  const fontDef = FONTS[fontStyle as keyof typeof FONTS] ?? FONTS.helvetiker;
+  const fontUrl = fontBold ? fontDef.boldUrl : fontDef.url;
 
   const [cachedWidth, setCachedWidth] = useState(text.length * 0.26);
 

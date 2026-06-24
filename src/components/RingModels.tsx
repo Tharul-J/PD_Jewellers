@@ -27,7 +27,7 @@ class ModelErrorBoundary extends Component<{ children: ReactNode; fallback: Reac
   }
 }
 
-function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl }: any) {
+function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { scene, maxZSize, boundingRadius, boundingCenter } = useLoadedModel(fileUrl);
 
@@ -74,7 +74,8 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noS
     }
   });
 
-  const fontUrl = FONTS[fontStyle as keyof typeof FONTS]?.url || FONTS.helvetiker.url;
+  const fontDef = FONTS[fontStyle as keyof typeof FONTS] ?? FONTS.helvetiker;
+  const fontUrl = fontBold ? fontDef.boldUrl : fontDef.url;
 
   return (
     <group ref={groupRef}>
@@ -82,7 +83,7 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noS
         <primitive object={styledScene} position={[-cx, -cy, -cz]} scale={autoScale} />
         {/* Inner Engraving */}
         {text && text.trim().length > 0 && (
-          <group position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <group position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, fontItalic ? -0.3 : 0]}>
              <Center position={[0, 0, 0]}>
                 <Text3D 
                   font={fontUrl} 
@@ -106,7 +107,7 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noS
   );
 }
 
-export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl = '/glb-models/rings/RI0.glb' }: any) {
+export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl = '/glb-models/rings/RI0.glb' }: any) {
   const safeFileUrl = fileUrl || '/glb-models/rings/RI0.glb';
 
   return (
@@ -118,6 +119,8 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
           stoneMaterial={stoneMaterial}
           text={text}
           fontStyle={fontStyle}
+          fontBold={fontBold}
+          fontItalic={fontItalic}
           noSpin={noSpin}
           fileUrl="/glb-models/rings/RI0.glb"
         />
@@ -128,6 +131,8 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
         stoneMaterial={stoneMaterial}
         text={text}
         fontStyle={fontStyle}
+        fontBold={fontBold}
+        fontItalic={fontItalic}
         noSpin={noSpin}
         fileUrl={safeFileUrl}
       />

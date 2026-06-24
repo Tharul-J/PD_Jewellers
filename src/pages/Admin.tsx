@@ -65,6 +65,10 @@ export default function Admin() {
   const [showModelEditForm, setShowModelEditForm] = useState(false);
   const [modelForm, setModelForm] = useState({ name: '', category: 'ring', basePrice: 1000, glbUrl: '' });
   const [savingModel, setSavingModel] = useState(false);
+  const [modelCategoryFilter, setModelCategoryFilter] = useState<'all' | 'ring' | 'pendant'>('all');
+
+  // Pricing save feedback
+  const [pricingSaveStatus, setPricingSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // Inquiry expand + delete state
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -916,8 +920,20 @@ export default function Admin() {
 
               {/* Upload Form */}
               <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-8">
-                <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                <div className="flex flex-wrap justify-between items-center mb-6 border-b border-gray-100 pb-4 gap-3">
                   <h2 className="text-lg font-serif text-[var(--color-ink)]">3D Models & Inventory</h2>
+                  <div className="flex gap-1">
+                    {(['all', 'ring', 'pendant'] as const).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setModelCategoryFilter(cat)}
+                        className={`px-3 py-1.5 text-xs rounded capitalize font-semibold transition-colors ${modelCategoryFilter === cat ? 'bg-[var(--color-ink)] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >
+                        {cat === 'all' ? 'All' : cat + 's'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <form onSubmit={handleUploadModel} className="mb-12 bg-gray-50 p-6 border border-gray-200 rounded-lg">
@@ -983,7 +999,7 @@ export default function Admin() {
                       </tr>
                     </thead>
                     <tbody className="text-sm divide-y divide-gray-100">
-                      {modelsList.map(model => (
+                      {modelsList.filter(m => modelCategoryFilter === 'all' || m.category === modelCategoryFilter).map(model => (
                         <tr key={model._id} className={`transition-colors ${deleteModelId === model._id ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                           <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{model.name}</td>
                           <td className="py-4 px-4 text-gray-600 capitalize">{model.category}</td>
@@ -1021,8 +1037,8 @@ export default function Admin() {
                       ))}
                     </tbody>
                   </table>
-                  {modelsList.length === 0 && (
-                    <div className="text-center py-12 text-gray-500 text-sm">No models found.</div>
+                  {modelsList.filter(m => modelCategoryFilter === 'all' || m.category === modelCategoryFilter).length === 0 && (
+                    <div className="text-center py-12 text-gray-500 text-sm">No {modelCategoryFilter === 'all' ? '' : modelCategoryFilter + ' '}models found.</div>
                   )}
                 </div>
               </div>
@@ -1420,102 +1436,123 @@ export default function Admin() {
 
           {/* ── PRICING ── */}
           {activeTab === 'pricing' && (
-            <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-8">
-              <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                <h2 className="text-lg font-serif text-[var(--color-ink)]">Dynamic Pricing Configuration</h2>
-              </div>
+            <div className="space-y-6">
               <form
                 onSubmit={async e => {
                   e.preventDefault();
                   if (!user) return;
                   setSavingPricing(true);
+                  setPricingSaveStatus('idle');
                   const success = await updatePricing(priceForm, user.token);
-                  if (success) {
-                    alert('Pricing updated successfully!');
-                  } else {
-                    alert('Failed to update pricing');
-                  }
+                  setPricingSaveStatus(success ? 'success' : 'error');
                   setSavingPricing(false);
+                  if (success) setTimeout(() => setPricingSaveStatus('idle'), 3000);
                 }}
               >
-                <div className="mb-8">
-                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers (× Base Price)</h3>
+                {/* Metal Multipliers card */}
+                <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
+                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                    <div className="w-2 h-5 bg-amber-400 rounded-full" />
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers</h3>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Applied as: Base Price × Multiplier</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">925 Sterling Silver (Default: 1.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_silver ?? 1} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_silver: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">18K White Gold (Default: 13.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_white ?? 13} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_white: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">22K Yellow Gold — 916 Gold (Default: 18.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_gold ?? 18} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_gold: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">18K Rose Gold (Default: 13.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_rose ?? 13} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_rose: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Platinum Pt950 (Default: 22.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_platinum ?? 22} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_platinum: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
+                    {([
+                      { key: 'metalMultiplier_silver',   label: '925 Sterling Silver',       def: 1  },
+                      { key: 'metalMultiplier_white',    label: '18K White Gold',             def: 13 },
+                      { key: 'metalMultiplier_gold',     label: '22K Yellow Gold (916 Gold)', def: 18 },
+                      { key: 'metalMultiplier_rose',     label: '18K Rose Gold',              def: 13 },
+                      { key: 'metalMultiplier_platinum', label: 'Platinum (Pt950)',           def: 22 },
+                    ] as const).map(({ key, label, def }) => (
+                      <div key={key} className="bg-gray-50 rounded-md p-3">
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">{label}</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number" step="0.01" min="0"
+                            value={(priceForm as any)[key] ?? def}
+                            onChange={e => setPriceForm({ ...priceForm, [key]: Number(e.target.value) })}
+                            className="flex-1 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                          />
+                          <span className="text-xs text-gray-400">×</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1">Default: {def}.0</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="mb-8">
-                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices (Rs.)</h3>
+                {/* Center Stone Prices card */}
+                <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
+                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                    <div className="w-2 h-5 bg-blue-400 rounded-full" />
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices</h3>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Price per stone in Rs. — added on top of metal cost</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Cornflower / Sky Blue Sapphire</label>
-                      <input type="number" value={priceForm.stonePrice_aquamarine ?? 65000} onChange={e => setPriceForm({ ...priceForm, stonePrice_aquamarine: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">White Ceylon Sapphire</label>
-                      <input type="number" value={priceForm.stonePrice_diamond ?? 95000} onChange={e => setPriceForm({ ...priceForm, stonePrice_diamond: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Crimson Ceylon Ruby</label>
-                      <input type="number" value={priceForm.stonePrice_ruby ?? 145000} onChange={e => setPriceForm({ ...priceForm, stonePrice_ruby: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Vibrant Emerald</label>
-                      <input type="number" value={priceForm.stonePrice_emerald ?? 120000} onChange={e => setPriceForm({ ...priceForm, stonePrice_emerald: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Royal Blue Ceylon Sapphire</label>
-                      <input type="number" value={priceForm.stonePrice_sapphire ?? 185000} onChange={e => setPriceForm({ ...priceForm, stonePrice_sapphire: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Ceylon Padparadscha Sapphire ✦ Ultra Rare</label>
-                      <input type="number" value={priceForm.stonePrice_padparadscha ?? 480000} onChange={e => setPriceForm({ ...priceForm, stonePrice_padparadscha: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Premium Blue-Sheen Moonstone</label>
-                      <input type="number" value={priceForm.stonePrice_moonstone ?? 45000} onChange={e => setPriceForm({ ...priceForm, stonePrice_moonstone: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Yellow Ceylon Sapphire</label>
-                      <input type="number" value={priceForm.stonePrice_yellowsapphire ?? 75000} onChange={e => setPriceForm({ ...priceForm, stonePrice_yellowsapphire: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
-                    </div>
+                    {([
+                      { key: 'stonePrice_aquamarine',    label: 'Cornflower / Sky Blue Sapphire', def: 65000  },
+                      { key: 'stonePrice_diamond',       label: 'White Ceylon Sapphire',          def: 95000  },
+                      { key: 'stonePrice_ruby',          label: 'Crimson Ceylon Ruby',            def: 145000 },
+                      { key: 'stonePrice_emerald',       label: 'Vibrant Emerald',                def: 120000 },
+                      { key: 'stonePrice_sapphire',      label: 'Royal Blue Ceylon Sapphire',     def: 185000 },
+                      { key: 'stonePrice_padparadscha',  label: 'Ceylon Padparadscha ✦ Ultra Rare', def: 480000 },
+                      { key: 'stonePrice_moonstone',     label: 'Premium Blue-Sheen Moonstone',   def: 45000  },
+                      { key: 'stonePrice_yellowsapphire',label: 'Yellow Ceylon Sapphire',         def: 75000  },
+                    ] as const).map(({ key, label, def }) => (
+                      <div key={key} className="bg-gray-50 rounded-md p-3">
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">{label}</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 shrink-0">Rs.</span>
+                          <input
+                            type="number" min="0"
+                            value={(priceForm as any)[key] ?? def}
+                            onChange={e => setPriceForm({ ...priceForm, [key]: Number(e.target.value) })}
+                            className="flex-1 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="mb-8">
-                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
+                {/* Other Upgrades card */}
+                <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
+                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                    <div className="w-2 h-5 bg-green-400 rounded-full" />
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Engraving Price (Rs.)</label>
-                      <input type="number" value={priceForm.engravingPrice || 5000} onChange={e => setPriceForm({ ...priceForm, engravingPrice: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                    <div className="bg-gray-50 rounded-md p-3">
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Custom Engraving</label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 shrink-0">Rs.</span>
+                        <input
+                          type="number" min="0"
+                          value={priceForm.engravingPrice ?? 5000}
+                          onChange={e => setPriceForm({ ...priceForm, engravingPrice: Number(e.target.value) })}
+                          className="flex-1 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end">
+                {/* Save bar */}
+                <div className="bg-white shadow-sm border border-gray-100 rounded-lg px-6 py-4 flex items-center justify-between">
+                  {pricingSaveStatus === 'success' && (
+                    <span className="text-xs text-green-600 font-semibold">Pricing saved successfully.</span>
+                  )}
+                  {pricingSaveStatus === 'error' && (
+                    <span className="text-xs text-red-600 font-semibold">Failed to save — please try again.</span>
+                  )}
+                  {pricingSaveStatus === 'idle' && <span />}
                   <button
                     type="submit" disabled={savingPricing}
-                    className="px-6 py-3 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
                   >
                     {savingPricing ? 'Saving...' : 'Save Pricing'}
                   </button>

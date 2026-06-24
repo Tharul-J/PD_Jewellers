@@ -4,23 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
-import { useCart } from '../context/CartContext';
-import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IPricing } from '../context/PricingContext';
-import { Check, Glasses, Box, Type, Heart, Save, Sparkles } from 'lucide-react';
+import { Check, Glasses, Box, Type, Save } from 'lucide-react';
 import ARTryOnModal from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { XR, createXRStore, XRHitTest } from '@react-three/xr';
 import { METALS, STONES, FONTS } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
 
 import { PendantModel } from '../components/PendantModel';
-import { ARViewContent } from '../components/ARViewContent';
-
-const store = createXRStore();
 
 class Scene3DErrorBoundary extends Component<
   { children: ReactNode },
@@ -76,13 +70,14 @@ export default function Configurator() {
   });
   const [stone, setStone] = useState<keyof typeof STONES>(() => (localStorage.getItem('cfg_stone') as keyof typeof STONES) || 'aquamarine');
   const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>(() => (localStorage.getItem('cfg_fontStyle') as keyof typeof FONTS) || 'helvetiker');
+  const [fontBold, setFontBold] = useState(() => localStorage.getItem('cfg_fontBold') === 'true');
+  const [fontItalic, setFontItalic] = useState(() => localStorage.getItem('cfg_fontItalic') === 'true');
   const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
   const [isLoadingModels, setIsLoadingModels] = useState(true);
-  const { addToCart } = useCart();
-  const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { user } = useAuth();
   const { pricing } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Auto-save configuration changes
   useEffect(() => {
@@ -94,8 +89,10 @@ export default function Configurator() {
     localStorage.setItem('cfg_metal', metal);
     localStorage.setItem('cfg_stone', stone);
     localStorage.setItem('cfg_fontStyle', fontStyle);
+    localStorage.setItem('cfg_fontBold', String(fontBold));
+    localStorage.setItem('cfg_fontItalic', String(fontItalic));
     localStorage.setItem('cfg_ringSize', ringSize);
-  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, ringSize]);
+  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, fontBold, fontItalic, ringSize]);
 
   useEffect(() => {
     const cachedModels = localStorage.getItem('cfg_cache_api_models');
@@ -147,10 +144,18 @@ export default function Configurator() {
     });
   }, []);
 
-  const getCustomId = () => `custom-${modelType}-${ringStyle}-${metal}-${stone}-${fontStyle}-${customText}-${ringSize}`;
-  const isWished = isInWishlist(getCustomId());
-  
   const currentStyleDef = dynamicStyles.find(r => r.id === ringStyle);
+
+  // After login redirect back here, auto-trigger the save the user originally attempted.
+  useEffect(() => {
+    if (user && localStorage.getItem('cfg_pendingAutoSave') === 'true') {
+      localStorage.removeItem('cfg_pendingAutoSave');
+      // Small delay to let models finish loading before the save request fires.
+      const t = setTimeout(() => handleSaveConfiguration(), 800);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const calculatePrice = () => {
     let basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);
@@ -188,53 +193,15 @@ export default function Configurator() {
     };
   };
 
-  const handleAddToCart = () => {
-    const isRing = modelType === 'ring';
-    const ringNameInfo = currentStyleDef?.name || 'Custom Ring';
-    const itemName = isRing ? `${ringNameInfo} ("${customText}")` : `Name Pendant ("${customText}")`;
-    const finalPrice = calculatePrice().total;
-
-    addToCart({
-      id: getCustomId(),
-      name: itemName,
-      price: finalPrice,
-      image: isRing 
-        ? 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80',
-      options: {
-        material: METALS[metal].name,
-        text: customText,
-        font: FONTS[fontStyle].name,
-        ...(isRing && { stone: STONES[stone].name, size: ringSize }),
-      }
-    });
-  };
-
-  const handleToggleWishlist = () => {
-    const isRing = modelType === 'ring';
-    const ringNameInfo = currentStyleDef?.name || 'Custom Ring';
-    const itemName = isRing ? `${ringNameInfo} ("${customText}")` : `Name Pendant ("${customText}")`;
-    const finalPrice = calculatePrice().total;
-
-    toggleWishlistItem({
-      productId: getCustomId(),
-      name: itemName,
-      price: finalPrice.toString(),
-      image: isRing 
-        ? 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80',
-      category: isRing ? 'Custom Rings' : 'Custom Pendant',
-      isCustom: true
-    });
-  };
-
   const handleSaveConfiguration = async () => {
     if (!user) {
-      alert("Please log in to save custom designs.");
+      localStorage.setItem('cfg_pendingAutoSave', 'true');
+      navigate('/login?redirect=/configurator');
       return;
     }
-    
+
     setIsSaving(true);
+    setSaveMessage(null);
     try {
       const response = await fetch('/api/users/configurations', {
         method: 'POST',
@@ -253,10 +220,10 @@ export default function Configurator() {
           price: calculatePrice().total
         })
       });
-      
+
       if (response.ok) {
         const configs = await response.json();
-        // Sync newly saved configurations to localStorage profile cache
+        // Sync to localStorage profile cache
         const profileCachedStr = localStorage.getItem(`profile_${user._id}`);
         if (profileCachedStr) {
           try {
@@ -267,14 +234,14 @@ export default function Configurator() {
             console.error("Failed to update configurations cache", e);
           }
         }
-        alert('Custom design saved successfully! Redirecting you to your exclusive product details page...');
-        navigate(`/product/custom?type=${modelType}&metal=${metal}&stone=${stone}&text=${encodeURIComponent(customText)}&font=${fontStyle}&size=${encodeURIComponent(ringSize)}&style=${ringStyle}`);
+        setSaveMessage({ type: 'success', text: 'Design saved! Redirecting to your profile...' });
+        setTimeout(() => navigate('/profile?tab=configs'), 1500);
       } else {
         const data = await response.json();
-        alert('Error: ' + data.message);
+        setSaveMessage({ type: 'error', text: data.message || 'Failed to save. Please try again.' });
       }
     } catch (e) {
-      alert('Failed to save configuration');
+      setSaveMessage({ type: 'error', text: 'Failed to save. Please check your connection.' });
     } finally {
       setIsSaving(false);
     }
@@ -297,36 +264,35 @@ export default function Configurator() {
               Drag to Revolve
             </div>
             <Canvas shadows camera={{ position: [0, 1.5, 4.5], fov: 40 }}>
-              <XR store={store}>
-                <ambientLight intensity={0.8} />
-                <spotLight position={[10, 15, 10]} angle={0.3} penumbra={1} intensity={2} castShadow />
-                <pointLight position={[-10, -10, -10]} intensity={1} />
-                <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
-                  <group position={[0, 0, -0.6]} scale={1.5}>
-                    {modelType === 'ring' ? (
-                       <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fileUrl={currentStyleDef?.fileUrl} />
-                    ) : (
-                      <PendantModel 
-                        text={customText} 
-                        metalMaterial={METALS[metal]} 
-                        fontStyle={fontStyle}
-                        shape={pendantShape}
-                      />
-                    )}
-                  </group>
-                  <Environment preset="city" background blur={0.5} />
-                  <ContactShadows position={[0, -1.8, 0]} opacity={0.5} scale={10} blur={2} far={4} />
-                </Suspense>
-                <OrbitControls
-                  enablePan={false}
-                  enableZoom={true}
-                  target={[0, 0, -0.6]}
-                  minPolarAngle={Math.PI/6}
-                  maxPolarAngle={Math.PI * 0.7}
-                  enableDamping={true}
-                  dampingFactor={0.05}
-                />
-              </XR>
+              <ambientLight intensity={0.8} />
+              <spotLight position={[10, 15, 10]} angle={0.3} penumbra={1} intensity={2} castShadow />
+              <pointLight position={[-10, -10, -10]} intensity={1} />
+              <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
+                <group position={[0, 0, -0.6]} scale={1.5}>
+                  {modelType === 'ring' ? (
+                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl} />
+                  ) : (
+                    <PendantModel
+                      text={customText}
+                      metalMaterial={METALS[metal]}
+                      fontStyle={fontStyle}
+                      fontBold={fontBold}
+                      shape={pendantShape}
+                    />
+                  )}
+                </group>
+                <Environment preset="city" background blur={0.5} />
+                <ContactShadows position={[0, -1.8, 0]} opacity={0.5} scale={10} blur={2} far={4} />
+              </Suspense>
+              <OrbitControls
+                enablePan={false}
+                enableZoom={true}
+                target={[0, 0, -0.6]}
+                minPolarAngle={Math.PI/6}
+                maxPolarAngle={Math.PI * 0.7}
+                enableDamping={true}
+                dampingFactor={0.05}
+              />
             </Canvas>
           </Scene3DErrorBoundary>
         )}
@@ -516,11 +482,8 @@ export default function Configurator() {
                   </div>
                   
                   <div>
-                    <h3 className="text-xs uppercase tracking-widest font-semibold mb-2 flex justify-between">
-                      <span>Font Style</span>
-                      <span className="opacity-50">{FONTS[fontStyle].name}</span>
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
+                    <h3 className="text-xs uppercase tracking-widest font-semibold mb-2">Font Style</h3>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
                       {(Object.keys(FONTS) as Array<keyof typeof FONTS>).map((key) => (
                         <button
                           key={key}
@@ -533,6 +496,20 @@ export default function Configurator() {
                           {FONTS[key].name}
                         </button>
                       ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFontBold(!fontBold)}
+                        className={`flex-1 py-2 text-[10px] font-bold tracking-widest border transition-colors ${fontBold ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
+                      >
+                        B Bold
+                      </button>
+                      <button
+                        onClick={() => setFontItalic(!fontItalic)}
+                        className={`flex-1 py-2 text-[10px] italic tracking-widest border transition-colors ${fontItalic ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
+                      >
+                        I Italic
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -576,11 +553,8 @@ export default function Configurator() {
               </div>
 
               <div className="mb-10">
-                <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
-                  <span>Font Style</span>
-                  <span className="opacity-50">{FONTS[fontStyle].name}</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2">Font Style</h3>
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   {(Object.keys(FONTS) as Array<keyof typeof FONTS>).map((key) => (
                     <button
                       key={key}
@@ -593,6 +567,20 @@ export default function Configurator() {
                       {FONTS[key].name}
                     </button>
                   ))}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFontBold(!fontBold)}
+                    className={`flex-1 py-2 text-[10px] font-bold tracking-widest border transition-colors ${fontBold ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
+                  >
+                    B Bold
+                  </button>
+                  <button
+                    onClick={() => setFontItalic(!fontItalic)}
+                    className={`flex-1 py-2 text-[10px] italic tracking-widest border transition-colors ${fontItalic ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
+                  >
+                    I Italic
+                  </button>
                 </div>
               </div>
             </>
@@ -622,40 +610,26 @@ export default function Configurator() {
               <span className="font-serif text-2xl text-[var(--color-ink)]">Rs. {calculatePrice().total.toLocaleString()}</span>
             </div>
           </div>
-          <div className="flex gap-2 mb-2">
-            <button 
-              onClick={handleAddToCart}
-              className="flex-1 btn-richbrown text-[var(--color-sand)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-opacity"
-            >
-              Inquire Now
-            </button>
-            <button 
+          {saveMessage && (
+            <div className={`mb-3 px-3 py-2 rounded text-xs font-medium ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {saveMessage.text}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
               onClick={handleSaveConfiguration}
               disabled={isSaving}
               className="flex-1 bg-gold-gradient text-white py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
             >
               <Save size={16} /> {isSaving ? 'Saving...' : 'Save Design'}
             </button>
-            <button 
-              onClick={handleToggleWishlist}
-              className="w-14 flex items-center justify-center border-2 border-[var(--color-orange)] transition-colors active:scale-95"
+            <button
+              onClick={() => setIsARModalOpen(true)}
+              className="flex-1 border-2 border-[var(--color-orange)] text-[var(--color-orange-dark)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-[var(--color-orange)] hover:text-white transition-colors flex items-center justify-center gap-2"
             >
-               <Heart size={20} fill={isWished ? "var(--color-orange)" : "none"} color={isWished ? "var(--color-orange)" : "var(--color-orange-dark)"} />
+              <Glasses size={16} /> AR Try-On
             </button>
           </div>
-          <button 
-            type="button"
-            onClick={() => navigate(`/product/custom?type=${modelType}&metal=${metal}&stone=${stone}&text=${encodeURIComponent(customText)}&font=${fontStyle}&size=${encodeURIComponent(ringSize)}&style=${ringStyle}`)}
-            className="w-full mb-2 bg-gradient-to-r from-stone-900 to-black text-[var(--color-sand)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-colors flex items-center justify-center gap-2"
-          >
-            <Sparkles size={14} className="text-[#cca150]" /> View Separated Product Details
-          </button>
-          <button 
-            onClick={() => setIsARModalOpen(true)}
-            className="w-full opacity-80 border-2 border-[var(--color-orange)] text-[var(--color-orange-dark)] py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-[var(--color-orange)] hover:text-white transition-colors"
-          >
-            Virtual Try-On (Camera)
-          </button>
         </div>
         </>
         )}

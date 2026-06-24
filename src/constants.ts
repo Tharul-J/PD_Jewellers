@@ -18,9 +18,8 @@ export const STONES = {
 };
 
 export const FONTS = {
-  helvetiker:      { name: 'Modern Sans',          url: '/fonts/helvetiker_regular.typeface.json' },
-  helvetiker_bold: { name: 'Modern Bold',          url: '/fonts/helvetiker_bold.typeface.json' },
-  optimer_italic:  { name: 'Elegant Serif Italic', url: '/fonts/optimer_bold.typeface.json' },
-  pacifico:        { name: 'Cursive Script',       url: '/fonts/gentilis_regular.typeface.json' },
-  greatvibes:      { name: 'Serif Classic',        url: '/fonts/droid_serif_regular.typeface.json' },
+  helvetiker:  { name: 'Modern Sans',   url: '/fonts/helvetiker_regular.typeface.json',  boldUrl: '/fonts/helvetiker_bold.typeface.json' },
+  optimer:     { name: 'Elegant Serif', url: '/fonts/optimer_bold.typeface.json',         boldUrl: '/fonts/optimer_bold.typeface.json' },
+  gentilis:    { name: 'Cursive Script', url: '/fonts/gentilis_regular.typeface.json',   boldUrl: '/fonts/gentilis_regular.typeface.json' },
+  droid_serif: { name: 'Serif Classic', url: '/fonts/droid_serif_regular.typeface.json', boldUrl: '/fonts/droid_serif_regular.typeface.json' },
 };
