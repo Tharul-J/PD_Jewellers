@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X } from 'lucide-react';
+import { Sparkles, X, WifiOff } from 'lucide-react';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { Cart } from './Cart';
@@ -15,9 +15,29 @@ export function Layout() {
   const isAdmin = location.pathname.startsWith('/admin');
 
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [dbOffline, setDbOffline] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(data => { if (data.db !== 'connected') setDbOffline(true); })
+      .catch(() => setDbOffline(true));
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
+      {dbOffline && !bannerDismissed && (
+        <div className="bg-amber-600 text-white text-xs py-2 px-4 flex items-center justify-between gap-3 z-[200] relative">
+          <div className="flex items-center gap-2">
+            <WifiOff size={14} className="shrink-0" />
+            <span><strong>Database offline (mock mode)</strong> — data is not real. Go to MongoDB Atlas → Network Access and whitelist your current IP to restore the live database.</span>
+          </div>
+          <button onClick={() => setBannerDismissed(true)} className="shrink-0 hover:opacity-70 transition-opacity" aria-label="Dismiss">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <Navbar />
       <Cart />
       <main className={`flex-grow ${isHome ? '' : 'pt-[112px] md:pt-[128px]'}`}>

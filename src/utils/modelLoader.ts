@@ -31,7 +31,7 @@ export const useLoadedModel = (url: string) => {
   }, [url]);
 
   // Load the model. This will suspend if not already loaded.
-  const { scene } = useGLTF(url || '/diamond_engagement_ring_wedding_ring.glb');
+  const { scene } = useGLTF(url || '/glb-models/rings/RI0.glb');
 
   // Clone and index the scene so that dynamic materials don't pollute the cached original.
   const { clonedScene, zSize } = useMemo(() => {

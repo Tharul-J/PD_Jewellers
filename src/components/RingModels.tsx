@@ -100,19 +100,19 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noS
   );
 }
 
-export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl = '/diamond_engagement_ring_wedding_ring.glb' }: any) {
-  const safeFileUrl = fileUrl || '/diamond_engagement_ring_wedding_ring.glb';
-  
+export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, noSpin = false, fileUrl = '/glb-models/rings/RI0.glb' }: any) {
+  const safeFileUrl = fileUrl || '/glb-models/rings/RI0.glb';
+
   return (
-    <ModelErrorBoundary 
+    <ModelErrorBoundary
       fallback={
-        <ActualGLBRingModel 
-          metalMaterial={metalMaterial} 
-          stoneMaterial={stoneMaterial} 
-          text={text} 
-          fontStyle={fontStyle} 
-          noSpin={noSpin} 
-          fileUrl="/diamond_engagement_ring_wedding_ring.glb" 
+        <ActualGLBRingModel
+          metalMaterial={metalMaterial}
+          stoneMaterial={stoneMaterial}
+          text={text}
+          fontStyle={fontStyle}
+          noSpin={noSpin}
+          fileUrl="/glb-models/rings/RI0.glb"
         />
       }
     >

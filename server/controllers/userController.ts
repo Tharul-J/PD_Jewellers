@@ -118,8 +118,8 @@ export const getDefaultOrders = (userId: string) => {
   return mockOrders[userId];
 };
 
-const generateToken = (id: string, role: string) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET || 'secret', {
+const generateToken = (id: string, role: string, email: string = '') => {
+  return jwt.sign({ id, role, email }, process.env.JWT_SECRET || 'secret', {
     expiresIn: '30d',
   });
 };
@@ -138,7 +138,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         name,
         email,
         role: 'customer',
-        token: generateToken('mock-new-user-id', 'customer'),
+        token: generateToken('mock-new-user-id', 'customer', email),
       });
       return;
     }
@@ -161,7 +161,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         name: user.name,
         email: user.email,
         role: user.role,
-        token: generateToken(user._id.toString(), user.role),
+        token: generateToken(user._id.toString(), user.role, user.email),
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -186,7 +186,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
           name: 'Admin User',
           email: 'admin@pdjewellers.com',
           role: 'administrator',
-          token: generateToken('mock-admin-id', 'administrator'),
+          token: generateToken('mock-admin-id', 'administrator', 'admin@pdjewellers.com'),
         });
         return;
       }
@@ -197,7 +197,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
           name: isTharul ? 'Tharul Senanayake' : 'Pathum Bandara',
           email: isTharul ? 'tharul2002@gmail.com' : 'pathum2@gmail.com',
           role: 'customer',
-          token: generateToken('mock-customer-id', 'customer'),
+          token: generateToken('mock-customer-id', 'customer', email),
         });
         return;
       }
@@ -214,7 +214,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         email: user.email,
         role: user.role,
-        token: generateToken(user._id.toString(), user.role),
+        token: generateToken(user._id.toString(), user.role, user.email),
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
@@ -346,7 +346,7 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
         wishlist: updatedUser.wishlist || [],
         savedConfigurations: updatedUser.savedConfigurations || [],
         createdAt: updatedUser.createdAt,
-        token: generateToken(updatedUser._id.toString(), updatedUser.role),
+        token: generateToken(updatedUser._id.toString(), updatedUser.role, updatedUser.email),
       });
     } else {
       res.status(404).json({ message: 'User not found' });

@@ -22,12 +22,12 @@ import { ARViewContent } from '../components/ARViewContent';
 const store = createXRStore();
 
 const DEFAULT_RING_STYLES = [
-  { id: 'custom-glb', name: 'Diamond Engagement Ring (Custom)', fileUrl: '/diamond_engagement_ring_wedding_ring.glb' },
-  { id: 'ri1', name: 'Ring Model 1', fileUrl: '/RI1.glb' },
-  { id: 'ri2', name: 'Ring Model 2', fileUrl: '/RI2.glb' },
-  { id: 'ri3', name: 'Ring Model 3', fileUrl: '/RI3.glb' },
-  { id: 'ri4', name: 'Ring Model 4', fileUrl: '/RI4.glb' },
-  { id: 'ri5', name: 'Ring Model 5', fileUrl: '/RI5.glb' },
+  { id: 'ri0', name: 'Diamond Engagement Ring', fileUrl: '/glb-models/rings/RI0.glb' },
+  { id: 'ri1', name: 'Ring Model 1', fileUrl: '/glb-models/rings/RI1.glb' },
+  { id: 'ri2', name: 'Ring Model 2', fileUrl: '/glb-models/rings/RI2.glb' },
+  { id: 'ri3', name: 'Ring Model 3', fileUrl: '/glb-models/rings/RI3.glb' },
+  { id: 'ri4', name: 'Ring Model 4', fileUrl: '/glb-models/rings/RI4.glb' },
+  { id: 'ri5', name: 'Ring Model 5', fileUrl: '/glb-models/rings/RI5.glb' },
 ];
 
 export default function Configurator() {
