@@ -7,6 +7,8 @@ import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil,
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal', 'Mens'];
+// Extend this list to add new 3D model categories without other code changes
+const MODEL_CATEGORIES = ['ring', 'pendant'];
 
 export default function Admin() {
   const { user, logout } = useAuth();
@@ -872,8 +874,9 @@ export default function Admin() {
                           onChange={e => setModelForm({ ...modelForm, category: e.target.value })}
                           className="w-full p-2.5 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400"
                         >
-                          <option value="ring">Ring</option>
-                          <option value="pendant">Pendant</option>
+                          {MODEL_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -937,8 +940,9 @@ export default function Admin() {
                         onChange={e => setNewModel({ ...newModel, category: e.target.value })}
                         className="w-full p-2 border border-gray-200 text-sm bg-white"
                       >
-                        <option value="ring">Ring</option>
-                        <option value="pendant">Pendant</option>
+                        {MODEL_CATEGORIES.map(cat => (
+                          <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -1435,19 +1439,27 @@ export default function Admin() {
                 }}
               >
                 <div className="mb-8">
-                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers</h3>
+                  <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers (× Base Price)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Silver (Default: 1.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_silver || 1} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_silver: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">925 Sterling Silver (Default: 1.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_silver ?? 1} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_silver: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Gold (Default: 18.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_gold || 18} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_gold: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">18K White Gold (Default: 13.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_white ?? 13} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_white: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Rose Gold (Default: 14.0)</label>
-                      <input type="number" step="0.01" value={priceForm.metalMultiplier_rose || 14} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_rose: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">22K Yellow Gold — 916 Gold (Default: 18.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_gold ?? 18} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_gold: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">18K Rose Gold (Default: 13.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_rose ?? 13} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_rose: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Platinum Pt950 (Default: 22.0)</label>
+                      <input type="number" step="0.01" value={priceForm.metalMultiplier_platinum ?? 22} onChange={e => setPriceForm({ ...priceForm, metalMultiplier_platinum: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                   </div>
                 </div>
@@ -1456,24 +1468,36 @@ export default function Admin() {
                   <h3 className="text-sm font-semibold mb-4 uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices (Rs.)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Aquamarine</label>
-                      <input type="number" value={priceForm.stonePrice_aquamarine || 45000} onChange={e => setPriceForm({ ...priceForm, stonePrice_aquamarine: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">Cornflower / Sky Blue Sapphire</label>
+                      <input type="number" value={priceForm.stonePrice_aquamarine ?? 65000} onChange={e => setPriceForm({ ...priceForm, stonePrice_aquamarine: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Diamond</label>
-                      <input type="number" value={priceForm.stonePrice_diamond || 380000} onChange={e => setPriceForm({ ...priceForm, stonePrice_diamond: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">White Ceylon Sapphire</label>
+                      <input type="number" value={priceForm.stonePrice_diamond ?? 95000} onChange={e => setPriceForm({ ...priceForm, stonePrice_diamond: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Ruby</label>
-                      <input type="number" value={priceForm.stonePrice_ruby || 95000} onChange={e => setPriceForm({ ...priceForm, stonePrice_ruby: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">Crimson Ceylon Ruby</label>
+                      <input type="number" value={priceForm.stonePrice_ruby ?? 145000} onChange={e => setPriceForm({ ...priceForm, stonePrice_ruby: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Emerald</label>
-                      <input type="number" value={priceForm.stonePrice_emerald || 110000} onChange={e => setPriceForm({ ...priceForm, stonePrice_emerald: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">Vibrant Emerald</label>
+                      <input type="number" value={priceForm.stonePrice_emerald ?? 120000} onChange={e => setPriceForm({ ...priceForm, stonePrice_emerald: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Sapphire</label>
-                      <input type="number" value={priceForm.stonePrice_sapphire || 150000} onChange={e => setPriceForm({ ...priceForm, stonePrice_sapphire: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                      <label className="block text-xs text-gray-500 mb-1">Royal Blue Ceylon Sapphire</label>
+                      <input type="number" value={priceForm.stonePrice_sapphire ?? 185000} onChange={e => setPriceForm({ ...priceForm, stonePrice_sapphire: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Ceylon Padparadscha Sapphire ✦ Ultra Rare</label>
+                      <input type="number" value={priceForm.stonePrice_padparadscha ?? 480000} onChange={e => setPriceForm({ ...priceForm, stonePrice_padparadscha: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Premium Blue-Sheen Moonstone</label>
+                      <input type="number" value={priceForm.stonePrice_moonstone ?? 45000} onChange={e => setPriceForm({ ...priceForm, stonePrice_moonstone: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Yellow Ceylon Sapphire</label>
+                      <input type="number" value={priceForm.stonePrice_yellowsapphire ?? 75000} onChange={e => setPriceForm({ ...priceForm, stonePrice_yellowsapphire: Number(e.target.value) })} className="w-full p-2 border border-gray-200 text-sm" />
                     </div>
                   </div>
                 </div>

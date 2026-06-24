@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IConfigurableModel extends Document {
   name: string;
   glbUrl: string;
-  category: 'ring' | 'pendant';
+  category: string;
   basePrice: number;
   isActive: boolean;
 }
@@ -20,7 +20,6 @@ const configurableModelSchema = new Schema(
     },
     category: {
       type: String,
-      enum: ['ring', 'pendant'],
       required: true,
     },
     basePrice: {

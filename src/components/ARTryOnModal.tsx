@@ -10,9 +10,9 @@ import { CustomGLBRingModel } from './RingModels';
 interface ARTryOnModalProps {
   isOpen: boolean;
   onClose: () => void;
-  metal: 'silver' | 'gold' | 'rose';
+  metal: keyof typeof METALS;
   metalName: string;
-  stone?: 'aquamarine' | 'diamond' | 'ruby' | 'emerald' | 'sapphire';
+  stone?: keyof typeof STONES;
   modelType: 'ring' | 'pendant';
   ringStyle?: string;
   fileUrl?: string;

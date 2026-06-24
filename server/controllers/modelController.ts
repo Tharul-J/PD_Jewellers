@@ -2,12 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import ConfigurableModel from '../models/ConfigurableModel.js';
 
-let mockModelsSeed = [
-  { _id: 'model-1', name: 'Classic 22K Wedding Band', category: 'ring', basePrice: 120000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true },
-  { _id: 'model-2', name: 'Solitaire Diamond Ring', category: 'ring', basePrice: 285000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true },
-  { _id: 'model-3', name: 'Vintage Emerald Pendant', category: 'pendant', basePrice: 195000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true },
-  { _id: 'model-4', name: 'Infinity Gold Love Heart Pendant', category: 'pendant', basePrice: 135000, glbUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', isActive: true }
-];
+let mockModelsSeed: Array<{ _id: string; name: string; category: string; basePrice: number; glbUrl: string; isActive: boolean; createdAt?: string }> = [];
 
 // @desc    Get all configurable models
 // @route   GET /api/models
@@ -36,10 +31,11 @@ export const createModel = async (req: Request, res: Response): Promise<void> =>
       const newM = {
         _id: 'model-' + Date.now(),
         name,
-        glbUrl: glbUrl || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+        glbUrl: glbUrl || '',
         category,
         basePrice,
-        isActive: true
+        isActive: true,
+        createdAt: new Date().toISOString(),
       };
       mockModelsSeed.push(newM);
       res.status(201).json(newM);
@@ -79,7 +75,7 @@ export const updateModel = async (req: Request, res: Response): Promise<void> =>
     const model = await ConfigurableModel.findById(req.params.id);
     if (!model) { res.status(404).json({ message: 'Model not found' }); return; }
     if (name !== undefined) model.name = name;
-    if (category !== undefined) model.category = category as 'ring' | 'pendant';
+    if (category !== undefined) model.category = category;
     if (basePrice !== undefined) model.basePrice = Number(basePrice);
     if (glbUrl !== undefined) model.glbUrl = glbUrl;
     const updated = await model.save();

@@ -2,14 +2,21 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { METALS, STONES } from '../constants';
 
 export interface IPricing {
+  // Metals
   metalMultiplier_silver: number;
+  metalMultiplier_white: number;
   metalMultiplier_gold: number;
   metalMultiplier_rose: number;
+  metalMultiplier_platinum: number;
+  // Stones
   stonePrice_aquamarine: number;
   stonePrice_diamond: number;
   stonePrice_ruby: number;
   stonePrice_emerald: number;
   stonePrice_sapphire: number;
+  stonePrice_padparadscha: number;
+  stonePrice_moonstone: number;
+  stonePrice_yellowsapphire: number;
   engravingPrice: number;
 }
 
@@ -20,14 +27,19 @@ interface PricingContextType {
 }
 
 const defaultPricing: IPricing = {
-  metalMultiplier_silver: 1,
-  metalMultiplier_gold: 18,
-  metalMultiplier_rose: 14,
-  stonePrice_aquamarine: 45000,
-  stonePrice_diamond: 380000,
-  stonePrice_ruby: 95000,
-  stonePrice_emerald: 110000,
-  stonePrice_sapphire: 150000,
+  metalMultiplier_silver:    METALS.silver.priceMultiplier,
+  metalMultiplier_white:     METALS.white.priceMultiplier,
+  metalMultiplier_gold:      METALS.gold.priceMultiplier,
+  metalMultiplier_rose:      METALS.rose.priceMultiplier,
+  metalMultiplier_platinum:  METALS.platinum.priceMultiplier,
+  stonePrice_aquamarine:     STONES.aquamarine.price,
+  stonePrice_diamond:        STONES.diamond.price,
+  stonePrice_ruby:           STONES.ruby.price,
+  stonePrice_emerald:        STONES.emerald.price,
+  stonePrice_sapphire:       STONES.sapphire.price,
+  stonePrice_padparadscha:   STONES.padparadscha.price,
+  stonePrice_moonstone:      STONES.moonstone.price,
+  stonePrice_yellowsapphire: STONES.yellowsapphire.price,
   engravingPrice: 5000,
 };
 
@@ -47,10 +59,7 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const res = await fetch('/api/pricing');
       if (res.ok) {
         const data = await res.json();
-        setPricing({
-          ...defaultPricing,
-          ...data
-        });
+        setPricing({ ...defaultPricing, ...data });
       }
     } catch (e) {
       console.error('Failed to fetch pricing');

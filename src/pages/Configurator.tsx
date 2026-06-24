@@ -1,4 +1,5 @@
-import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
+import { Suspense, useState, useRef, useMemo, useEffect, Component } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
@@ -21,13 +22,42 @@ import { ARViewContent } from '../components/ARViewContent';
 
 const store = createXRStore();
 
+class Scene3DErrorBoundary extends Component<
+  { children: ReactNode },
+  { crashed: boolean }
+> {
+  state = { crashed: false };
+  static getDerivedStateFromError() { return { crashed: true }; }
+  componentDidCatch(err: Error) { console.error('[Scene3D] asset load error:', err.message); }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-gray-50">
+          <div className="text-center px-8">
+            <div className="text-5xl mb-4 opacity-30">💎</div>
+            <p className="text-sm font-semibold text-gray-600 mb-1">3D preview unavailable</p>
+            <p className="text-xs text-gray-400 mb-4">An asset failed to load</p>
+            <button
+              onClick={() => this.setState({ crashed: false })}
+              className="text-xs px-4 py-2 border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const DEFAULT_RING_STYLES = [
-  { id: 'ri0', name: 'Diamond Engagement Ring', fileUrl: '/glb-models/rings/RI0.glb' },
-  { id: 'ri1', name: 'Ring Model 1', fileUrl: '/glb-models/rings/RI1.glb' },
-  { id: 'ri2', name: 'Ring Model 2', fileUrl: '/glb-models/rings/RI2.glb' },
-  { id: 'ri3', name: 'Ring Model 3', fileUrl: '/glb-models/rings/RI3.glb' },
-  { id: 'ri4', name: 'Ring Model 4', fileUrl: '/glb-models/rings/RI4.glb' },
-  { id: 'ri5', name: 'Ring Model 5', fileUrl: '/glb-models/rings/RI5.glb' },
+  { id: 'ri0', name: 'Classic Solitaire',          fileUrl: '/glb-models/rings/RI0.glb' },
+  { id: 'ri1', name: 'Halo Setting',               fileUrl: '/glb-models/rings/RI1.glb' },
+  { id: 'ri2', name: 'Vintage Pavé Band',           fileUrl: '/glb-models/rings/RI2.glb' },
+  { id: 'ri3', name: 'Three-Stone Trellis',         fileUrl: '/glb-models/rings/RI3.glb' },
+  { id: 'ri4', name: 'Channel-Set Eternity Band',   fileUrl: '/glb-models/rings/RI4.glb' },
+  { id: 'ri5', name: 'Split Shank Cathedral',       fileUrl: '/glb-models/rings/RI5.glb' },
 ];
 
 export default function Configurator() {
@@ -40,7 +70,10 @@ export default function Configurator() {
   const [customText, setCustomText] = useState(() => localStorage.getItem('cfg_customText') || 'PD');
   const [engraveWant, setEngraveWant] = useState(() => localStorage.getItem('cfg_engraveWant') === 'true');
   const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'wing'>(() => (localStorage.getItem('cfg_pendantShape') as 'standard'|'heart'|'wing') || 'standard');
-  const [metal, setMetal] = useState<keyof typeof METALS>(() => (localStorage.getItem('cfg_metal') as keyof typeof METALS) || 'silver');
+  const [metal, setMetal] = useState<keyof typeof METALS>(() => {
+    const saved = localStorage.getItem('cfg_metal') as keyof typeof METALS;
+    return (saved && saved in METALS) ? saved : 'gold';
+  });
   const [stone, setStone] = useState<keyof typeof STONES>(() => (localStorage.getItem('cfg_stone') as keyof typeof STONES) || 'aquamarine');
   const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>(() => (localStorage.getItem('cfg_fontStyle') as keyof typeof FONTS) || 'helvetiker');
   const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
@@ -75,7 +108,9 @@ export default function Configurator() {
         basePrice: m.basePrice,
         fileUrl: m.glbUrl
       }));
-      setDynamicStyles([...DEFAULT_RING_STYLES, ...dbModels.filter(m => m.category === 'ring')]);
+      const knownUrls = new Set(DEFAULT_RING_STYLES.map(s => s.fileUrl));
+      const newRingModels = dbModels.filter(m => m.category === 'ring' && !knownUrls.has(m.fileUrl));
+      setDynamicStyles([...DEFAULT_RING_STYLES, ...newRingModels]);
       
       // Prefetch custom models in background
       setTimeout(() => {
@@ -120,18 +155,17 @@ export default function Configurator() {
   const calculatePrice = () => {
     let basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);
     
-    let metalMultiplier = METALS[metal]?.priceMultiplier || 1;
+    let metalMultiplier = METALS[metal]?.priceMultiplier ?? 1;
     if (pricing) {
-        if (metal === 'silver') metalMultiplier = pricing.metalMultiplier_silver;
-        if (metal === 'gold') metalMultiplier = pricing.metalMultiplier_gold;
-        if (metal === 'rose') metalMultiplier = pricing.metalMultiplier_rose;
+        metalMultiplier = (pricing as any)[`metalMultiplier_${metal}`] ?? metalMultiplier;
     }
 
     const metalPart = basePrice * metalMultiplier;
     let stonePart = 0;
-    
+
     if (modelType === 'ring') {
-       stonePart = pricing ? (pricing as any)[`stonePrice_${stone}`] : (STONES[stone]?.price || 0);
+       const storedStonePrice = pricing ? (pricing as any)[`stonePrice_${stone}`] : undefined;
+       stonePart = storedStonePrice ?? STONES[stone]?.price ?? 0;
     }
 
     let engravingPart = 0;
@@ -258,7 +292,7 @@ export default function Configurator() {
              </div>
            </div>
         ) : (
-          <>
+          <Scene3DErrorBoundary>
             <div className="absolute top-6 border border-black/10 right-6 z-10 bg-white/80 p-3 rounded-full text-[10px] uppercase tracking-widest backdrop-blur-sm">
               Drag to Revolve
             </div>
@@ -293,7 +327,7 @@ export default function Configurator() {
                 />
               </XR>
             </Canvas>
-          </>
+          </Scene3DErrorBoundary>
         )}
       </div>
 
@@ -327,7 +361,7 @@ export default function Configurator() {
             {modelType === 'ring' ? (currentStyleDef?.name || 'Signature Ring') : 'Name Pendant'}
           </h1>
           <p className="font-serif text-2xl opacity-60 mb-10">
-            ${modelType === 'ring' ? (currentStyleDef?.basePrice || (ringStyle.includes('band') ? '1,800' : '5,400')) : '1,200'}
+            Rs. {modelType === 'ring' ? (currentStyleDef?.basePrice?.toLocaleString() || '25,000') : '12,000'}
           </p>
 
           <div className="mb-10">

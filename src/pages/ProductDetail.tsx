@@ -100,17 +100,16 @@ export default function ProductDetail() {
   const computedPrice = useMemo(() => {
     if (isCustomProduct) {
       let base = queryType === 'pendant' ? 12000 : 25000;
-      let multiplier = METALS[selectedMetal]?.priceMultiplier || 1;
+      let multiplier = METALS[selectedMetal]?.priceMultiplier ?? 1;
       if (pricing) {
-        if (selectedMetal === 'silver') multiplier = pricing.metalMultiplier_silver;
-        if (selectedMetal === 'gold') multiplier = pricing.metalMultiplier_gold;
-        if (selectedMetal === 'rose') multiplier = pricing.metalMultiplier_rose;
+        multiplier = (pricing as any)[`metalMultiplier_${selectedMetal}`] ?? multiplier;
       }
 
       const metalPart = base * multiplier;
       let stonePart = 0;
       if (queryType === 'ring') {
-        stonePart = pricing ? (pricing as any)[`stonePrice_${selectedStone}`] : (STONES[selectedStone]?.price || 0);
+        const storedStonePrice = pricing ? (pricing as any)[`stonePrice_${selectedStone}`] : undefined;
+        stonePart = storedStonePrice ?? STONES[selectedStone]?.price ?? 0;
       }
 
       let engravingPart = 0;
@@ -122,15 +121,16 @@ export default function ProductDetail() {
     } else if (catalogProduct) {
       // Base catalog price represents the metal model
       let metalMultiplier = 1;
-      if (selectedMetal === 'rose') metalMultiplier = 1.1; // modest premium for rose gold plating
-      if (selectedMetal === 'gold') metalMultiplier = 1.25; // 22K yellow gold premium
+      if (selectedMetal === 'white')    metalMultiplier = 1.2;
+      if (selectedMetal === 'rose')     metalMultiplier = 1.2;
+      if (selectedMetal === 'gold')     metalMultiplier = 1.35;
+      if (selectedMetal === 'platinum') metalMultiplier = 1.5;
 
       let stonePremium = 0;
       if (catalogProduct.hasStones && selectedStone !== 'aquamarine') {
-        if (selectedStone === 'diamond') stonePremium = 145000;
-        else if (selectedStone === 'sapphire') stonePremium = 65000;
-        else if (selectedStone === 'ruby') stonePremium = 45000;
-        else if (selectedStone === 'emerald') stonePremium = 55000;
+        const storedStonePrice = pricing ? (pricing as any)[`stonePrice_${selectedStone}`] : undefined;
+        const stonePrice = storedStonePrice ?? STONES[selectedStone]?.price ?? 0;
+        stonePremium = Math.round(stonePrice * 0.4);
       }
 
       let engravingPart = 0;

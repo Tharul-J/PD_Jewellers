@@ -1,21 +1,26 @@
 export const METALS = {
-  silver: { name: 'Sterling Silver', color: '#f0f0f0', metalness: 1, roughness: 0.05, clearcoat: 0.5, clearcoatRoughness: 0.1, priceMultiplier: 1 },
-  gold: { name: '22K Yellow Gold', color: '#ffe599', metalness: 1, roughness: 0.05, clearcoat: 0.5, clearcoatRoughness: 0.1, priceMultiplier: 18 },
-  rose: { name: '18K Rose Gold', color: '#f4a498', metalness: 1, roughness: 0.05, clearcoat: 0.5, clearcoatRoughness: 0.1, priceMultiplier: 14 },
+  silver:   { name: '925 Sterling Silver',       color: '#e4e4e4', metalness: 0.9,  roughness: 0.15, clearcoat: 0.3,  clearcoatRoughness: 0.2,  priceMultiplier: 1  },
+  white:    { name: '18K White Gold',             color: '#eeecea', metalness: 1,    roughness: 0.04, clearcoat: 0.8,  clearcoatRoughness: 0.05, priceMultiplier: 13 },
+  gold:     { name: '22K Yellow Gold (916 Gold)', color: '#d4a820', metalness: 1,    roughness: 0.04, clearcoat: 0.6,  clearcoatRoughness: 0.08, priceMultiplier: 18 },
+  rose:     { name: '18K Rose Gold',              color: '#e89080', metalness: 1,    roughness: 0.05, clearcoat: 0.5,  clearcoatRoughness: 0.1,  priceMultiplier: 13 },
+  platinum: { name: 'Platinum (Pt950)',            color: '#b8b8b4', metalness: 1,    roughness: 0.03, clearcoat: 1.0,  clearcoatRoughness: 0.03, priceMultiplier: 22 },
 };
 
 export const STONES = {
-  aquamarine: { name: 'Aquamarine', color: '#a1c6e8', transmission: 0.9, ior: 1.57, thickness: 2, roughness: 0, clearcoat: 1, price: 45000 },
-  diamond: { name: 'Diamond', color: '#ffffff', transmission: 1, ior: 2.4, thickness: 2, roughness: 0, clearcoat: 1, price: 380000 },
-  ruby: { name: 'Ruby', color: '#e0115f', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0, clearcoat: 1, price: 95000 },
-  emerald: { name: 'Emerald', color: '#50c878', transmission: 0.9, ior: 1.57, thickness: 2, roughness: 0, clearcoat: 1, price: 110000 },
-  sapphire: { name: 'Ceylon Sapphire', color: '#0f52ba', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0, clearcoat: 1, price: 150000 },
+  aquamarine:    { name: 'Cornflower / Sky Blue Sapphire', color: '#6BA3C8', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0,    clearcoat: 1, price: 65000  },
+  diamond:       { name: 'White Ceylon Sapphire',          color: '#f0f0f0', transmission: 0.95, ior: 1.76, thickness: 2, roughness: 0,   clearcoat: 1, price: 95000  },
+  ruby:          { name: 'Crimson Ceylon Ruby',            color: '#c41230', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0,    clearcoat: 1, price: 145000 },
+  emerald:       { name: 'Vibrant Emerald',                color: '#0a8a3c', transmission: 0.9, ior: 1.57, thickness: 2, roughness: 0,    clearcoat: 1, price: 120000 },
+  sapphire:      { name: 'Royal Blue Ceylon Sapphire',     color: '#0a3d8f', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0,    clearcoat: 1, price: 185000 },
+  padparadscha:  { name: 'Ceylon Padparadscha Sapphire',   color: '#FF7F50', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0,    clearcoat: 1, price: 480000 },
+  moonstone:     { name: 'Premium Blue-Sheen Moonstone',   color: '#B0C4DE', transmission: 0.6, ior: 1.52, thickness: 2, roughness: 0.05, clearcoat: 1, price: 45000  },
+  yellowsapphire:{ name: 'Yellow Ceylon Sapphire',         color: '#FFD166', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0,    clearcoat: 1, price: 75000  },
 };
 
 export const FONTS = {
-  helvetiker: { name: 'Modern Sans', url: 'https://cdn.jsdelivr.net/npm/three/examples/fonts/helvetiker_regular.typeface.json' },
-  helvetiker_bold: { name: 'Modern Bold', url: 'https://cdn.jsdelivr.net/npm/three/examples/fonts/helvetiker_bold.typeface.json' },
-  optimer_italic: { name: 'Elegant Serif Italic', url: 'https://cdn.jsdelivr.net/npm/three/examples/fonts/optimer_italic.typeface.json' },
-  pacifico: { name: 'Cursive (Pacifico)', url: 'https://cdn.jsdelivr.net/npm/three/examples/fonts/gentilis_italic.typeface.json' },
-  greatvibes: { name: 'Cursive (Great Vibes)', url: 'https://cdn.jsdelivr.net/npm/three/examples/fonts/droid_serif_italic.typeface.json' },
+  helvetiker:      { name: 'Modern Sans',          url: '/fonts/helvetiker_regular.typeface.json' },
+  helvetiker_bold: { name: 'Modern Bold',          url: '/fonts/helvetiker_bold.typeface.json' },
+  optimer_italic:  { name: 'Elegant Serif Italic', url: '/fonts/optimer_bold.typeface.json' },
+  pacifico:        { name: 'Cursive Script',       url: '/fonts/gentilis_regular.typeface.json' },
+  greatvibes:      { name: 'Serif Classic',        url: '/fonts/droid_serif_regular.typeface.json' },
 };
