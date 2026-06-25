@@ -314,7 +314,7 @@ export default function Home() {
       <ProductCarousel products={FEATURED_PRODUCTS} title="FEATURED PRODUCTS" subtitle="Handpicked for you" />
 
       {/* Elegant Image Slider — Prominent Landscape */}
-      <section className="py-20 bg-[var(--color-ink)] text-white">
+      <section className="py-20 text-white" style={{ background: 'linear-gradient(135deg, #1a0a00 0%, #3d1a00 30%, #6b2d00 60%, #3d1a00 80%, #1a0a00 100%)' }}>
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-10">
             <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--color-gold)] font-medium block mb-3">Bespoke Elegance</span>

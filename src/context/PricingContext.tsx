@@ -1,22 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { METALS, STONES } from '../constants';
 
+export interface IMetalEntry {
+  key: string;
+  displayName: string;
+  multiplier: number;
+}
+
+export interface IStoneEntry {
+  key: string;
+  displayName: string;
+  price: number;
+}
+
 export interface IPricing {
-  // Metals
-  metalMultiplier_silver: number;
-  metalMultiplier_white: number;
-  metalMultiplier_gold: number;
-  metalMultiplier_rose: number;
-  metalMultiplier_platinum: number;
-  // Stones
-  stonePrice_aquamarine: number;
-  stonePrice_diamond: number;
-  stonePrice_ruby: number;
-  stonePrice_emerald: number;
-  stonePrice_sapphire: number;
-  stonePrice_padparadscha: number;
-  stonePrice_moonstone: number;
-  stonePrice_yellowsapphire: number;
+  metals: IMetalEntry[];
+  stones: IStoneEntry[];
   engravingPrice: number;
 }
 
@@ -27,21 +26,39 @@ interface PricingContextType {
 }
 
 const defaultPricing: IPricing = {
-  metalMultiplier_silver:    METALS.silver.priceMultiplier,
-  metalMultiplier_white:     METALS.white.priceMultiplier,
-  metalMultiplier_gold:      METALS.gold.priceMultiplier,
-  metalMultiplier_rose:      METALS.rose.priceMultiplier,
-  metalMultiplier_platinum:  METALS.platinum.priceMultiplier,
-  stonePrice_aquamarine:     STONES.aquamarine.price,
-  stonePrice_diamond:        STONES.diamond.price,
-  stonePrice_ruby:           STONES.ruby.price,
-  stonePrice_emerald:        STONES.emerald.price,
-  stonePrice_sapphire:       STONES.sapphire.price,
-  stonePrice_padparadscha:   STONES.padparadscha.price,
-  stonePrice_moonstone:      STONES.moonstone.price,
-  stonePrice_yellowsapphire: STONES.yellowsapphire.price,
+  metals: [
+    { key: 'silver',     displayName: '925 Sterling Silver',        multiplier: METALS.silver.priceMultiplier    },
+    { key: 'white',      displayName: '18K White Gold',              multiplier: METALS.white.priceMultiplier     },
+    { key: 'gold',       displayName: '22K Yellow Gold (916 Gold)',  multiplier: METALS.gold.priceMultiplier      },
+    { key: 'rose',       displayName: '18K Rose Gold',               multiplier: METALS.rose.priceMultiplier      },
+    { key: 'platinum',   displayName: 'Platinum (Pt950)',             multiplier: METALS.platinum.priceMultiplier  },
+  ],
+  stones: [
+    { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: STONES.aquamarine.price     },
+    { key: 'diamond',        displayName: 'White Ceylon Sapphire',           price: STONES.diamond.price        },
+    { key: 'ruby',           displayName: 'Crimson Ceylon Ruby',             price: STONES.ruby.price           },
+    { key: 'emerald',        displayName: 'Vibrant Emerald',                 price: STONES.emerald.price        },
+    { key: 'sapphire',       displayName: 'Royal Blue Ceylon Sapphire',      price: STONES.sapphire.price       },
+    { key: 'padparadscha',   displayName: 'Ceylon Padparadscha Sapphire',    price: STONES.padparadscha.price   },
+    { key: 'moonstone',      displayName: 'Premium Blue-Sheen Moonstone',    price: STONES.moonstone.price      },
+    { key: 'yellowsapphire', displayName: 'Yellow Ceylon Sapphire',          price: STONES.yellowsapphire.price },
+  ],
   engravingPrice: 5000,
 };
+
+function normalisePricing(data: any): IPricing {
+  return {
+    metals: Array.isArray(data.metals) && data.metals.length > 0
+      ? data.metals
+      : defaultPricing.metals,
+    stones: Array.isArray(data.stones) && data.stones.length > 0
+      ? data.stones
+      : defaultPricing.stones,
+    engravingPrice: typeof data.engravingPrice === 'number'
+      ? data.engravingPrice
+      : defaultPricing.engravingPrice,
+  };
+}
 
 const PricingContext = createContext<PricingContextType>({
   pricing: defaultPricing,
@@ -59,9 +76,9 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const res = await fetch('/api/pricing');
       if (res.ok) {
         const data = await res.json();
-        setPricing({ ...defaultPricing, ...data });
+        setPricing(normalisePricing(data));
       }
-    } catch (e) {
+    } catch {
       console.error('Failed to fetch pricing');
     }
   };
@@ -70,26 +87,21 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const res = await fetch('/api/pricing', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(newPricing)
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newPricing),
       });
       if (res.ok) {
         const data = await res.json();
-        setPricing({ ...defaultPricing, ...data });
+        setPricing(normalisePricing(data));
         return true;
       }
-    } catch (e) {
+    } catch {
       console.error('Failed to update pricing');
     }
     return false;
   };
 
-  useEffect(() => {
-    refreshPricing();
-  }, []);
+  useEffect(() => { refreshPricing(); }, []);
 
   return (
     <PricingContext.Provider value={{ pricing, refreshPricing, updatePricing }}>

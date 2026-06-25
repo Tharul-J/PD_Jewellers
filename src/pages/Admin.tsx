@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { usePricing, IPricing } from '../context/PricingContext';
+import { usePricing, IMetalEntry, IStoneEntry } from '../context/PricingContext';
 import { motion } from 'motion/react';
 import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, UserX } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -78,11 +78,25 @@ export default function Admin() {
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
 
-  const [priceForm, setPriceForm] = useState<Partial<IPricing>>({});
+  // Pricing CRUD state
+  const [metalsList,          setMetalsList]          = useState<IMetalEntry[]>([]);
+  const [stonesList,          setStonesList]          = useState<IStoneEntry[]>([]);
+  const [engravingPriceLocal, setEngravingPriceLocal] = useState(5000);
+  const [newMetal,            setNewMetal]            = useState({ displayName: '', multiplier: 1 });
+  const [newStone,            setNewStone]            = useState({ displayName: '', price: 0 });
+  const [showAddMetal,        setShowAddMetal]        = useState(false);
+  const [showAddStone,        setShowAddStone]        = useState(false);
 
   useEffect(() => {
-    if (pricing) setPriceForm(pricing);
+    if (pricing) {
+      setMetalsList([...(pricing.metals ?? [])]);
+      setStonesList([...(pricing.stones ?? [])]);
+      setEngravingPriceLocal(pricing.engravingPrice ?? 5000);
+    }
   }, [pricing]);
+
+  const genKey = (name: string) =>
+    name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
   useEffect(() => {
     if (!user) {
@@ -1437,127 +1451,208 @@ export default function Admin() {
           {/* ── PRICING ── */}
           {activeTab === 'pricing' && (
             <div className="space-y-6">
-              <form
-                onSubmit={async e => {
-                  e.preventDefault();
-                  if (!user) return;
-                  setSavingPricing(true);
-                  setPricingSaveStatus('idle');
-                  const success = await updatePricing(priceForm, user.token);
-                  setPricingSaveStatus(success ? 'success' : 'error');
-                  setSavingPricing(false);
-                  if (success) setTimeout(() => setPricingSaveStatus('idle'), 3000);
-                }}
-              >
-                {/* Metal Multipliers card */}
-                <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
-                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
-                    <div className="w-2 h-5 bg-amber-400 rounded-full" />
-                    <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers</h3>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Applied as: Base Price × Multiplier</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {([
-                      { key: 'metalMultiplier_silver',   label: '925 Sterling Silver',       def: 1  },
-                      { key: 'metalMultiplier_white',    label: '18K White Gold',             def: 13 },
-                      { key: 'metalMultiplier_gold',     label: '22K Yellow Gold (916 Gold)', def: 18 },
-                      { key: 'metalMultiplier_rose',     label: '18K Rose Gold',              def: 13 },
-                      { key: 'metalMultiplier_platinum', label: 'Platinum (Pt950)',           def: 22 },
-                    ] as const).map(({ key, label, def }) => (
-                      <div key={key} className="bg-gray-50 rounded-md p-3">
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">{label}</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number" step="0.01" min="0"
-                            value={(priceForm as any)[key] ?? def}
-                            onChange={e => setPriceForm({ ...priceForm, [key]: Number(e.target.value) })}
-                            className="flex-1 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
-                          />
-                          <span className="text-xs text-gray-400">×</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-1">Default: {def}.0</p>
-                      </div>
-                    ))}
+
+              {/* Metal Multipliers card */}
+              <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                  <div className="w-2 h-5 bg-amber-400 rounded-full" />
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers</h3>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Applied as: Base Price × Multiplier</p>
                   </div>
                 </div>
 
-                {/* Center Stone Prices card */}
-                <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
-                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
-                    <div className="w-2 h-5 bg-blue-400 rounded-full" />
-                    <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices</h3>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Price per stone in Rs. — added on top of metal cost</p>
+                <div className="space-y-2 mb-4">
+                  {metalsList.map((m, i) => (
+                    <div key={m.key} className="flex items-center gap-3 bg-gray-50 rounded-md px-3 py-2">
+                      <span className="flex-1 text-sm text-gray-700 font-medium truncate min-w-0">{m.displayName}</span>
+                      <span className="text-xs text-gray-400 shrink-0">×</span>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={m.multiplier}
+                        onChange={e => {
+                          const updated = [...metalsList];
+                          updated[i] = { ...m, multiplier: Number(e.target.value) };
+                          setMetalsList(updated);
+                        }}
+                        className="w-20 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete "${m.displayName}"? This will remove it from pricing.`)) {
+                            setMetalsList(metalsList.filter((_, idx) => idx !== i));
+                          }
+                        }}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0"
+                        title="Delete metal"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {([
-                      { key: 'stonePrice_aquamarine',    label: 'Cornflower / Sky Blue Sapphire', def: 65000  },
-                      { key: 'stonePrice_diamond',       label: 'White Ceylon Sapphire',          def: 95000  },
-                      { key: 'stonePrice_ruby',          label: 'Crimson Ceylon Ruby',            def: 145000 },
-                      { key: 'stonePrice_emerald',       label: 'Vibrant Emerald',                def: 120000 },
-                      { key: 'stonePrice_sapphire',      label: 'Royal Blue Ceylon Sapphire',     def: 185000 },
-                      { key: 'stonePrice_padparadscha',  label: 'Ceylon Padparadscha ✦ Ultra Rare', def: 480000 },
-                      { key: 'stonePrice_moonstone',     label: 'Premium Blue-Sheen Moonstone',   def: 45000  },
-                      { key: 'stonePrice_yellowsapphire',label: 'Yellow Ceylon Sapphire',         def: 75000  },
-                    ] as const).map(({ key, label, def }) => (
-                      <div key={key} className="bg-gray-50 rounded-md p-3">
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">{label}</label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400 shrink-0">Rs.</span>
-                          <input
-                            type="number" min="0"
-                            value={(priceForm as any)[key] ?? def}
-                            onChange={e => setPriceForm({ ...priceForm, [key]: Number(e.target.value) })}
-                            className="flex-1 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
 
-                {/* Other Upgrades card */}
-                <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
-                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
-                    <div className="w-2 h-5 bg-green-400 rounded-full" />
-                    <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
+                {showAddMetal ? (
+                  <div className="flex items-center gap-2 bg-amber-50 rounded-md p-3 border border-amber-200 flex-wrap">
+                    <input
+                      type="text" placeholder="Display name (e.g. 24K Pure Gold)"
+                      value={newMetal.displayName}
+                      onChange={e => setNewMetal({ ...newMetal, displayName: e.target.value })}
+                      className="flex-1 min-w-[160px] p-2 border border-amber-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                    />
+                    <span className="text-xs text-gray-400 shrink-0">×</span>
+                    <input
+                      type="number" step="0.01" min="0" placeholder="Multiplier"
+                      value={newMetal.multiplier || ''}
+                      onChange={e => setNewMetal({ ...newMetal, multiplier: Number(e.target.value) })}
+                      className="w-24 p-2 border border-amber-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newMetal.displayName.trim()) return;
+                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), multiplier: newMetal.multiplier || 1 }]);
+                        setNewMetal({ displayName: '', multiplier: 1 });
+                        setShowAddMetal(false);
+                      }}
+                      className="px-3 py-2 bg-amber-500 text-white text-xs rounded hover:bg-amber-600 transition-colors shrink-0"
+                    >Add</button>
+                    <button type="button" onClick={() => { setShowAddMetal(false); setNewMetal({ displayName: '', multiplier: 1 }); }}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 rounded text-sm">✕</button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gray-50 rounded-md p-3">
-                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Custom Engraving</label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 shrink-0">Rs.</span>
-                        <input
-                          type="number" min="0"
-                          value={priceForm.engravingPrice ?? 5000}
-                          onChange={e => setPriceForm({ ...priceForm, engravingPrice: Number(e.target.value) })}
-                          className="flex-1 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Save bar */}
-                <div className="bg-white shadow-sm border border-gray-100 rounded-lg px-6 py-4 flex items-center justify-between">
-                  {pricingSaveStatus === 'success' && (
-                    <span className="text-xs text-green-600 font-semibold">Pricing saved successfully.</span>
-                  )}
-                  {pricingSaveStatus === 'error' && (
-                    <span className="text-xs text-red-600 font-semibold">Failed to save — please try again.</span>
-                  )}
-                  {pricingSaveStatus === 'idle' && <span />}
-                  <button
-                    type="submit" disabled={savingPricing}
-                    className="px-6 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
-                  >
-                    {savingPricing ? 'Saving...' : 'Save Pricing'}
+                ) : (
+                  <button type="button" onClick={() => setShowAddMetal(true)}
+                    className="text-xs text-amber-600 hover:text-amber-700 font-semibold flex items-center gap-1 mt-1">
+                    + Add New Metal
                   </button>
+                )}
+              </div>
+
+              {/* Center Stone Prices card */}
+              <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                  <div className="w-2 h-5 bg-blue-400 rounded-full" />
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices</h3>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Price per stone in Rs. — added on top of metal cost</p>
+                  </div>
                 </div>
-              </form>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+                  {stonesList.map((s, i) => (
+                    <div key={s.key} className="flex items-center gap-2 bg-gray-50 rounded-md px-3 py-2">
+                      <span className="flex-1 text-xs text-gray-700 font-medium truncate min-w-0">{s.displayName}</span>
+                      <span className="text-xs text-gray-400 shrink-0">Rs.</span>
+                      <input
+                        type="number" min="0"
+                        value={s.price}
+                        onChange={e => {
+                          const updated = [...stonesList];
+                          updated[i] = { ...s, price: Number(e.target.value) };
+                          setStonesList(updated);
+                        }}
+                        className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-blue-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete "${s.displayName}"? This will remove it from pricing.`)) {
+                            setStonesList(stonesList.filter((_, idx) => idx !== i));
+                          }
+                        }}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0"
+                        title="Delete stone"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {showAddStone ? (
+                  <div className="flex items-center gap-2 bg-blue-50 rounded-md p-3 border border-blue-200 flex-wrap">
+                    <input
+                      type="text" placeholder="Display name (e.g. Pink Ceylon Sapphire)"
+                      value={newStone.displayName}
+                      onChange={e => setNewStone({ ...newStone, displayName: e.target.value })}
+                      className="flex-1 min-w-[160px] p-2 border border-blue-200 text-sm rounded bg-white focus:outline-none focus:border-blue-300"
+                    />
+                    <span className="text-xs text-gray-400 shrink-0">Rs.</span>
+                    <input
+                      type="number" min="0" placeholder="Price"
+                      value={newStone.price || ''}
+                      onChange={e => setNewStone({ ...newStone, price: Number(e.target.value) })}
+                      className="w-28 p-2 border border-blue-200 text-sm rounded bg-white focus:outline-none focus:border-blue-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newStone.displayName.trim()) return;
+                        setStonesList([...stonesList, { key: genKey(newStone.displayName), displayName: newStone.displayName.trim(), price: newStone.price || 0 }]);
+                        setNewStone({ displayName: '', price: 0 });
+                        setShowAddStone(false);
+                      }}
+                      className="px-3 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors shrink-0"
+                    >Add</button>
+                    <button type="button" onClick={() => { setShowAddStone(false); setNewStone({ displayName: '', price: 0 }); }}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 rounded text-sm">✕</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setShowAddStone(true)}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 mt-1">
+                    + Add New Stone
+                  </button>
+                )}
+              </div>
+
+              {/* Other Upgrades card */}
+              <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                  <div className="w-2 h-5 bg-green-400 rounded-full" />
+                  <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-50 rounded-md p-3 max-w-xs">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 shrink-0">Engraving</label>
+                  <span className="text-xs text-gray-400 shrink-0 ml-auto">Rs.</span>
+                  <input
+                    type="number" min="0"
+                    value={engravingPriceLocal}
+                    onChange={e => setEngravingPriceLocal(Number(e.target.value))}
+                    className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-green-400"
+                  />
+                </div>
+              </div>
+
+              {/* Save bar */}
+              <div className="bg-white shadow-sm border border-gray-100 rounded-lg px-6 py-4 flex items-center justify-between">
+                {pricingSaveStatus === 'success' && (
+                  <span className="text-xs text-green-600 font-semibold">Pricing saved successfully.</span>
+                )}
+                {pricingSaveStatus === 'error' && (
+                  <span className="text-xs text-red-600 font-semibold">Failed to save — please try again.</span>
+                )}
+                {pricingSaveStatus === 'idle' && <span />}
+                <button
+                  type="button"
+                  disabled={savingPricing}
+                  onClick={async () => {
+                    if (!user) return;
+                    setSavingPricing(true);
+                    setPricingSaveStatus('idle');
+                    const success = await updatePricing(
+                      { metals: metalsList, stones: stonesList, engravingPrice: engravingPriceLocal },
+                      user.token
+                    );
+                    setPricingSaveStatus(success ? 'success' : 'error');
+                    setSavingPricing(false);
+                    if (success) setTimeout(() => setPricingSaveStatus('idle'), 3000);
+                  }}
+                  className="px-6 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
+                >
+                  {savingPricing ? 'Saving...' : 'Save Pricing'}
+                </button>
+              </div>
             </div>
           )}
 

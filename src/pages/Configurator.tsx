@@ -5,7 +5,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAuth } from '../context/AuthContext';
-import { usePricing, IPricing } from '../context/PricingContext';
+import { usePricing } from '../context/PricingContext';
 import { Check, Glasses, Box, Type, Save } from 'lucide-react';
 import ARTryOnModal from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
@@ -63,13 +63,16 @@ export default function Configurator() {
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [customText, setCustomText] = useState(() => localStorage.getItem('cfg_customText') || 'PD');
   const [engraveWant, setEngraveWant] = useState(() => localStorage.getItem('cfg_engraveWant') === 'true');
-  const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'wing'>(() => (localStorage.getItem('cfg_pendantShape') as 'standard'|'heart'|'wing') || 'standard');
+  const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'tag'>(() => { const s = localStorage.getItem('cfg_pendantShape'); return (s === 'standard' || s === 'heart' || s === 'tag') ? s : 'standard'; });
   const [metal, setMetal] = useState<keyof typeof METALS>(() => {
     const saved = localStorage.getItem('cfg_metal') as keyof typeof METALS;
     return (saved && saved in METALS) ? saved : 'gold';
   });
   const [stone, setStone] = useState<keyof typeof STONES>(() => (localStorage.getItem('cfg_stone') as keyof typeof STONES) || 'aquamarine');
-  const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>(() => (localStorage.getItem('cfg_fontStyle') as keyof typeof FONTS) || 'helvetiker');
+  const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>(() => {
+    const saved = localStorage.getItem('cfg_fontStyle') as keyof typeof FONTS;
+    return (saved && saved in FONTS) ? saved : 'dancing_script';
+  });
   const [fontBold, setFontBold] = useState(() => localStorage.getItem('cfg_fontBold') === 'true');
   const [fontItalic, setFontItalic] = useState(() => localStorage.getItem('cfg_fontItalic') === 'true');
   const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
@@ -80,6 +83,13 @@ export default function Configurator() {
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Auto-save configuration changes
+  // Tag shape is monogram-only — enforce 3-char max when switching to tag
+  useEffect(() => {
+    if (pendantShape === 'tag' && customText.length > 3) {
+      setCustomText(customText.slice(0, 3));
+    }
+  }, [pendantShape]);
+
   useEffect(() => {
     localStorage.setItem('cfg_modelType', modelType);
     localStorage.setItem('cfg_ringStyle', ringStyle);
@@ -158,38 +168,42 @@ export default function Configurator() {
   }, [user]);
 
   const calculatePrice = () => {
-    let basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);
-    
+    const basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);
+
+    // Metal multiplier: prefer API value, fall back to constants.ts
     let metalMultiplier = METALS[metal]?.priceMultiplier ?? 1;
-    if (pricing) {
-        metalMultiplier = (pricing as any)[`metalMultiplier_${metal}`] ?? metalMultiplier;
+    if (pricing?.metals) {
+      const found = pricing.metals.find(m => m.key === metal);
+      if (found) metalMultiplier = found.multiplier;
     }
 
     const metalPart = basePrice * metalMultiplier;
-    let stonePart = 0;
 
+    // Stone price (rings only): prefer API value, fall back to constants.ts
+    let stonePart = 0;
     if (modelType === 'ring') {
-       const storedStonePrice = pricing ? (pricing as any)[`stonePrice_${stone}`] : undefined;
-       stonePart = storedStonePrice ?? STONES[stone]?.price ?? 0;
+      stonePart = STONES[stone]?.price ?? 0;
+      if (pricing?.stones) {
+        const found = pricing.stones.find(s => s.key === stone);
+        if (found) stonePart = found.price;
+      }
     }
 
+    // Engraving fee
     let engravingPart = 0;
     if ((modelType === 'ring' && engraveWant) || modelType === 'pendant') {
-       engravingPart = pricing?.engravingPrice || 5000;
-       if (customText.length > 0) {
-           // We could multiply by chars, but let's just use flat fee per engraving
-       } else {
-           engravingPart = 0; 
-       }
+      if (customText.length > 0) {
+        engravingPart = pricing?.engravingPrice ?? 5000;
+      }
     }
-    
+
     return {
-        total: Math.round(metalPart + stonePart + engravingPart),
-        breakdown: {
-            metal: Math.round(metalPart),
-            stone: Math.round(stonePart),
-            engraving: Math.round(engravingPart)
-        }
+      total: Math.round(metalPart + stonePart + engravingPart),
+      breakdown: {
+        metal:    Math.round(metalPart),
+        stone:    Math.round(stonePart),
+        engraving:Math.round(engravingPart),
+      },
     };
   };
 
@@ -248,9 +262,9 @@ export default function Configurator() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] flex flex-col lg:flex-row">
+    <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row overflow-hidden">
       {/* 3D Viewer */}
-      <div className="flex-1 bg-white relative h-[50vh] lg:h-auto border-r border-[rgba(26,26,26,0.1)] flex items-center justify-center">
+      <div className="flex-1 min-h-0 h-[50vh] lg:h-full relative border-r border-black/10 flex items-center justify-center" style={{ background: '#eae4dc' }}>
         {isLoadingModels ? (
            <div className="animate-pulse w-full h-full flex items-center justify-center bg-gray-50">
              <div className="flex flex-col items-center">
@@ -260,13 +274,16 @@ export default function Configurator() {
            </div>
         ) : (
           <Scene3DErrorBoundary>
-            <div className="absolute top-6 border border-black/10 right-6 z-10 bg-white/80 p-3 rounded-full text-[10px] uppercase tracking-widest backdrop-blur-sm">
+            <div className="absolute top-4 right-4 z-10 bg-white/70 border border-black/10 px-3 py-1.5 rounded-full text-[9px] uppercase tracking-widest text-black/50 backdrop-blur-sm">
               Drag to Revolve
             </div>
-            <Canvas shadows camera={{ position: [0, 1.5, 4.5], fov: 40 }}>
-              <ambientLight intensity={0.8} />
-              <spotLight position={[10, 15, 10]} angle={0.3} penumbra={1} intensity={2} castShadow />
-              <pointLight position={[-10, -10, -10]} intensity={1} />
+            <Canvas shadows camera={{ position: [0, 0.5, 3.2], fov: 42 }}>
+              {/* Set THREE.js scene background so WebGL clear color matches the CSS bg */}
+              <color attach="background" args={['#eae4dc']} />
+              <ambientLight intensity={0.6} />
+              <spotLight position={[4, 8, 6]}  angle={0.35} penumbra={1} intensity={3}   castShadow />
+              <spotLight position={[-4, 6, 4]} angle={0.35} penumbra={1} intensity={1.5} />
+              <pointLight position={[0, -2, 4]} intensity={0.8} />
               <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                 <group position={[0, 0, -0.6]} scale={1.5}>
                   {modelType === 'ring' ? (
@@ -277,19 +294,20 @@ export default function Configurator() {
                       metalMaterial={METALS[metal]}
                       fontStyle={fontStyle}
                       fontBold={fontBold}
+                      fontItalic={fontItalic}
                       shape={pendantShape}
                     />
                   )}
                 </group>
-                <Environment preset="city" background blur={0.5} />
-                <ContactShadows position={[0, -1.8, 0]} opacity={0.5} scale={10} blur={2} far={4} />
+                <Environment preset="apartment" />
+                <ContactShadows position={[0, -1.8, 0]} opacity={0.25} scale={12} blur={2.5} far={4} />
               </Suspense>
               <OrbitControls
                 enablePan={false}
                 enableZoom={true}
-                target={[0, 0, -0.6]}
+                target={modelType === 'pendant' ? [0, -0.25, -0.6] : [0, 0, -0.6]}
                 minPolarAngle={Math.PI/6}
-                maxPolarAngle={Math.PI * 0.7}
+                maxPolarAngle={Math.PI * 0.75}
                 enableDamping={true}
                 dampingFactor={0.05}
               />
@@ -299,7 +317,7 @@ export default function Configurator() {
       </div>
 
       {/* Controls Panel */}
-      <div className="w-full lg:w-[450px] bg-[var(--color-paper)] flex flex-col h-[50vh] lg:h-auto border-l border-white/50 shadow-xl overflow-y-auto">
+      <div className="w-full lg:w-[450px] bg-[var(--color-paper)] flex flex-col flex-1 min-h-0 lg:h-full lg:flex-none border-l border-white/50 shadow-xl overflow-hidden">
         {isLoadingModels ? (
           <div className="p-10 flex-1 animate-pulse">
             <div className="h-3 w-32 bg-gray-200 rounded mb-4"></div>
@@ -322,7 +340,7 @@ export default function Configurator() {
           </div>
         ) : (
           <>
-          <div className="p-10 flex-1">
+          <div className="p-10 flex-1 overflow-y-auto">
           <p className="text-[10px] uppercase tracking-[0.2em] opacity-50 mb-4">Bespoke Design</p>
           <h1 className="text-4xl font-serif mb-2">
             {modelType === 'ring' ? (currentStyleDef?.name || 'Signature Ring') : 'Name Pendant'}
@@ -524,7 +542,7 @@ export default function Configurator() {
                   <span className="opacity-50 capitalize">{pendantShape}</span>
                 </h3>
                 <div className="grid grid-cols-3 gap-2">
-                  {(['standard', 'heart', 'wing'] as const).map((shape) => (
+                  {(['standard', 'heart', 'tag'] as const).map((shape) => (
                     <button
                       key={shape}
                       onClick={() => setPendantShape(shape)}
@@ -540,16 +558,21 @@ export default function Configurator() {
 
               <div className="mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
-                  <span>Custom Text</span>
-                  <span className="opacity-50">{customText.length}/10</span>
+                  <span>{pendantShape === 'tag' ? 'Monogram (initials)' : 'Custom Text'}</span>
+                  <span className={`opacity-60 tabular-nums ${pendantShape === 'tag' && customText.length >= 3 ? 'text-amber-600' : ''}`}>
+                    {customText.length}/{pendantShape === 'tag' ? '3' : '10'}
+                  </span>
                 </h3>
                 <input
                   type="text"
                   value={customText}
-                  onChange={(e) => setCustomText(e.target.value.slice(0, 10))}
+                  onChange={(e) => setCustomText(e.target.value.slice(0, pendantShape === 'tag' ? 3 : 10))}
                   className="w-full p-4 bg-white border border-black/10 focus:outline-none focus:border-[var(--color-ink)] uppercase tracking-widest text-sm"
-                  placeholder="Enter Name..."
+                  placeholder={pendantShape === 'tag' ? 'A, AB, or ABC...' : 'Enter Name...'}
                 />
+                {pendantShape === 'tag' && (
+                  <p className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wider">Tag shape is monogram-only — 1 to 3 initials</p>
+                )}
               </div>
 
               <div className="mb-10">
@@ -587,7 +610,7 @@ export default function Configurator() {
           )}
         </div>
 
-        <div className="p-6 border-t border-[rgba(26,26,26,0.1)] bg-white/30 sticky bottom-0">
+        <div className="p-6 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-paper)] shrink-0">
           <div className="flex flex-col mb-4">
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                <span>Base + Metal:</span>

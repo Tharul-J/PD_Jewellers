@@ -80,10 +80,18 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, fon
   return (
     <group ref={groupRef}>
       <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
-        <primitive object={styledScene} position={[-cx, -cy, -cz]} scale={autoScale} />
+        {/*
+          Scale and centering must be in separate groups: the centering offset
+          [-cx,-cy,-cz] must live INSIDE the scaled coordinate space so the
+          effective net position = scale*(center - center) = 0.
+          Putting both on the same <primitive> gives (autoScale-1)*center drift.
+        */}
+        <group scale={autoScale}>
+          <primitive object={styledScene} position={[-cx, -cy, -cz]} />
+        </group>
         {/* Inner Engraving */}
         {text && text.trim().length > 0 && (
-          <group position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, fontItalic ? -0.3 : 0]}>
+          <group position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, fontItalic ? -0.5 : 0]}>
              <Center position={[0, 0, 0]}>
                 <Text3D 
                   font={fontUrl} 
