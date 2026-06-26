@@ -35,6 +35,11 @@ type GemFit = {
   sizeNorm: number;
 };
 
+type EngraveFit = {
+  yNorm: number;
+  radiusNorm: number;
+};
+
 // Manual overrides — only entries that need a non-default cut shape or precisely
 // hand-tuned placement that auto-detection cannot infer from geometry alone.
 // Ring3 must stay here: its square bezel needs the princess-cut two-cone profile.
@@ -44,6 +49,7 @@ const GEM_FIT_OVERRIDES: Record<string, GemFit> = {
 };
 
 const DEFAULT_GEM_FIT: GemFit = { cut: 'round', centerX: 0, centerZ: 0, yNorm: 0.75, sizeNorm: 0.28 };
+const DEFAULT_ENGRAVE_FIT: EngraveFit = { yNorm: -0.55, radiusNorm: 0.85 };
 
 function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl }: any) {
   const groupRef = useRef<THREE.Group>(null);
@@ -174,6 +180,73 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
     return detected;
   }, [scene, boundingRadius, fileUrl]);
 
+  // Runtime engraving-fit detection — samples the bottom 18% of the band mesh by
+  // world-space Y (inner band region) near the central X=0 plane, then returns
+  // normalised Y and radial distance so the text can be placed flush on the inner surface.
+  const autoDetectedEngraveFit = useMemo<EngraveFit>(() => {
+    if (!scene || boundingRadius <= 0) return DEFAULT_ENGRAVE_FIT;
+
+    let largestMesh: THREE.Mesh | null = null;
+    let maxVol = -1;
+    scene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.geometry.computeBoundingBox();
+        const bb = mesh.geometry.boundingBox;
+        if (bb) {
+          const vol = (bb.max.x - bb.min.x) * (bb.max.y - bb.min.y) * (bb.max.z - bb.min.z);
+          if (vol > maxVol) { maxVol = vol; largestMesh = mesh; }
+        }
+      }
+    });
+    if (!largestMesh) return DEFAULT_ENGRAVE_FIT;
+
+    const mesh = largestMesh as THREE.Mesh;
+    const posAttr = mesh.geometry.attributes.position;
+    if (!posAttr) return DEFAULT_ENGRAVE_FIT;
+
+    const worldBB = new THREE.Box3().setFromObject(mesh);
+    if (worldBB.isEmpty()) return DEFAULT_ENGRAVE_FIT;
+    const yWorldRange = worldBB.max.y - worldBB.min.y;
+    const bottomThreshold = worldBB.min.y + yWorldRange * 0.18;
+    const xFullRange = worldBB.max.x - worldBB.min.x;
+
+    // First pass: find minimum |X| among bottom-region vertices (inner-facing surface)
+    let minAbsX = Infinity;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < posAttr.count; i++) {
+      v.fromBufferAttribute(posAttr as THREE.BufferAttribute, i).applyMatrix4(mesh.matrixWorld);
+      if (v.y <= bottomThreshold && Math.abs(v.x) < minAbsX) minAbsX = Math.abs(v.x);
+    }
+
+    // Second pass: collect vertices near X=0 to represent the front inner-band surface
+    const xTolerance = minAbsX + xFullRange * 0.15;
+    let sumY = 0, sumR = 0, engraveCount = 0;
+    for (let i = 0; i < posAttr.count; i++) {
+      v.fromBufferAttribute(posAttr as THREE.BufferAttribute, i).applyMatrix4(mesh.matrixWorld);
+      if (v.y <= bottomThreshold && Math.abs(v.x) <= xTolerance) {
+        sumY += v.y;
+        sumR += Math.sqrt(v.x * v.x + v.z * v.z);
+        engraveCount++;
+      }
+    }
+
+    if (engraveCount === 0) return DEFAULT_ENGRAVE_FIT;
+
+    const fit: EngraveFit = {
+      yNorm: (sumY / engraveCount) / boundingRadius,
+      radiusNorm: (sumR / engraveCount) / boundingRadius,
+    };
+
+    console.log(
+      `[EngraveFit auto] ${fileUrl.split('/').pop()} →`,
+      `yNorm=${fit.yNorm.toFixed(3)} radiusNorm=${fit.radiusNorm.toFixed(3)}`,
+      `(${engraveCount} bottom vertices)`,
+    );
+
+    return fit;
+  }, [scene, boundingRadius, fileUrl]);
+
   const gemFit = GEM_FIT_OVERRIDES[fileUrl] ?? autoDetectedGemFit;
 
   // Auto-scale: normalize ring to radius=1 so the Configurator's outer scale={1.5}
@@ -190,6 +263,18 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
     -cy + gemFit.yNorm   * boundingRadius,
     -cz + gemFit.centerZ * boundingRadius,
   ];
+
+  // Engraving position in model space — same normalisation pattern as gemPos so
+  // autoScale correctly maps it to world units regardless of each ring's size.
+  const engravePos: [number, number, number] = [
+    -cx,
+    -cy + autoDetectedEngraveFit.yNorm     * boundingRadius,
+    -cz + autoDetectedEngraveFit.radiusNorm * boundingRadius,
+  ];
+  // Text dimensions scaled to boundingRadius so glyphs are the same apparent
+  // size across all rings after autoScale brings them to a uniform world radius.
+  const textSize   = 0.10  * boundingRadius;
+  const textHeight = 0.008 * boundingRadius;
 
   useFrame((state) => {
     if (groupRef.current && !noSpin) {
@@ -254,29 +339,34 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
               </mesh>
             </group>
           )}
-        </group>
 
-        {/* Inner Engraving — Float space (outside autoScale), at bottom of ring */}
-        {text && text.trim().length > 0 && (
-          <group position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, fontItalic ? -0.5 : 0]}>
-             <Center position={[0, 0, 0]}>
+          {/*
+            Inner-band engraving — lives inside autoScale so engravePos (in model
+            space) is correctly normalised to world units, matching how gemPos works.
+            Y rotation +PI flips the text so it reads left-to-right from the viewer's
+            perspective when looking at the front inner-band surface.
+          */}
+          {text && text.trim().length > 0 && (
+            <group position={engravePos} rotation={[-Math.PI / 2, Math.PI, fontItalic ? -0.5 : 0]}>
+              <Center>
                 <Text3D
                   font={fontUrl}
-                  size={0.12}
-                  height={0.01}
+                  size={textSize}
+                  height={textHeight}
                   curveSegments={12}
                   bevelEnabled
-                  bevelThickness={0.005}
-                  bevelSize={0.005}
+                  bevelThickness={0.005 * boundingRadius}
+                  bevelSize={0.005 * boundingRadius}
                   bevelOffset={0}
                   bevelSegments={2}
                 >
                   {text}
                   <meshPhysicalMaterial {...metalMaterial} envMapIntensity={2} color="#888" roughness={0.3} metalness={1} />
                 </Text3D>
-             </Center>
-          </group>
-        )}
+              </Center>
+            </group>
+          )}
+        </group>
       </Float>
     </group>
   );
