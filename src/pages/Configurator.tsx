@@ -46,17 +46,17 @@ class Scene3DErrorBoundary extends Component<
 }
 
 const DEFAULT_RING_STYLES = [
-  { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000 },
-  { id: 'ring-style-2', name: 'Ring Style 2', fileUrl: '/glb-models/rings/ring2.glb', basePrice: 25000 },
-  { id: 'ring-style-3', name: 'Ring Style 3', fileUrl: '/glb-models/rings/ring3.glb', basePrice: 30000 },
-  { id: 'ring-style-4', name: 'Ring Style 4', fileUrl: '/glb-models/rings/ring4.glb', basePrice: 25000 },
-  { id: 'ring-style-5', name: 'Ring Style 5', fileUrl: '/glb-models/rings/ring5.glb', basePrice: 25000 },
+  { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000, hasRealStone: false },
+  { id: 'ring-style-2', name: 'Ring Style 2', fileUrl: '/glb-models/rings/ring2.glb', basePrice: 25000, hasRealStone: false },
+  { id: 'ring-style-3', name: 'Ring Style 3', fileUrl: '/glb-models/rings/ring3.glb', basePrice: 30000, hasRealStone: false },
+  { id: 'ring-style-4', name: 'Ring Style 4', fileUrl: '/glb-models/rings/ring4.glb', basePrice: 25000, hasRealStone: false },
+  { id: 'ring-style-5', name: 'Ring Style 5', fileUrl: '/glb-models/rings/ring5.glb', basePrice: 25000, hasRealStone: false },
 ];
 
 export default function Configurator() {
   const navigate = useNavigate();
   const [modelType, setModelType] = useState<'ring' | 'pendant'>(() => (localStorage.getItem('cfg_modelType') as 'ring' | 'pendant') || 'ring');
-  const [dynamicStyles, setDynamicStyles] = useState<{id: string, name: string, fileUrl?: string, basePrice?: number}[]>(DEFAULT_RING_STYLES);
+  const [dynamicStyles, setDynamicStyles] = useState<{id: string, name: string, fileUrl?: string, basePrice?: number, hasRealStone?: boolean}[]>(DEFAULT_RING_STYLES);
   const [ringStyle, setRingStyle] = useState(() => localStorage.getItem('cfg_ringStyle') || DEFAULT_RING_STYLES[0].id);
   const [isARModalOpen, setIsARModalOpen] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
@@ -120,6 +120,7 @@ export default function Configurator() {
         category: m.category,
         basePrice: m.basePrice,
         fileUrl: m.glbUrl,
+        hasRealStone: m.hasRealStone ?? false,
       }));
       const dbRingModels = dbModels.filter(m => m.category === 'ring');
       // DB is authoritative: use DB ring models if available, else fall back to local defaults
@@ -294,7 +295,7 @@ export default function Configurator() {
               <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                 <group position={[0, 0, -0.6]} scale={1.5}>
                   {modelType === 'ring' ? (
-                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
+                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
                   ) : (
                     <PendantModel
                       text={customText}
