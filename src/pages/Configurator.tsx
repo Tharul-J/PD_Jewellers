@@ -46,12 +46,11 @@ class Scene3DErrorBoundary extends Component<
 }
 
 const DEFAULT_RING_STYLES = [
-  { id: 'ri0', name: 'Classic Solitaire',          fileUrl: '/glb-models/rings/RI0.glb' },
-  { id: 'ri1', name: 'Halo Setting',               fileUrl: '/glb-models/rings/RI1.glb' },
-  { id: 'ri2', name: 'Vintage Pavé Band',           fileUrl: '/glb-models/rings/RI2.glb' },
-  { id: 'ri3', name: 'Three-Stone Trellis',         fileUrl: '/glb-models/rings/RI3.glb' },
-  { id: 'ri4', name: 'Channel-Set Eternity Band',   fileUrl: '/glb-models/rings/RI4.glb' },
-  { id: 'ri5', name: 'Split Shank Cathedral',       fileUrl: '/glb-models/rings/RI5.glb' },
+  { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000 },
+  { id: 'ring-style-2', name: 'Ring Style 2', fileUrl: '/glb-models/rings/ring2.glb', basePrice: 25000 },
+  { id: 'ring-style-3', name: 'Ring Style 3', fileUrl: '/glb-models/rings/ring3.glb', basePrice: 30000 },
+  { id: 'ring-style-4', name: 'Ring Style 4', fileUrl: '/glb-models/rings/ring4.glb', basePrice: 25000 },
+  { id: 'ring-style-5', name: 'Ring Style 5', fileUrl: '/glb-models/rings/ring5.glb', basePrice: 25000 },
 ];
 
 export default function Configurator() {
@@ -107,23 +106,31 @@ export default function Configurator() {
   useEffect(() => {
     const cachedModels = localStorage.getItem('cfg_cache_api_models');
     
-    const processModelsData = (data: any[]) => {
+    const processModelsData = (data: any[], fromCache = false) => {
+      // Skip stale cache if all ring models point to /uploads/ (old session leftovers)
+      if (fromCache) {
+        const cacheRings = data.filter(m => m.category === 'ring');
+        const allStale = cacheRings.length > 0 && cacheRings.every(m => (m.glbUrl || '').startsWith('/uploads/'));
+        if (allStale) { localStorage.removeItem('cfg_cache_api_models'); return; }
+      }
+
       const dbModels = data.filter(m => m.isActive !== false).map(m => ({
-        id: `custom-glb-${m._id}`,
+        id: `db-${m._id}`,
         name: m.name,
         category: m.category,
         basePrice: m.basePrice,
-        fileUrl: m.glbUrl
+        fileUrl: m.glbUrl,
       }));
-      const knownUrls = new Set(DEFAULT_RING_STYLES.map(s => s.fileUrl));
-      const newRingModels = dbModels.filter(m => m.category === 'ring' && !knownUrls.has(m.fileUrl));
-      setDynamicStyles([...DEFAULT_RING_STYLES, ...newRingModels]);
-      
-      // Prefetch custom models in background
+      const dbRingModels = dbModels.filter(m => m.category === 'ring');
+      // DB is authoritative: use DB ring models if available, else fall back to local defaults
+      const newStyles = dbRingModels.length > 0 ? dbRingModels : DEFAULT_RING_STYLES;
+      setDynamicStyles(newStyles);
+      // Auto-select first style if saved ring style no longer exists in new list
+      setRingStyle(prev => newStyles.find(s => s.id === prev) ? prev : (newStyles[0]?.id ?? prev));
+
+      // Prefetch all ring models in background
       setTimeout(() => {
-        dbModels.forEach(m => {
-          if (m.fileUrl) prefetchModel(m.fileUrl);
-        });
+        newStyles.forEach(s => { if (s.fileUrl) prefetchModel(s.fileUrl); });
       }, 1000);
     };
 
@@ -131,7 +138,7 @@ export default function Configurator() {
       try {
         const parsed = JSON.parse(cachedModels);
         if (Array.isArray(parsed)) {
-          processModelsData(parsed);
+          processModelsData(parsed, true);
           setIsLoadingModels(false);
         }
       } catch (e) {
@@ -287,7 +294,7 @@ export default function Configurator() {
               <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                 <group position={[0, 0, -0.6]} scale={1.5}>
                   {modelType === 'ring' ? (
-                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl} />
+                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
                   ) : (
                     <PendantModel
                       text={customText}

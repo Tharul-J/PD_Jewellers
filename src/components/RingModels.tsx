@@ -29,38 +29,47 @@ class ModelErrorBoundary extends Component<{ children: ReactNode; fallback: Reac
 
 function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl }: any) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene, maxZSize, boundingRadius, boundingCenter } = useLoadedModel(fileUrl);
+  const { scene, boundingRadius, boundingCenter } = useLoadedModel(fileUrl);
 
   const styledScene = useMemo(() => {
     if (!scene) return new THREE.Group();
-    const localClone = scene.clone();
+    const localClone = scene.clone(true);
 
     const metalMat = new THREE.MeshPhysicalMaterial({ ...metalMaterial, envMapIntensity: 3 });
     const stoneMat = new THREE.MeshPhysicalMaterial({ ...stoneMaterial, envMapIntensity: 2 });
 
+    // Collect all meshes and compute their bounding box volume
+    const meshes: { mesh: THREE.Mesh; vol: number }[] = [];
     localClone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-
-        let isRingBody = false;
-        if (mesh.geometry.boundingBox) {
-           const bbox = mesh.geometry.boundingBox;
-           const zDepth = bbox.max.z - bbox.min.z;
-           if (zDepth > (maxZSize * 0.8) || zDepth > 15) {
-              isRingBody = true;
-           }
-        }
-
-        if (isRingBody) {
-          mesh.material = metalMat;
-        } else {
-          mesh.material = stoneMat;
-        }
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.geometry.computeBoundingBox();
+        const bb = mesh.geometry.boundingBox;
+        const vol = bb
+          ? (bb.max.x - bb.min.x) * (bb.max.y - bb.min.y) * (bb.max.z - bb.min.z)
+          : 0;
+        meshes.push({ mesh, vol });
       }
     });
 
+    if (meshes.length === 0) return localClone;
+
+    if (meshes.length === 1) {
+      // Single-mesh model — everything is the ring band
+      meshes[0].mesh.material = metalMat;
+    } else {
+      // Largest volume mesh → ring band (metalMat); all others → stone (stoneMat)
+      meshes.sort((a, b) => b.vol - a.vol);
+      meshes[0].mesh.material = metalMat;
+      for (let i = 1; i < meshes.length; i++) {
+        meshes[i].mesh.material = stoneMat;
+      }
+    }
+
     return localClone;
-  }, [scene, metalMaterial, stoneMaterial, maxZSize]);
+  }, [scene, metalMaterial, stoneMaterial]);
 
   // Auto-scale: normalize ring to radius=1 so the Configurator's outer scale={1.5}
   // gives a consistent ~1.5-unit world radius across all ring designs.
@@ -115,8 +124,8 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, fon
   );
 }
 
-export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl = '/glb-models/rings/RI0.glb' }: any) {
-  const safeFileUrl = fileUrl || '/glb-models/rings/RI0.glb';
+export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl = '/glb-models/rings/ring1.glb' }: any) {
+  const safeFileUrl = fileUrl || '/glb-models/rings/ring1.glb';
 
   return (
     <ModelErrorBoundary
@@ -130,7 +139,7 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, text, fontSty
           fontBold={fontBold}
           fontItalic={fontItalic}
           noSpin={noSpin}
-          fileUrl="/glb-models/rings/RI0.glb"
+          fileUrl="/glb-models/rings/ring1.glb"
         />
       }
     >

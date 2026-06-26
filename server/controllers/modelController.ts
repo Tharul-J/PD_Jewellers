@@ -4,6 +4,15 @@ import ConfigurableModel from '../models/ConfigurableModel.js';
 
 let mockModelsSeed: Array<{ _id: string; name: string; category: string; basePrice: number; glbUrl: string; isActive: boolean; createdAt?: string }> = [];
 
+// Local files that ship with the project — seeded to DB on first startup
+const LOCAL_RING_SEEDS = [
+  { name: 'Ring Style 1', glbUrl: '/glb-models/rings/ring1.glb', category: 'ring', basePrice: 25000 },
+  { name: 'Ring Style 2', glbUrl: '/glb-models/rings/ring2.glb', category: 'ring', basePrice: 25000 },
+  { name: 'Ring Style 3', glbUrl: '/glb-models/rings/ring3.glb', category: 'ring', basePrice: 30000 },
+  { name: 'Ring Style 4', glbUrl: '/glb-models/rings/ring4.glb', category: 'ring', basePrice: 25000 },
+  { name: 'Ring Style 5', glbUrl: '/glb-models/rings/ring5.glb', category: 'ring', basePrice: 25000 },
+];
+
 // @desc    Get all configurable models
 // @route   GET /api/models
 // @access  Public
@@ -13,7 +22,20 @@ export const getModels = async (req: Request, res: Response): Promise<void> => {
       res.json(mockModelsSeed);
       return;
     }
-    const models = await ConfigurableModel.find({});
+
+    let models = await ConfigurableModel.find({});
+
+    // One-time migration: seed local ring files if none of the new local URLs are in DB yet.
+    // This clears stale entries from old sessions (RI*.glb or old /uploads/) and seeds fresh.
+    const localUrls = new Set(LOCAL_RING_SEEDS.map(s => s.glbUrl));
+    const alreadySeeded = models.some(m => localUrls.has(m.glbUrl));
+    if (!alreadySeeded) {
+      await ConfigurableModel.deleteMany({ category: 'ring' });
+      await ConfigurableModel.insertMany(LOCAL_RING_SEEDS);
+      models = await ConfigurableModel.find({});
+      console.log('[Models] Seeded 5 local ring models (replaced stale entries).');
+    }
+
     res.json(models);
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
