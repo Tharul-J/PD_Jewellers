@@ -111,6 +111,7 @@ function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {
     <group ref={meshRef}>
       <CustomGLBRingModel
         noSpin={true}
+        syntheticStone={true}
         text={text}
         metalMaterial={metalMaterial}
         stoneMaterial={stoneMaterial}
@@ -137,8 +138,9 @@ function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontI
   const meshRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
   const metalMaterial = METALS[metal as keyof typeof METALS] || METALS.silver;
+  const currentScale = useRef(0);
 
-  useFrame(() => {
+  useFrame((state, delta) => {
     if (!meshRef.current) return;
     const { nx, ny, nw, rotation, visible } = transformRef.current;
 
@@ -148,19 +150,35 @@ function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontI
     }
     meshRef.current.visible = true;
 
-    meshRef.current.position.x = (nx - 0.5) * viewport.width;
-    // Offset below the chin so the pendant sits on the chest
-    meshRef.current.position.y = -(ny - 0.5) * viewport.height - (nw * viewport.width * 0.8);
+    // Shift anchor ~12% of face-width below the chin for a throat/collar origin
+    const anchorNy  = ny + nw * 0.12;
+    const screenW   = nw * viewport.width;
+    const targetX   = (nx - 0.5) * viewport.width;
+    // 0.65× (down from 0.8×) compensates for the anchor already being shifted below chin
+    const targetY   = -(anchorNy - 0.5) * viewport.height - screenW * 0.65;
+    const targetScale = screenW * 0.25;
+    const targetRotZ  = rotation * 0.1;
 
-    // PendantModel's chain spans roughly 3.2 local units top-to-bottom.
-    // PENDANT_AR_SCALE = 0.25 makes chain height ≈ 0.8 × face_width in screen pixels.
-    // Tune this constant if pendant appears too large or small on screen.
-    const PENDANT_AR_SCALE = 0.25;
-    meshRef.current.scale.setScalar(nw * viewport.width * PENDANT_AR_SCALE);
+    const smoothFactor = Math.min(12 * delta, 1);
 
-    // Real chains hang vertically under gravity — apply only a small fraction of
-    // face tilt so the chain doesn't swing unrealistically with head rotation.
-    meshRef.current.rotation.z = rotation * 0.1;
+    // Snap to position on first valid frame to avoid sliding in from (0,0)
+    if (!meshRef.current.userData.initialized) {
+      meshRef.current.userData.initialized = true;
+      meshRef.current.position.x = targetX;
+      meshRef.current.position.y = targetY;
+      currentScale.current = targetScale;
+      meshRef.current.scale.setScalar(targetScale);
+      meshRef.current.rotation.z = targetRotZ;
+    }
+
+    meshRef.current.position.x = THREE.MathUtils.lerp(meshRef.current.position.x, targetX, smoothFactor);
+    meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, targetY, smoothFactor);
+
+    currentScale.current = THREE.MathUtils.lerp(currentScale.current, targetScale, smoothFactor);
+    meshRef.current.scale.setScalar(currentScale.current);
+
+    // Real chains hang vertically; only a small tilt fraction follows head rotation
+    meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, targetRotZ, smoothFactor);
   });
 
   return (
@@ -457,10 +475,12 @@ export default function ARTryOnModal({
         <div className="absolute inset-0 pointer-events-none">
           <Scene3DErrorBoundary onClose={onClose}>
             <Canvas orthographic camera={{ position: [0, 0, 100], zoom: 1 }} gl={{ preserveDrawingBuffer: true }}>
-              <ambientLight intensity={0.8} />
+              <ambientLight intensity={1.5} />
               <directionalLight position={[0, 10, 5]} intensity={2.5} />
-              <directionalLight position={[-5, -5, -5]} intensity={1} />
-              <Environment preset="city" />
+              <directionalLight position={[5, 5, 5]} intensity={2.0} />
+              {/* Frontal key light: illuminates faces pointing toward the camera (heart pendant body, gem facets) */}
+              <directionalLight position={[0, 0, 10]} intensity={3} />
+              <Environment preset="apartment" />
               {modelType === 'ring' ? (
                 <ARRing
                   transformRef={transformRef}

@@ -183,6 +183,31 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
       new THREE.Vector3(0, 3.2,   0),
     ]);
 
+    // Two-strand chain for Heart — both strands start near the center bail and
+    // spread apart toward the neck, mirroring how Standard's lCurve/rCurve work.
+    const heartLCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.04, startY, 0),
+      new THREE.Vector3(-0.18, 1.5,   0),
+      new THREE.Vector3(-0.36, 3.2,   0),
+    ]);
+    const heartRCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3( 0.04, startY, 0),
+      new THREE.Vector3( 0.18, 1.5,   0),
+      new THREE.Vector3( 0.36, 3.2,   0),
+    ]);
+
+    // Two-strand chain for Tag — anchored at its fixed bail, same spread pattern as Heart.
+    const tagLCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.05, TAG_RING_Y + 0.06, 0),
+      new THREE.Vector3(-0.18, 1.5,               0),
+      new THREE.Vector3(-0.32, 3.2,               0),
+    ]);
+    const tagRCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3( 0.05, TAG_RING_Y + 0.06, 0),
+      new THREE.Vector3( 0.18, 1.5,               0),
+      new THREE.Vector3( 0.32, 3.2,               0),
+    ]);
+
     const build = (curve: THREE.CatmullRomCurve3) => {
       const out: { pos: [number,number,number]; rot: [number,number,number] }[] = [];
       const N = 65;
@@ -199,9 +224,9 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
     };
 
     return {
-      leftLinks:   shape === 'standard' ? build(lCurve) : [],
-      rightLinks:  shape === 'standard' ? build(rCurve) : [],
-      singleLinks: shape !== 'standard' ? build(cCurve) : [],
+      leftLinks:   shape === 'standard' ? build(lCurve)  : shape === 'heart' ? build(heartLCurve) : shape === 'tag' ? build(tagLCurve) : [],
+      rightLinks:  shape === 'standard' ? build(rCurve)  : shape === 'heart' ? build(heartRCurve) : shape === 'tag' ? build(tagRCurve) : [],
+      singleLinks: [],
     };
   }, [cachedWidth, cachedHeight, shape]);
 
@@ -319,7 +344,8 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
               {metalMat}
             </mesh>
 
-            {links(singleLinks)}
+            {links(leftLinks)}
+            {links(rightLinks)}
           </>)}
 
           {/* ════ TAG: portrait rounded-rectangle with letters cut THROUGH the metal ════ */}
@@ -350,7 +376,8 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
               {metalMat}
             </mesh>
 
-            {links(singleLinks)}
+            {links(leftLinks)}
+            {links(rightLinks)}
           </>)}
 
         </group>
