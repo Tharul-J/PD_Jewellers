@@ -70,7 +70,7 @@ function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizo
           const hole = new THREE.Path();
           outerPts.forEach((p, i) => {
             const x = (p.x - g.cx) * scale;
-            const y = (p.y - g.cy) * scale + curY;
+            const y = -(p.y - g.cy) * scale + curY;
             if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
           });
           hole.closePath();
@@ -102,7 +102,7 @@ function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizo
         const hole = new THREE.Path();
         outerPts.forEach((p, i) => {
           const x = (p.x - textCX) * scale;
-          const y = (p.y - textCY) * scale;
+          const y = -(p.y - textCY) * scale;
           if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
         });
         hole.closePath();

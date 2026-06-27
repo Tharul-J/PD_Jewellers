@@ -8,7 +8,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/products';
 export { MOCK_PRODUCTS };
 
-const CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal', 'Mens'];
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const BASE_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 
 const HERO_IMAGES = [
   "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
@@ -46,6 +48,22 @@ export default function Collections() {
   const [isLoading, setIsLoading] = useState(false);
   const [allProducts, setAllProducts] = useState(MOCK_PRODUCTS);
 
+  const categories = useMemo(() => {
+    const fromStorage: string[] = (() => {
+      try {
+        const stored = localStorage.getItem('pd_product_categories');
+        return stored ? JSON.parse(stored) : [];
+      } catch { return []; }
+    })();
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const c of [...BASE_CATEGORIES, ...fromStorage, ...allProducts.map(p => p.category).filter(Boolean)]) {
+      const key = normalize(c);
+      if (!seen.has(key)) { seen.add(key); merged.push(c); }
+    }
+    return ['All', ...merged];
+  }, [allProducts]);
+
   // New states for extended filtering and sorting
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('latest');
@@ -82,7 +100,7 @@ export default function Collections() {
 
   useEffect(() => {
     if (categoryParam) {
-      const match = CATEGORIES.find(c => c.toLowerCase() === categoryParam.toLowerCase());
+      const match = categories.find(c => normalize(c) === normalize(categoryParam));
       if (match) setActiveCategory(match);
     }
 
@@ -121,11 +139,9 @@ export default function Collections() {
     let products =
       activeCategory === 'All'
         ? [...allProducts]
-        : activeCategory === 'Bridal'
-        ? allProducts.filter(p => ['Rings', 'Necklaces', 'Earrings'].includes(p.category) && p.hasStones === true)
-        : activeCategory === 'Mens'
-        ? allProducts.filter(p => ['Rings', 'Bracelets'].includes(p.category))
-        : allProducts.filter(p => p.category === activeCategory);
+        : normalize(activeCategory) === 'bridal'
+        ? allProducts.filter(p => ['rings', 'necklaces', 'earrings'].includes(normalize(p.category)) && p.hasStones === true)
+        : allProducts.filter(p => normalize(p.category) === normalize(activeCategory));
 
     if (urlFilters.price) {
       if (urlFilters.price === 'Under Rs. 150K') products = products.filter(p => p.price < 150000);
@@ -248,7 +264,7 @@ export default function Collections() {
       {/* Products content */}
       <div className="max-w-7xl mx-auto px-6 py-16">
       <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12 border-b border-black/5 pb-8 overflow-x-auto whitespace-nowrap">
-        {CATEGORIES.map(category => (
+        {categories.map(category => (
           <button
             key={category}
             onClick={() => setActiveCategory(category)}
@@ -308,21 +324,24 @@ export default function Collections() {
       )}
 
       {/* Category Banner — full image, no cropping */}
-      {activeCategory !== 'All' && CATEGORY_BANNERS[activeCategory] && (
-        <motion.div
-          key={activeCategory}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-10 rounded-xl overflow-hidden shadow-sm"
-        >
-          <img
-            src={CATEGORY_BANNERS[activeCategory]}
-            alt={`${activeCategory} Collection`}
-            className="w-full block"
-          />
-        </motion.div>
-      )}
+      {activeCategory !== 'All' && (() => {
+        const bannerUrl = Object.entries(CATEGORY_BANNERS).find(([k]) => normalize(k) === normalize(activeCategory))?.[1];
+        return bannerUrl ? (
+          <motion.div
+            key={activeCategory}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-10 rounded-xl overflow-hidden shadow-sm"
+          >
+            <img
+              src={bannerUrl}
+              alt={`${activeCategory} Collection`}
+              className="w-full block"
+            />
+          </motion.div>
+        ) : null;
+      })()}
 
       {/* Advanced Filters Bar */}
       <div className="flex justify-end gap-4 items-center mb-8 pb-4">

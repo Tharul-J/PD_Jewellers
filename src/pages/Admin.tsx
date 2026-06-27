@@ -6,7 +6,8 @@ import { motion } from 'motion/react';
 import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, UserX } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
-const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal', 'Mens'];
+const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 // Extend this list to add new 3D model categories without other code changes
 const MODEL_CATEGORIES = ['ring', 'pendant'];
 
@@ -51,7 +52,7 @@ export default function Admin() {
       if (stored) {
         const parsed: string[] = JSON.parse(stored);
         const merged = [...DEFAULT_PRODUCT_CATEGORIES];
-        parsed.forEach(c => { if (!merged.includes(c)) merged.push(c); });
+        parsed.forEach(c => { if (!merged.some(m => normalize(m) === normalize(c))) merged.push(c); });
         return merged;
       }
     } catch {}
@@ -469,7 +470,7 @@ export default function Admin() {
     const name = newCategoryName.trim();
     if (!name) return;
     const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-    if (availableCategories.map(c => c.toLowerCase()).includes(capitalized.toLowerCase())) return;
+    if (availableCategories.some(c => normalize(c) === normalize(capitalized))) return;
     saveCategories([...availableCategories, capitalized]);
     setNewCategoryName('');
   };
