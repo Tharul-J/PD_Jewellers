@@ -18,8 +18,9 @@ export const STONES = {
 };
 
 export const FONTS = {
-  dancing_script: { name: 'Dancing Script', url: '/fonts/dancing_script_bold.typeface.json', boldUrl: '/fonts/dancing_script_bold.typeface.json' },
-  playfair:       { name: 'Playfair Display', url: '/fonts/playfair_display.typeface.json',  boldUrl: '/fonts/playfair_display.typeface.json' },
-  poppins:        { name: 'Poppins',          url: '/fonts/poppins_bold.typeface.json',       boldUrl: '/fonts/poppins_bold.typeface.json' },
-  helvetiker:     { name: 'Helvetica',         url: '/fonts/helvetiker_regular.typeface.json', boldUrl: '/fonts/helvetiker_bold.typeface.json' },
+  cinzel:     { name: 'Cinzel',             url: '/fonts/cinzel_regular.typeface.json',             boldUrl: '/fonts/cinzel_bold.typeface.json' },
+  cormorant:  { name: 'Cormorant Garamond', url: '/fonts/cormorant_garamond_regular.typeface.json', boldUrl: '/fonts/cormorant_garamond_bold.typeface.json' },
+  playfair:   { name: 'Playfair Display',   url: '/fonts/playfair_display_regular.typeface.json',   boldUrl: '/fonts/playfair_display_bold.typeface.json' },
+  poppins:    { name: 'Poppins',            url: '/fonts/poppins_regular.typeface.json',             boldUrl: '/fonts/poppins_bold.typeface.json' },
+  helvetiker: { name: 'Helvetica',          url: '/fonts/helvetiker_regular.typeface.json',          boldUrl: '/fonts/helvetiker_bold.typeface.json' },
 };

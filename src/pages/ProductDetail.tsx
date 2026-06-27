@@ -758,7 +758,6 @@ export default function ProductDetail() {
         metalName={METALS[selectedMetal].name} 
         stone={selectedStone}
         modelType={isCustomProduct ? queryType : 'ring'}
-        ringStyle={isCustomProduct ? queryStyle : 'custom-glb'}
         customText={wantEngraving ? engravingText : undefined}
         fontStyle={selectedFont}
       />

@@ -1,5 +1,4 @@
-import { Suspense, useState, useRef, useMemo, useEffect, Component } from 'react';
-import type { ReactNode } from 'react';
+import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
@@ -7,7 +6,7 @@ import * as THREE from 'three';
 import { useAuth } from '../context/AuthContext';
 import { usePricing } from '../context/PricingContext';
 import { Check, Glasses, Box, Type, Save } from 'lucide-react';
-import ARTryOnModal from '../components/ARTryOnModal';
+import ARTryOnModal, { warmARRuntime } from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { METALS, STONES, FONTS } from '../constants';
@@ -15,35 +14,7 @@ import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
 
 import { PendantModel } from '../components/PendantModel';
-
-class Scene3DErrorBoundary extends Component<
-  { children: ReactNode },
-  { crashed: boolean }
-> {
-  state = { crashed: false };
-  static getDerivedStateFromError() { return { crashed: true }; }
-  componentDidCatch(err: Error) { console.error('[Scene3D] asset load error:', err.message); }
-  render() {
-    if (this.state.crashed) {
-      return (
-        <div className="w-full h-full flex items-center justify-center bg-gray-50">
-          <div className="text-center px-8">
-            <div className="text-5xl mb-4 opacity-30">💎</div>
-            <p className="text-sm font-semibold text-gray-600 mb-1">3D preview unavailable</p>
-            <p className="text-xs text-gray-400 mb-4">An asset failed to load</p>
-            <button
-              onClick={() => this.setState({ crashed: false })}
-              className="text-xs px-4 py-2 border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+import { Scene3DErrorBoundary } from '../components/Scene3DErrorBoundary';
 
 const DEFAULT_RING_STYLES = [
   { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000, hasRealStone: false },
@@ -70,8 +41,11 @@ export default function Configurator() {
   const [stone, setStone] = useState<keyof typeof STONES>(() => (localStorage.getItem('cfg_stone') as keyof typeof STONES) || 'aquamarine');
   const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>(() => {
     const saved = localStorage.getItem('cfg_fontStyle') as keyof typeof FONTS;
-    return (saved && saved in FONTS) ? saved : 'dancing_script';
+    return (saved && saved in FONTS) ? saved : 'cinzel';
   });
+  const [textDirection, setTextDirection] = useState<'horizontal' | 'vertical'>(() =>
+    (localStorage.getItem('cfg_textDirection') === 'vertical') ? 'vertical' : 'horizontal'
+  );
   const [fontBold, setFontBold] = useState(() => localStorage.getItem('cfg_fontBold') === 'true');
   const [fontItalic, setFontItalic] = useState(() => localStorage.getItem('cfg_fontItalic') === 'true');
   const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
@@ -80,6 +54,9 @@ export default function Configurator() {
   const { pricing } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Pre-fetch MediaPipe WASM runtime so it's ready before user opens AR modal
+  useEffect(() => { warmARRuntime(); }, []);
 
   // Auto-save configuration changes
   // Tag shape is monogram-only — enforce 3-char max when switching to tag
@@ -101,7 +78,8 @@ export default function Configurator() {
     localStorage.setItem('cfg_fontBold', String(fontBold));
     localStorage.setItem('cfg_fontItalic', String(fontItalic));
     localStorage.setItem('cfg_ringSize', ringSize);
-  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, fontBold, fontItalic, ringSize]);
+    localStorage.setItem('cfg_textDirection', textDirection);
+  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, fontBold, fontItalic, ringSize, textDirection]);
 
   useEffect(() => {
     const cachedModels = localStorage.getItem('cfg_cache_api_models');
@@ -304,6 +282,7 @@ export default function Configurator() {
                       fontBold={fontBold}
                       fontItalic={fontItalic}
                       shape={pendantShape}
+                      textDirection={textDirection}
                     />
                   )}
                 </group>
@@ -581,6 +560,22 @@ export default function Configurator() {
                 {pendantShape === 'tag' && (
                   <p className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wider">Tag shape is monogram-only — 1 to 3 initials</p>
                 )}
+                {pendantShape === 'tag' && (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => setTextDirection('horizontal')}
+                      className={`flex-1 py-2 text-[10px] tracking-widest border transition-colors ${textDirection === 'horizontal' ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
+                    >
+                      — Horizontal
+                    </button>
+                    <button
+                      onClick={() => setTextDirection('vertical')}
+                      className={`flex-1 py-2 text-[10px] tracking-widest border transition-colors ${textDirection === 'vertical' ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
+                    >
+                      | Vertical
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="mb-10">
@@ -676,10 +671,13 @@ export default function Configurator() {
         metalName={METALS[metal].name} 
         stone={stone}
         modelType={modelType}
-        ringStyle={ringStyle}
         customText={customText}
         fontStyle={fontStyle}
         fileUrl={currentStyleDef?.fileUrl}
+        pendantShape={modelType === 'pendant' ? pendantShape : undefined}
+        fontBold={fontBold}
+        fontItalic={fontItalic}
+        textDirection={textDirection}
       />
       
       <SizeGuideModal 

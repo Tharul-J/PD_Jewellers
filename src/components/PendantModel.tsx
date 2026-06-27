@@ -13,8 +13,8 @@ const TAG_DEPTH = 0.10;
 const TAG_RING_Y = TAG_H / 2 + 0.04;   // 0.665 — bail above top edge
 
 // ── TagInner: loads font via Suspense, builds cut-through geometry ────────────
-function TagInner({ fontUrl, displayText, metalMaterial }: {
-  fontUrl: string; displayText: string; metalMaterial: any;
+function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizontal' }: {
+  fontUrl: string; displayText: string; metalMaterial: any; textDirection?: 'horizontal' | 'vertical';
 }) {
   const font = useLoader(FontLoader as any, fontUrl);
 
@@ -32,39 +32,82 @@ function TagInner({ fontUrl, displayText, metalMaterial }: {
     tagShape.lineTo(-hw, -hh + r);
     tagShape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
 
-    // Generate letter outline shapes from font
-    const letterShapes: THREE.Shape[] = (font as any).generateShapes(displayText, 0.5);
-
-    // Measure bounding box via ShapeGeometry (reliable way to get 2D bounds)
-    const measureGeo = new THREE.ShapeGeometry(letterShapes);
-    measureGeo.computeBoundingBox();
-    const bb = measureGeo.boundingBox!;
-    const textW = bb.max.x - bb.min.x;
-    const textH = bb.max.y - bb.min.y;
-    const textCX = (bb.max.x + bb.min.x) / 2;
-    const textCY = (bb.max.y + bb.min.y) / 2;
-    measureGeo.dispose();
-
-    // Scale to fit within tag plate with comfortable margin
-    const scale = Math.min(
-      (TAG_W * 0.68) / textW,
-      (TAG_H * 0.52) / textH,
-      2.2,   // cap so a single letter doesn't overfill
-    );
-
-    // Convert each letter's outer contour to a hole in the tag shape
-    // extractPoints(48) gives smooth polygon approximations of bezier curves
-    for (const lShape of letterShapes) {
-      const { shape: outerPts } = lShape.extractPoints(48);
-
-      const hole = new THREE.Path();
-      outerPts.forEach((p, i) => {
-        const x = (p.x - textCX) * scale;
-        const y = (p.y - textCY) * scale;
-        if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
+    if (textDirection === 'vertical') {
+      // ── Vertical layout: stack each character individually top-to-bottom ──
+      const chars = Array.from(displayText);
+      // Generate and measure each glyph independently
+      const glyphData = chars.map((ch) => {
+        const shapes: THREE.Shape[] = (font as any).generateShapes(ch, 0.5);
+        const geo = new THREE.ShapeGeometry(shapes);
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox!;
+        geo.dispose();
+        return {
+          shapes,
+          w: bb.max.x - bb.min.x,
+          h: bb.max.y - bb.min.y,
+          cx: (bb.max.x + bb.min.x) / 2,
+          cy: (bb.max.y + bb.min.y) / 2,
+        };
       });
-      hole.closePath();
-      tagShape.holes.push(hole);
+
+      const LINE_GAP = 0.08;   // extra vertical gap between stacked glyphs
+      const totalH = glyphData.reduce((s, g) => s + g.h, 0) + LINE_GAP * (glyphData.length - 1);
+      const maxW   = glyphData.reduce((s, g) => Math.max(s, g.w), 0);
+
+      const scale = Math.min(
+        (TAG_W * 0.68) / maxW,
+        (TAG_H * 0.52) / totalH,
+        2.2,
+      );
+
+      // Stack top-to-bottom: first glyph at top, last at bottom, all centered on X
+      let curY = (totalH / 2) * scale;   // start at top in scaled space
+      for (const g of glyphData) {
+        curY -= g.h * scale / 2;  // move to this glyph's center-Y
+        for (const lShape of g.shapes) {
+          const { shape: outerPts } = lShape.extractPoints(48);
+          const hole = new THREE.Path();
+          outerPts.forEach((p, i) => {
+            const x = (p.x - g.cx) * scale;
+            const y = (p.y - g.cy) * scale + curY;
+            if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
+          });
+          hole.closePath();
+          tagShape.holes.push(hole);
+        }
+        curY -= g.h * scale / 2 + LINE_GAP * scale;  // advance past this glyph + gap
+      }
+    } else {
+      // ── Horizontal layout (default): lay out all characters on a single baseline ──
+      const letterShapes: THREE.Shape[] = (font as any).generateShapes(displayText, 0.5);
+
+      const measureGeo = new THREE.ShapeGeometry(letterShapes);
+      measureGeo.computeBoundingBox();
+      const bb = measureGeo.boundingBox!;
+      const textW  = bb.max.x - bb.min.x;
+      const textH  = bb.max.y - bb.min.y;
+      const textCX = (bb.max.x + bb.min.x) / 2;
+      const textCY = (bb.max.y + bb.min.y) / 2;
+      measureGeo.dispose();
+
+      const scale = Math.min(
+        (TAG_W * 0.68) / textW,
+        (TAG_H * 0.52) / textH,
+        2.2,
+      );
+
+      for (const lShape of letterShapes) {
+        const { shape: outerPts } = lShape.extractPoints(48);
+        const hole = new THREE.Path();
+        outerPts.forEach((p, i) => {
+          const x = (p.x - textCX) * scale;
+          const y = (p.y - textCY) * scale;
+          if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
+        });
+        hole.closePath();
+        tagShape.holes.push(hole);
+      }
     }
 
     return new THREE.ExtrudeGeometry(tagShape, {
@@ -75,7 +118,7 @@ function TagInner({ fontUrl, displayText, metalMaterial }: {
       bevelSegments:  2,
       curveSegments:  16,
     });
-  }, [font, displayText]);
+  }, [font, displayText, textDirection]);
 
   return (
     <mesh geometry={geometry} position={[0, 0, -TAG_DEPTH]} castShadow receiveShadow>
@@ -91,14 +134,15 @@ function TagInner({ fontUrl, displayText, metalMaterial }: {
 }
 
 // ── Main pendant component ────────────────────────────────────────────────────
-export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false, fontItalic = false, shape = 'standard' }: any) {
+export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false, fontItalic = false, shape = 'standard', textDirection = 'horizontal' }: any) {
   const groupRef = useRef<THREE.Group>(null);
 
-  const fontKey = (fontStyle && fontStyle in FONTS) ? fontStyle : 'dancing_script';
+  const fontKey = (fontStyle && fontStyle in FONTS) ? fontStyle : 'cinzel';
   const fontDef  = FONTS[fontKey as keyof typeof FONTS];
   const fontUrl  = fontBold ? fontDef.boldUrl : fontDef.url;
 
-  const [cachedWidth, setCachedWidth] = useState(text.length * 0.3);
+  const [cachedWidth,  setCachedWidth]  = useState(text.length * 0.3);
+  const [cachedHeight, setCachedHeight] = useState(0.5);
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -106,7 +150,9 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
     }
   });
 
-  const ATTACH_Y = 0.22;   // Y of text top-edge after Center centering (empirical, size=0.5)
+  // Y of text top edge after Center centering — derived from measured height so corner
+  // rings land at the real top-edge of whatever font/weight/letters are displayed.
+  const ATTACH_Y = cachedHeight / 2;
 
   // Heart dimensions (scale proportional to text width so heart always frames the text)
   const heartScale = Math.max(cachedWidth + 0.4, 0.9);
@@ -157,7 +203,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
       rightLinks:  shape === 'standard' ? build(rCurve) : [],
       singleLinks: shape !== 'standard' ? build(cCurve) : [],
     };
-  }, [cachedWidth, shape]);
+  }, [cachedWidth, cachedHeight, shape]);
 
   // Heart outline shape (bezier, symmetric, centered at origin)
   const heartShapeGeom = useMemo(() => {
@@ -174,8 +220,9 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
   const metalMat = <meshPhysicalMaterial {...metalMaterial} envMapIntensity={5} />;
   const displayText = (text && text.trim().length > 0) ? text.toUpperCase() : 'PD';
 
-  const onMeasured = ({ width }: { width: number }) => {
-    if (width > 0 && Math.abs(width - cachedWidth) > 0.04) setCachedWidth(width);
+  const onMeasured = ({ width, height }: { width: number; height: number }) => {
+    if (width  > 0 && Math.abs(width  - cachedWidth)  > 0.04) setCachedWidth(width);
+    if (height > 0 && Math.abs(height - cachedHeight) > 0.02) setCachedHeight(height);
   };
 
   const textProps = {
@@ -243,6 +290,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                 metalness={metalMaterial.metalness ?? 1} />
             </mesh>
 
+            {/* Front text */}
             <Center onCentered={onMeasured}>
               <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
                 <Text3D {...textProps}>
@@ -252,6 +300,19 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                 </Text3D>
               </group>
             </Center>
+
+            {/* Back text — rotated PI on Y so it reads correctly from behind */}
+            <group position={[0, 0, -0.10]} rotation={[0, Math.PI, 0]}>
+              <Center>
+                <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
+                  <Text3D {...textProps}>
+                    {displayText}
+                    <meshPhysicalMaterial {...metalMaterial} envMapIntensity={6}
+                      roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
+                  </Text3D>
+                </group>
+              </Center>
+            </group>
 
             <mesh position={[0, HEART_VNOT, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
               <torusGeometry args={[0.055, 0.018, 32, 64]} />
@@ -280,7 +341,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                 <meshPhysicalMaterial {...metalMaterial} envMapIntensity={4} />
               </mesh>
             }>
-              <TagInner fontUrl={fontUrl} displayText={displayText} metalMaterial={metalMaterial} />
+              <TagInner fontUrl={fontUrl} displayText={displayText} metalMaterial={metalMaterial} textDirection={textDirection} />
             </Suspense>
 
             {/* Single bail at top-center of tag */}
