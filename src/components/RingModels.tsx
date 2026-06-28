@@ -168,15 +168,6 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
       sizeNorm,
     };
 
-    console.log(
-      `[GemFit auto] ${fileUrl.split('/').pop()} →`,
-      `yNorm=${detected.yNorm.toFixed(3)}`,
-      `cx=${detected.centerX.toFixed(3)}`,
-      `cz=${detected.centerZ.toFixed(3)}`,
-      `size=${detected.sizeNorm.toFixed(3)}`,
-      `(${count} top vertices)`,
-    );
-
     return detected;
   }, [scene, boundingRadius, fileUrl]);
 
@@ -237,12 +228,6 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
       yNorm: (sumY / engraveCount) / boundingRadius,
       radiusNorm: (sumR / engraveCount) / boundingRadius,
     };
-
-    console.log(
-      `[EngraveFit auto] ${fileUrl.split('/').pop()} →`,
-      `yNorm=${fit.yNorm.toFixed(3)} radiusNorm=${fit.radiusNorm.toFixed(3)}`,
-      `(${engraveCount} bottom vertices)`,
-    );
 
     return fit;
   }, [scene, boundingRadius, fileUrl]);

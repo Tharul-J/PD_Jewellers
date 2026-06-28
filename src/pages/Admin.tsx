@@ -244,24 +244,23 @@ export default function Admin() {
       formData.append('file', file);
       const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
       const uploadData = await uploadRes.json();
-      if (uploadRes.ok) {
-        const modelRes = await fetch('/api/models', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-          body: JSON.stringify({ ...newModel, glbUrl: uploadData.url }),
-        });
-        if (modelRes.ok) {
-          const createdModel = await modelRes.json();
-          setModelsList([...modelsList, createdModel]);
-          setNewModel({ name: '', category: 'ring', basePrice: 1000 });
-          setFile(null);
-          alert('Model uploaded successfully');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      }
-    } catch (error) {
-      console.error('Error uploading model', error);
-      alert('Upload failed');
+      if (!uploadRes.ok) throw new Error(uploadData.message || 'File upload to Cloudinary failed');
+
+      const modelRes = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+        body: JSON.stringify({ ...newModel, glbUrl: uploadData.url }),
+      });
+      const createdModel = await modelRes.json();
+      if (!modelRes.ok) throw new Error(createdModel.message || 'Failed to save model record');
+
+      setModelsList(prev => [...prev, createdModel]);
+      setNewModel({ name: '', category: 'ring', basePrice: 1000 });
+      setFile(null);
+      alert('Model uploaded successfully');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error: any) {
+      alert(error.message || 'Upload failed');
     } finally {
       setUploading(false);
     }

@@ -1,6 +1,13 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import ConfigurableModel from '../models/ConfigurableModel.js';
+import { deleteGlbFromCloudinary } from '../utils/cloudinaryStorage.js';
+
+const extractCloudinaryPublicId = (url: string): string | null => {
+  const match = url.match(/\/upload\/(?:v\d+\/)?(.+)$/);
+  if (!match) return null;
+  return match[1].replace(/\.[^/.]+$/, '');
+};
 
 let mockModelsSeed: Array<{ _id: string; name: string; category: string; basePrice: number; glbUrl: string; isActive: boolean; createdAt?: string }> = [];
 
@@ -139,13 +146,22 @@ export const deleteModel = async (req: Request, res: Response): Promise<void> =>
       res.status(503).json({ message: 'Database not connected' });
       return;
     }
-    const model = await ConfigurableModel.findByIdAndDelete(req.params.id);
+    const model = await ConfigurableModel.findById(req.params.id);
 
-    if (model) {
-      res.json({ message: 'Model removed' });
-    } else {
+    if (!model) {
       res.status(404).json({ message: 'Model not found' });
+      return;
     }
+
+    // Clean up Cloudinary asset if this is a cloud-hosted file
+    if (model.glbUrl && model.glbUrl.startsWith('http')) {
+      const publicId = extractCloudinaryPublicId(model.glbUrl);
+      if (publicId) await deleteGlbFromCloudinary(publicId);
+    }
+    // Local /glb-models/ or /uploads/ paths: leave disk files alone
+
+    await model.deleteOne();
+    res.json({ message: 'Model removed' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }

@@ -32,13 +32,36 @@ async function startServer() {
     mongoose.connection.on('error', (err) => {
       console.log("Mongoose connection error:", err.message || "Offline");
     });
-    mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 }).then(async () => {
-      console.log("Connected to MongoDB established successfully.");
-      await seedBlogPosts();
-    }).catch(async () => {
-      console.log("MongoDB connection was bypassed (unreachable host). Running in mock/offline mode.");
-      try { await mongoose.disconnect(); } catch (e) {}
-    });
+
+    const MONGO_URI = process.env.MONGODB_URI;
+    (async () => {
+      const MAX_ATTEMPTS = 3;
+      const RETRY_DELAY_MS = 3000;
+      let connected = false;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          console.log(`MongoDB connection attempt ${attempt}/${MAX_ATTEMPTS}...`);
+          await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000 });
+          console.log("Connected to MongoDB established successfully.");
+          await seedBlogPosts();
+          connected = true;
+          break;
+        } catch (err: any) {
+          console.log(`MongoDB attempt ${attempt}/${MAX_ATTEMPTS} failed: ${err.message || err}`);
+          if (attempt < MAX_ATTEMPTS) {
+            console.log(`Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+            await new Promise(res => setTimeout(res, RETRY_DELAY_MS));
+            try { await mongoose.disconnect(); } catch (_) {}
+          }
+        }
+      }
+
+      if (!connected) {
+        console.log("MongoDB connection was bypassed (unreachable host). Running in mock/offline mode.");
+        try { await mongoose.disconnect(); } catch (_) {}
+      }
+    })();
   } else {
     console.log("MONGODB_URI not set. Running in mock/offline mode.");
   }
