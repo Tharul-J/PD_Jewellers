@@ -58,11 +58,27 @@ export default function ProductDetail() {
   const [isAROpen, setIsAROpen] = useState(false);
   const [isSizeOpen, setIsSizeOpen] = useState(false);
 
+  // API fallback for products not in MOCK_PRODUCTS (e.g. admin-created catalog items)
+  const [apiProduct, setApiProduct] = useState<typeof MOCK_PRODUCTS[0] | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+
   // Load the catalog product if it exists
   const catalogProduct = useMemo(() => {
     if (isCustomProduct) return null;
     return MOCK_PRODUCTS.find(p => p.id === id) || null;
   }, [id, isCustomProduct]);
+
+  const product = catalogProduct || apiProduct;
+
+  useEffect(() => {
+    if (isCustomProduct || catalogProduct) return;
+    setApiLoading(true);
+    setApiProduct(null);
+    fetch(`/api/products/${id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { setApiProduct(data); setApiLoading(false); })
+      .catch(() => setApiLoading(false));
+  }, [id, isCustomProduct, catalogProduct]);
 
   // Set default states based on product or URL
   useEffect(() => {
@@ -73,28 +89,28 @@ export default function ProductDetail() {
       setWantEngraving(queryText.length > 0);
       setSelectedFont(queryFont);
       setSelectedSize(querySize);
-    } else if (catalogProduct) {
+    } else if (product) {
       // Determine default metal from name
-      if (catalogProduct.name.toLowerCase().includes('white gold') || catalogProduct.name.toLowerCase().includes('platinum')) {
+      if (product.name.toLowerCase().includes('white gold') || product.name.toLowerCase().includes('platinum')) {
         setSelectedMetal('silver');
-      } else if (catalogProduct.name.toLowerCase().includes('rose gold') || catalogProduct.name.toLowerCase().includes('18k')) {
+      } else if (product.name.toLowerCase().includes('rose gold') || product.name.toLowerCase().includes('18k')) {
         setSelectedMetal('rose');
       } else {
         setSelectedMetal('gold');
       }
-      
+
       // Determine stone state
-      if (catalogProduct.hasStones) {
-        if (catalogProduct.name.toLowerCase().includes('diamond')) setSelectedStone('diamond');
-        else if (catalogProduct.name.toLowerCase().includes('amethyst')) setSelectedStone('ruby'); 
-        else if (catalogProduct.name.toLowerCase().includes('sapphire')) setSelectedStone('sapphire');
+      if (product.hasStones) {
+        if (product.name.toLowerCase().includes('diamond')) setSelectedStone('diamond');
+        else if (product.name.toLowerCase().includes('amethyst')) setSelectedStone('ruby');
+        else if (product.name.toLowerCase().includes('sapphire')) setSelectedStone('sapphire');
         else setSelectedStone('aquamarine');
       }
     }
-  }, [catalogProduct, isCustomProduct, queryMetal, queryStone, queryText, queryFont, querySize]);
+  }, [product, isCustomProduct, queryMetal, queryStone, queryText, queryFont, querySize]);
 
   // If the product doesn't exist and not custom, let the UI handle fallback nicely
-  const finalProductExists = catalogProduct || isCustomProduct;
+  const finalProductExists = product || isCustomProduct;
 
   // Calculate pricing based on options
   const computedPrice = useMemo(() => {
@@ -118,7 +134,7 @@ export default function ProductDetail() {
       }
 
       return Math.round(metalPart + stonePart + engravingPart);
-    } else if (catalogProduct) {
+    } else if (product) {
       // Base catalog price represents the metal model
       let metalMultiplier = 1;
       if (selectedMetal === 'white')    metalMultiplier = 1.2;
@@ -127,7 +143,7 @@ export default function ProductDetail() {
       if (selectedMetal === 'platinum') metalMultiplier = 1.5;
 
       let stonePremium = 0;
-      if (catalogProduct.hasStones && selectedStone !== 'aquamarine') {
+      if (product.hasStones && selectedStone !== 'aquamarine') {
         const storedStonePrice = pricing ? (pricing as any)[`stonePrice_${selectedStone}`] : undefined;
         const stonePrice = storedStonePrice ?? STONES[selectedStone]?.price ?? 0;
         stonePremium = Math.round(stonePrice * 0.4);
@@ -138,17 +154,17 @@ export default function ProductDetail() {
         engravingPart = pricing?.engravingPrice || 5000;
       }
 
-      return Math.round((catalogProduct.price * metalMultiplier) + stonePremium + engravingPart);
+      return Math.round((product.price * metalMultiplier) + stonePremium + engravingPart);
     }
     return 0;
-  }, [catalogProduct, isCustomProduct, selectedMetal, selectedStone, wantEngraving, queryType, pricing]);
+  }, [product, isCustomProduct, selectedMetal, selectedStone, wantEngraving, queryType, pricing]);
 
   const productDescription = useMemo(() => {
     if (isCustomProduct) {
       return `Custom designed ${queryType} meticulously configured to your luxurious aesthetic preferences. Features authentic premium handcrafting, high-reflection polished finishes, and customized dimensions. Configured in ${METALS[selectedMetal].name}.`;
     }
-    return catalogProduct?.description || '';
-  }, [isCustomProduct, catalogProduct, queryType, selectedMetal]);
+    return product?.description || '';
+  }, [isCustomProduct, product, queryType, selectedMetal]);
 
   const productName = useMemo(() => {
     if (isCustomProduct) {
@@ -156,8 +172,8 @@ export default function ProductDetail() {
         ? `${METALS[selectedMetal].name} Bespoke Ring ("${engravingText || 'PD'}")` 
         : `${METALS[selectedMetal].name} Heritage Pendant ("${engravingText || 'PD'}")`;
     }
-    return catalogProduct?.name || 'Luxury Jewel';
-  }, [isCustomProduct, catalogProduct, queryType, selectedMetal, engravingText]);
+    return product?.name || 'Luxury Jewel';
+  }, [isCustomProduct, product, queryType, selectedMetal, engravingText]);
 
   const mainImage = useMemo(() => {
     if (isCustomProduct) {
@@ -165,8 +181,8 @@ export default function ProductDetail() {
         ? 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80&w=600'
         : 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80&w=600';
     }
-    return catalogProduct?.image || '';
-  }, [isCustomProduct, catalogProduct, queryType]);
+    return product?.image || '';
+  }, [isCustomProduct, product, queryType]);
 
   const isInWishlistState = useMemo(() => {
     const checkId = isCustomProduct ? `custom-${queryType}-${queryStyle}-${selectedMetal}-${selectedStone}-${selectedFont}-${engravingText}-${selectedSize}` : (id || '');
@@ -201,7 +217,7 @@ export default function ProductDetail() {
         material: METALS[selectedMetal].name,
         size: selectedSize,
         ...(wantEngraving && { engraving: engravingText, font: FONTS[selectedFont].name }),
-        ...((isCustomProduct || catalogProduct?.hasStones) && { gemstone: STONES[selectedStone].name })
+        ...((isCustomProduct || product?.hasStones) && { gemstone: STONES[selectedStone].name })
       },
       quantity: quantity
     });
@@ -219,7 +235,7 @@ export default function ProductDetail() {
       name: productName,
       price: computedPrice.toString(),
       image: mainImage,
-      category: isCustomProduct ? 'Custom Configuration' : (catalogProduct?.category || 'Legacy Collection'),
+      category: isCustomProduct ? 'Custom Configuration' : (product?.category || 'Legacy Collection'),
       isCustom: isCustomProduct
     };
 
@@ -231,6 +247,14 @@ export default function ProductDetail() {
 
     toggleWishlistItem(item);
   };
+
+  if (apiLoading) {
+    return (
+      <div className="min-h-screen pt-32 pb-24 flex items-center justify-center">
+        <LoadingSpinner fullScreen={false} />
+      </div>
+    );
+  }
 
   if (!finalProductExists) {
     return (
@@ -247,7 +271,7 @@ export default function ProductDetail() {
 
   // Related products selection
   const relatedMasters = MOCK_PRODUCTS
-    .filter(p => p.id !== id && (catalogProduct ? p.category === catalogProduct.category : true))
+    .filter(p => p.id !== id && (product ? p.category === product.category : true))
     .slice(0, 4);
 
   return (
@@ -390,7 +414,7 @@ export default function ProductDetail() {
           <div className="lg:col-span-5 space-y-8">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-[#cca150] font-bold mb-2">
-                {isCustomProduct ? `Custom configured ${queryType}` : (catalogProduct?.category || 'Legacy Gemstone')}
+                {isCustomProduct ? `Custom configured ${queryType}` : (product?.category || 'Legacy Gemstone')}
               </p>
               <h1 className="text-3xl xl:text-4xl font-serif text-stone-900 leading-tight mb-3">
                 {productName}
@@ -450,7 +474,7 @@ export default function ProductDetail() {
                 </div>
 
                 {/* Option 2: Center focal Gemstone (Visible if custom or original has stone) */}
-                {(isCustomProduct || catalogProduct?.hasStones) && (
+                {(isCustomProduct || product?.hasStones) && (
                   <div>
                     <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3 flex items-center justify-between">
                       <span>Accent Gemstone Selection</span>
@@ -606,13 +630,13 @@ export default function ProductDetail() {
                   <div className="flex justify-between items-center">
                     <span className="text-stone-400">Standard Metal Alloy</span>
                     <span className="font-bold text-stone-800 uppercase tracking-widest font-mono">
-                      {catalogProduct ? (catalogProduct.name.toLowerCase().includes('platinum') ? 'Platinum 950' : (catalogProduct.name.toLowerCase().includes('white gold') ? '18K White Gold' : (catalogProduct.name.toLowerCase().includes('rose gold') ? '18K Rose Gold' : '22K Gold Sovereign'))) : 'Solid Precious Metal'}
+                      {product ? (product.name.toLowerCase().includes('platinum') ? 'Platinum 950' : (product.name.toLowerCase().includes('white gold') ? '18K White Gold' : (product.name.toLowerCase().includes('rose gold') ? '18K Rose Gold' : '22K Gold Sovereign'))) : 'Solid Precious Metal'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-stone-400">Gemstone Accents</span>
                     <span className="font-bold text-stone-800">
-                      {catalogProduct?.hasStones ? 'Genuine Fine Gemstones' : 'Classic Solid Metal Band'}
+                      {product?.hasStones ? 'Genuine Fine Gemstones' : 'Classic Solid Metal Band'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -698,7 +722,7 @@ export default function ProductDetail() {
                     <div className="text-stone-400">Hallmark Grade:</div>
                     <div className="text-stone-800 font-medium">PD Certified 916 Luxury Shield</div>
                     <div className="text-stone-400">Accent stones:</div>
-                    <div className="text-stone-800 font-medium">{(isCustomProduct || catalogProduct?.hasStones) ? STONES[selectedStone].name : 'No stones (Solid plain)'}</div>
+                    <div className="text-stone-800 font-medium">{(isCustomProduct || product?.hasStones) ? STONES[selectedStone].name : 'No stones (Solid plain)'}</div>
                     <div className="text-stone-400">Country of birth:</div>
                     <div className="text-stone-800 font-medium">Sri Lanka (Colombo House)</div>
                   </div>

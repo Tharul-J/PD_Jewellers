@@ -53,7 +53,9 @@ const userSchema = new mongoose.Schema({
     pendantShape: String,
     price: Number,
     createdAt: { type: Date, default: Date.now }
-  }]
+  }],
+  resetPasswordToken: { type: String, default: null },
+  resetPasswordExpires: { type: Date, default: null }
 }, { timestamps: true });
 
 // Hash password before saving

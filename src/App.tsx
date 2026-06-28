@@ -26,6 +26,8 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import ProductDetail from './pages/ProductDetail';
 import Blog from './pages/Blog';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -89,6 +91,16 @@ function AnimatedRoutes() {
           <Route path="register" element={
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
               <Register />
+            </motion.div>
+          } />
+          <Route path="forgot-password" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <ForgotPassword />
+            </motion.div>
+          } />
+          <Route path="reset-password" element={
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+              <ResetPassword />
             </motion.div>
           } />
           <Route path="profile" element={

@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
+import { sendPasswordResetEmail } from '../utils/email.js';
 
 const mockProfileUpdates: Record<string, any> = {};
 export const mockWishlists: Record<string, any[]> = {};
@@ -482,6 +484,75 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
     user.role = req.body.role;
     const updated = await user.save();
     res.json({ _id: updated._id, name: updated.name, email: updated.email, role: updated.role, createdAt: updated.createdAt });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Reset password — verify token and update password
+// @route   POST /api/users/reset-password
+// @access  Public
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database required for password reset.' });
+      return;
+    }
+
+    const { token, newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      res.status(400).json({ message: 'Password must be at least 6 characters.' });
+      return;
+    }
+
+    const user: any = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      res.status(400).json({ message: 'This reset link is invalid or has expired. Please request a new one.' });
+      return;
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully. You can now sign in.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Forgot password — generate reset token and email link
+// @route   POST /api/users/forgot-password
+// @access  Public
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  const genericResponse = { message: 'If that email exists, a reset link has been sent.' };
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json(genericResponse);
+      return;
+    }
+
+    const user: any = await User.findOne({ email: req.body.email });
+    if (!user) {
+      res.json(genericResponse);
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000);
+    await user.save();
+
+    const resetLink = `http://localhost:3000/reset-password?token=${token}`;
+    await sendPasswordResetEmail(user.email, resetLink);
+
+    res.json(genericResponse);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }

@@ -181,7 +181,7 @@ export default function Login() {
                 <input type="checkbox" id="remember" className="rounded text-amber-500 focus:ring-amber-500 border-stone-300" />
                 <label htmlFor="remember" className="text-xs text-stone-500 select-none">Remember me</label>
               </div>
-              <span className="text-xs text-stone-400">Change password in your profile.</span>
+              <Link to="/forgot-password" className="text-xs text-amber-600 hover:text-amber-700 transition-colors">Forgot password?</Link>
             </div>
 
             <button
