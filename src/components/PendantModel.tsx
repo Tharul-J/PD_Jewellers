@@ -164,13 +164,13 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
 
     const lCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-w / 2 + 0.04, ATTACH_Y, 0),
-      new THREE.Vector3(-w / 2 - 0.02, 1.5,      0),
-      new THREE.Vector3(-w / 2 - 0.04, 3.2,      0),
+      new THREE.Vector3(-0.9,           1.5,      0),
+      new THREE.Vector3(-1.7,           3.2,      0),
     ]);
     const rCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(w / 2 - 0.04, ATTACH_Y, 0),
-      new THREE.Vector3(w / 2 + 0.02, 1.5,      0),
-      new THREE.Vector3(w / 2 + 0.04, 3.2,      0),
+      new THREE.Vector3( 0.9,          1.5,      0),
+      new THREE.Vector3( 1.7,          3.2,      0),
     ]);
 
     const hs     = Math.max(cachedWidth + 0.4, 0.9);
@@ -187,25 +187,25 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
     // spread apart toward the neck, mirroring how Standard's lCurve/rCurve work.
     const heartLCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-0.04, startY, 0),
-      new THREE.Vector3(-0.18, 1.5,   0),
-      new THREE.Vector3(-0.36, 3.2,   0),
+      new THREE.Vector3(-0.9,  1.5,   0),
+      new THREE.Vector3(-1.7,  3.2,   0),
     ]);
     const heartRCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3( 0.04, startY, 0),
-      new THREE.Vector3( 0.18, 1.5,   0),
-      new THREE.Vector3( 0.36, 3.2,   0),
+      new THREE.Vector3( 0.9,  1.5,   0),
+      new THREE.Vector3( 1.7,  3.2,   0),
     ]);
 
     // Two-strand chain for Tag — anchored at its fixed bail, same spread pattern as Heart.
     const tagLCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-0.05, TAG_RING_Y + 0.06, 0),
-      new THREE.Vector3(-0.18, 1.5,               0),
-      new THREE.Vector3(-0.32, 3.2,               0),
+      new THREE.Vector3(-0.9,  1.5,               0),
+      new THREE.Vector3(-1.7,  3.2,               0),
     ]);
     const tagRCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3( 0.05, TAG_RING_Y + 0.06, 0),
-      new THREE.Vector3( 0.18, 1.5,               0),
-      new THREE.Vector3( 0.32, 3.2,               0),
+      new THREE.Vector3( 0.9,  1.5,               0),
+      new THREE.Vector3( 1.7,  3.2,               0),
     ]);
 
     const build = (curve: THREE.CatmullRomCurve3) => {
@@ -260,7 +260,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
     bevelSize:      0.008,
     bevelOffset:    0,
     bevelSegments:  4,
-    letterSpacing:  -0.02,
+    letterSpacing:  -0.08,
   } as const;
 
   const links = (arr: { pos: [number,number,number]; rot: [number,number,number] }[]) =>

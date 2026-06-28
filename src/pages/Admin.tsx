@@ -9,7 +9,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 // Extend this list to add new 3D model categories without other code changes
-const MODEL_CATEGORIES = ['ring', 'pendant'];
+const MODEL_CATEGORIES_DEFAULT = ['ring', 'pendant'];
 
 export default function Admin() {
   const { user, logout } = useAuth();
@@ -66,7 +66,17 @@ export default function Admin() {
   const [showModelEditForm, setShowModelEditForm] = useState(false);
   const [modelForm, setModelForm] = useState({ name: '', category: 'ring', basePrice: 1000, glbUrl: '' });
   const [savingModel, setSavingModel] = useState(false);
-  const [modelCategoryFilter, setModelCategoryFilter] = useState<'all' | 'ring' | 'pendant'>('all');
+  const [modelCategoryFilter, setModelCategoryFilter] = useState<string>('all');
+  const [modelCategories, setModelCategories] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('pd_3dmodel_categories');
+      return stored ? JSON.parse(stored) : MODEL_CATEGORIES_DEFAULT;
+    } catch { return MODEL_CATEGORIES_DEFAULT; }
+  });
+  const [addingCatUpload, setAddingCatUpload] = useState(false);
+  const [newCatInputUpload, setNewCatInputUpload] = useState('');
+  const [addingCatEdit, setAddingCatEdit] = useState(false);
+  const [newCatInputEdit, setNewCatInputEdit] = useState('');
 
   // Pricing save feedback
   const [pricingSaveStatus, setPricingSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -198,6 +208,33 @@ export default function Admin() {
     finally { setTogglingUserId(null); }
   };
 
+  const commitNewCategory = (raw: string): string | null => {
+    const cat = raw.trim().toLowerCase();
+    if (!cat) return null;
+    if (!modelCategories.some(c => c.toLowerCase() === cat)) {
+      const updated = [...modelCategories, cat];
+      setModelCategories(updated);
+      localStorage.setItem('pd_3dmodel_categories', JSON.stringify(updated));
+    }
+    return cat;
+  };
+
+  const handleAddCatUpload = () => {
+    const cat = commitNewCategory(newCatInputUpload);
+    if (!cat) return;
+    setNewModel(m => ({ ...m, category: cat }));
+    setNewCatInputUpload('');
+    setAddingCatUpload(false);
+  };
+
+  const handleAddCatEdit = () => {
+    const cat = commitNewCategory(newCatInputEdit);
+    if (!cat) return;
+    setModelForm(f => ({ ...f, category: cat }));
+    setNewCatInputEdit('');
+    setAddingCatEdit(false);
+  };
+
   const handleUploadModel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return alert('Please select a file');
@@ -219,6 +256,7 @@ export default function Admin() {
           setNewModel({ name: '', category: 'ring', basePrice: 1000 });
           setFile(null);
           alert('Model uploaded successfully');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }
     } catch (error) {
@@ -238,6 +276,7 @@ export default function Admin() {
       if (res.ok) {
         setModelsList(prev => prev.filter(m => m._id !== id));
         setDeleteModelId(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         const err = await res.json();
         alert(err.message || 'Delete failed');
@@ -278,6 +317,7 @@ export default function Admin() {
       const updated = await res.json();
       setModelsList(prev => prev.map(m => m._id === editingModel._id ? updated : m));
       handleCancelModelForm();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -888,15 +928,35 @@ export default function Admin() {
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Category</label>
-                        <select
-                          value={modelForm.category}
-                          onChange={e => setModelForm({ ...modelForm, category: e.target.value })}
-                          className="w-full p-2.5 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400"
-                        >
-                          {MODEL_CATEGORIES.map(cat => (
-                            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                          ))}
-                        </select>
+                        {addingCatEdit ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={newCatInputEdit}
+                              onChange={e => setNewCatInputEdit(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') { e.preventDefault(); handleAddCatEdit(); }
+                                if (e.key === 'Escape') { setAddingCatEdit(false); setNewCatInputEdit(''); }
+                              }}
+                              className="flex-1 p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                              placeholder="New category name"
+                            />
+                            <button type="button" onClick={handleAddCatEdit} className="px-3 py-1 btn-richbrown text-white text-xs rounded-sm">Add</button>
+                            <button type="button" onClick={() => { setAddingCatEdit(false); setNewCatInputEdit(''); }} className="px-2 py-1 text-gray-400 text-xs hover:text-gray-600">Cancel</button>
+                          </div>
+                        ) : (
+                          <select
+                            value={modelForm.category}
+                            onChange={e => e.target.value === '__new__' ? setAddingCatEdit(true) : setModelForm({ ...modelForm, category: e.target.value })}
+                            className="w-full p-2.5 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400"
+                          >
+                            {modelCategories.map(cat => (
+                              <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                            ))}
+                            <option value="__new__">+ Add New Category</option>
+                          </select>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Base Price (Rs.)</label>
@@ -938,7 +998,7 @@ export default function Admin() {
                 <div className="flex flex-wrap justify-between items-center mb-6 border-b border-gray-100 pb-4 gap-3">
                   <h2 className="text-lg font-serif text-[var(--color-ink)]">3D Models & Inventory</h2>
                   <div className="flex gap-1">
-                    {(['all', 'ring', 'pendant'] as const).map(cat => (
+                    {(['all', ...modelCategories]).map(cat => (
                       <button
                         key={cat}
                         type="button"
@@ -966,15 +1026,35 @@ export default function Admin() {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Category</label>
-                      <select
-                        value={newModel.category}
-                        onChange={e => setNewModel({ ...newModel, category: e.target.value })}
-                        className="w-full p-2 border border-gray-200 text-sm bg-white"
-                      >
-                        {MODEL_CATEGORIES.map(cat => (
-                          <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                        ))}
-                      </select>
+                      {addingCatUpload ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={newCatInputUpload}
+                            onChange={e => setNewCatInputUpload(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { e.preventDefault(); handleAddCatUpload(); }
+                              if (e.key === 'Escape') { setAddingCatUpload(false); setNewCatInputUpload(''); }
+                            }}
+                            className="flex-1 p-2 border border-gray-200 text-sm"
+                            placeholder="New category name"
+                          />
+                          <button type="button" onClick={handleAddCatUpload} className="px-3 py-1 btn-richbrown text-white text-xs rounded-sm">Add</button>
+                          <button type="button" onClick={() => { setAddingCatUpload(false); setNewCatInputUpload(''); }} className="px-2 py-1 text-gray-400 text-xs hover:text-gray-600">Cancel</button>
+                        </div>
+                      ) : (
+                        <select
+                          value={newModel.category}
+                          onChange={e => e.target.value === '__new__' ? setAddingCatUpload(true) : setNewModel({ ...newModel, category: e.target.value })}
+                          className="w-full p-2 border border-gray-200 text-sm bg-white"
+                        >
+                          {modelCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                          ))}
+                          <option value="__new__">+ Add New Category</option>
+                        </select>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Base Price (Rs.)</label>
