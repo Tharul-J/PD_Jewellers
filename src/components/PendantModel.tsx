@@ -13,12 +13,12 @@ const TAG_DEPTH = 0.10;
 const TAG_RING_Y = TAG_H / 2 + 0.04;   // 0.665 — bail above top edge
 
 // ── TagInner: loads font via Suspense, builds cut-through geometry ────────────
-function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizontal' }: {
-  fontUrl: string; displayText: string; metalMaterial: any; textDirection?: 'horizontal' | 'vertical';
+function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizontal', textSizeMult = 1 }: {
+  fontUrl: string; displayText: string; metalMaterial: any; textDirection?: 'horizontal' | 'vertical'; textSizeMult?: number;
 }) {
   const font = useLoader(FontLoader as any, fontUrl);
 
-  const geometry = useMemo(() => {
+  const { tagGeometry, islandGeometries } = useMemo(() => {
     // Build rounded-rectangle outer shape
     const hw = TAG_W / 2, hh = TAG_H / 2, r = TAG_R;
     const tagShape = new THREE.Shape();
@@ -31,6 +31,11 @@ function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizo
     tagShape.quadraticCurveTo(-hw,  hh, -hw,  hh - r);
     tagShape.lineTo(-hw, -hh + r);
     tagShape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+
+    // Letter counters (the triangle inside "A", the holes in "B"/"O"/"D"…) cannot be
+    // nested holes-within-holes in a single THREE.Shape, so we collect them here and
+    // extrude them as separate solid "island" meshes that float co-planar inside the cut.
+    const islandShapes: THREE.Shape[] = [];
 
     if (textDirection === 'vertical') {
       // ── Vertical layout: stack each character individually top-to-bottom ──
@@ -55,26 +60,40 @@ function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizo
       const totalH = glyphData.reduce((s, g) => s + g.h, 0) + LINE_GAP * (glyphData.length - 1);
       const maxW   = glyphData.reduce((s, g) => Math.max(s, g.w), 0);
 
-      const scale = Math.min(
+      const fittedScale = Math.min(
         (TAG_W * 0.68) / maxW,
         (TAG_H * 0.52) / totalH,
         2.2,
       );
+      // Manual Text Size slider multiplies the auto-fit, then the 2.2 cap is re-applied
+      // so enlarging can never spill the monogram past the tag bounds.
+      const scale = Math.min(fittedScale * textSizeMult, 2.2);
 
       // Stack top-to-bottom: first glyph at top, last at bottom, all centered on X
       let curY = (totalH / 2) * scale;   // start at top in scaled space
       for (const g of glyphData) {
         curY -= g.h * scale / 2;  // move to this glyph's center-Y
+        const place = (p: THREE.Vector2) => ({ x: (p.x - g.cx) * scale, y: (p.y - g.cy) * scale + curY });
         for (const lShape of g.shapes) {
-          const { shape: outerPts } = lShape.extractPoints(48);
+          const { shape: outerPts, holes: counters } = lShape.extractPoints(48);
+          // Outer glyph outline → cut through the tag
           const hole = new THREE.Path();
           outerPts.forEach((p, i) => {
-            const x = (p.x - g.cx) * scale;
-            const y = -(p.y - g.cy) * scale + curY;
+            const { x, y } = place(p);
             if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
           });
           hole.closePath();
           tagShape.holes.push(hole);
+          // Interior counters → solid islands inside the cut
+          for (const counter of counters) {
+            const island = new THREE.Shape();
+            counter.forEach((p, i) => {
+              const { x, y } = place(p);
+              if (i === 0) island.moveTo(x, y); else island.lineTo(x, y);
+            });
+            island.closePath();
+            islandShapes.push(island);
+          }
         }
         curY -= g.h * scale / 2 + LINE_GAP * scale;  // advance past this glyph + gap
       }
@@ -91,50 +110,80 @@ function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizo
       const textCY = (bb.max.y + bb.min.y) / 2;
       measureGeo.dispose();
 
-      const scale = Math.min(
+      const fittedScale = Math.min(
         (TAG_W * 0.68) / textW,
         (TAG_H * 0.52) / textH,
         2.2,
       );
+      // Manual Text Size slider multiplies the auto-fit, then the 2.2 cap is re-applied
+      // so enlarging can never spill the monogram past the tag bounds.
+      const scale = Math.min(fittedScale * textSizeMult, 2.2);
 
+      const place = (p: THREE.Vector2) => ({ x: (p.x - textCX) * scale, y: (p.y - textCY) * scale });
       for (const lShape of letterShapes) {
-        const { shape: outerPts } = lShape.extractPoints(48);
+        const { shape: outerPts, holes: counters } = lShape.extractPoints(48);
+        // Outer glyph outline → cut through the tag
         const hole = new THREE.Path();
         outerPts.forEach((p, i) => {
-          const x = (p.x - textCX) * scale;
-          const y = -(p.y - textCY) * scale;
+          const { x, y } = place(p);
           if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
         });
         hole.closePath();
         tagShape.holes.push(hole);
+        // Interior counters → solid islands inside the cut
+        for (const counter of counters) {
+          const island = new THREE.Shape();
+          counter.forEach((p, i) => {
+            const { x, y } = place(p);
+            if (i === 0) island.moveTo(x, y); else island.lineTo(x, y);
+          });
+          island.closePath();
+          islandShapes.push(island);
+        }
       }
     }
 
-    return new THREE.ExtrudeGeometry(tagShape, {
+    const extrudeOpts = {
       depth:          TAG_DEPTH,
       bevelEnabled:   true,
       bevelThickness: 0.006,
       bevelSize:      0.005,
       bevelSegments:  2,
       curveSegments:  16,
-    });
-  }, [font, displayText, textDirection]);
+    };
+
+    return {
+      tagGeometry: new THREE.ExtrudeGeometry(tagShape, extrudeOpts),
+      islandGeometries: islandShapes.map((s) => new THREE.ExtrudeGeometry(s, extrudeOpts)),
+    };
+  }, [font, displayText, textDirection, textSizeMult]);
+
+  const islandMaterial = (
+    <meshPhysicalMaterial
+      {...metalMaterial}
+      envMapIntensity={4}
+      roughness={Math.min((metalMaterial.roughness ?? 0.05) + 0.05, 0.3)}
+      metalness={metalMaterial.metalness ?? 1}
+      side={THREE.DoubleSide}
+    />
+  );
 
   return (
-    <mesh geometry={geometry} position={[0, 0, -TAG_DEPTH]} castShadow receiveShadow>
-      <meshPhysicalMaterial
-        {...metalMaterial}
-        envMapIntensity={4}
-        roughness={Math.min((metalMaterial.roughness ?? 0.05) + 0.05, 0.3)}
-        metalness={metalMaterial.metalness ?? 1}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group position={[0, 0, -TAG_DEPTH]}>
+      <mesh geometry={tagGeometry} castShadow receiveShadow>
+        {islandMaterial}
+      </mesh>
+      {islandGeometries.map((g, i) => (
+        <mesh key={i} geometry={g} castShadow receiveShadow>
+          {islandMaterial}
+        </mesh>
+      ))}
+    </group>
   );
 }
 
 // ── Main pendant component ────────────────────────────────────────────────────
-export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false, fontItalic = false, shape = 'standard', textDirection = 'horizontal' }: any) {
+export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false, fontItalic = false, shape = 'standard', textDirection = 'horizontal', textSizeMult = 1 }: any) {
   const groupRef = useRef<THREE.Group>(null);
 
   const fontKey = (fontStyle && fontStyle in FONTS) ? fontStyle : 'cinzel';
@@ -154,9 +203,18 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
   // rings land at the real top-edge of whatever font/weight/letters are displayed.
   const ATTACH_Y = cachedHeight / 2;
 
-  // Heart dimensions (scale proportional to text width so heart always frames the text)
-  const heartScale = Math.max(cachedWidth + 0.4, 0.9);
+  // Heart dimensions — FIXED size, decoupled from text length. The heart is a stable,
+  // predictable shape; long text is shrunk to fit inside it (see fitScale below) rather
+  // than the heart growing to chase the text. 1.1 frames a short name at full size.
+  const heartScale = 1.1;
   const HEART_VNOT = heartScale * 0.38;   // Y of V-notch — single bail attachment
+
+  // Fit-scaling for heart text — measure the natural text width (cachedWidth, reported by
+  // <Center onCentered>) and shrink it to stay within the heart's usable width at the text
+  // band. usableWidth ≈ 0.73 × heartScale (binding constraint at the lower lobes, with a
+  // safety margin inside the edge). Text only ever shrinks, never grows past natural size.
+  const heartUsableWidth = 0.73 * heartScale;
+  const heartFitScale    = Math.min(1, heartUsableWidth / cachedWidth);
 
   // Chain link arrays
   const { leftLinks, rightLinks, singleLinks } = useMemo(() => {
@@ -173,7 +231,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
       new THREE.Vector3( 1.7,          3.2,      0),
     ]);
 
-    const hs     = Math.max(cachedWidth + 0.4, 0.9);
+    const hs     = 1.1;   // fixed heart size — keep chain bail aligned with HEART_VNOT
     const startY = shape === 'tag'
       ? TAG_RING_Y + 0.06                          // fixed bail position for tag
       : hs * 0.38 + 0.06;                          // V-notch of heart + clearance
@@ -252,7 +310,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
 
   const textProps = {
     font:           fontUrl,
-    size:           0.5,
+    size:           0.5 * textSizeMult,
     height:         0.05,
     curveSegments:  32,
     bevelEnabled:   true,
@@ -315,20 +373,10 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                 metalness={metalMaterial.metalness ?? 1} />
             </mesh>
 
-            {/* Front text */}
-            <Center onCentered={onMeasured}>
-              <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
-                <Text3D {...textProps}>
-                  {displayText}
-                  <meshPhysicalMaterial {...metalMaterial} envMapIntensity={6}
-                    roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
-                </Text3D>
-              </group>
-            </Center>
-
-            {/* Back text — rotated PI on Y so it reads correctly from behind */}
-            <group position={[0, 0, -0.10]} rotation={[0, Math.PI, 0]}>
-              <Center>
+            {/* Front text — fitScale group OUTSIDE <Center> so scaling never feeds back
+                into the cachedWidth measurement (avoids a measure→scale→measure loop) */}
+            <group scale={heartFitScale}>
+              <Center onCentered={onMeasured}>
                 <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
                   <Text3D {...textProps}>
                     {displayText}
@@ -337,6 +385,21 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                   </Text3D>
                 </group>
               </Center>
+            </group>
+
+            {/* Back text — rotated PI on Y so it reads correctly from behind; same fitScale */}
+            <group position={[0, 0, -0.10]} rotation={[0, Math.PI, 0]}>
+              <group scale={heartFitScale}>
+                <Center>
+                  <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
+                    <Text3D {...textProps}>
+                      {displayText}
+                      <meshPhysicalMaterial {...metalMaterial} envMapIntensity={6}
+                        roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
+                    </Text3D>
+                  </group>
+                </Center>
+              </group>
             </group>
 
             <mesh position={[0, HEART_VNOT, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
@@ -367,7 +430,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                 <meshPhysicalMaterial {...metalMaterial} envMapIntensity={4} />
               </mesh>
             }>
-              <TagInner fontUrl={fontUrl} displayText={displayText} metalMaterial={metalMaterial} textDirection={textDirection} />
+              <TagInner fontUrl={fontUrl} displayText={displayText} metalMaterial={metalMaterial} textDirection={textDirection} textSizeMult={textSizeMult} />
             </Suspense>
 
             {/* Single bail at top-center of tag */}

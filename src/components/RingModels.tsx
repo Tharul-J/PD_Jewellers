@@ -51,7 +51,7 @@ const GEM_FIT_OVERRIDES: Record<string, GemFit> = {
 const DEFAULT_GEM_FIT: GemFit = { cut: 'round', centerX: 0, centerZ: 0, yNorm: 0.75, sizeNorm: 0.28 };
 const DEFAULT_ENGRAVE_FIT: EngraveFit = { yNorm: -0.55, radiusNorm: 0.85 };
 
-function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl }: any) {
+function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl, textSizeMult = 1 }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { scene, boundingRadius, boundingCenter } = useLoadedModel(fileUrl);
 
@@ -258,7 +258,7 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
   ];
   // Text dimensions scaled to boundingRadius so glyphs are the same apparent
   // size across all rings after autoScale brings them to a uniform world radius.
-  const textSize   = 0.10  * boundingRadius;
+  const textSize   = 0.10  * boundingRadius * textSizeMult;
   const textHeight = 0.008 * boundingRadius;
 
   useFrame((state) => {
@@ -357,7 +357,7 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
   );
 }
 
-export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl = '/glb-models/rings/ring1.glb' }: any) {
+export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl = '/glb-models/rings/ring1.glb', textSizeMult = 1 }: any) {
   const safeFileUrl = fileUrl || '/glb-models/rings/ring1.glb';
 
   return (
@@ -372,6 +372,7 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticSton
           fontStyle={fontStyle}
           fontBold={fontBold}
           fontItalic={fontItalic}
+          textSizeMult={textSizeMult}
           noSpin={noSpin}
           fileUrl="/glb-models/rings/ring1.glb"
         />

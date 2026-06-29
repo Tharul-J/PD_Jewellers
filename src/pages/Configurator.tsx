@@ -9,7 +9,7 @@ import { Check, Glasses, Box, Type, Save } from 'lucide-react';
 import ARTryOnModal, { warmARRuntime } from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { METALS, STONES, FONTS } from '../constants';
+import { METALS, STONES, FONTS, visibleFontKeys } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
 
@@ -46,6 +46,12 @@ export default function Configurator() {
   const [textDirection, setTextDirection] = useState<'horizontal' | 'vertical'>(() =>
     (localStorage.getItem('cfg_textDirection') === 'vertical') ? 'vertical' : 'horizontal'
   );
+  // Normalized text-size multiplier (0.7–1.3, default 1.0). At 1.0 every text path
+  // renders exactly as before; it scales each path's own base size, never replaces it.
+  const [textSize, setTextSize] = useState<number>(() => {
+    const saved = parseFloat(localStorage.getItem('cfg_textSize') || '');
+    return (Number.isFinite(saved) && saved >= 0.7 && saved <= 1.3) ? saved : 1.0;
+  });
   const [fontBold, setFontBold] = useState(() => localStorage.getItem('cfg_fontBold') === 'true');
   const [fontItalic, setFontItalic] = useState(() => localStorage.getItem('cfg_fontItalic') === 'true');
   const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
@@ -66,6 +72,40 @@ export default function Configurator() {
     }
   }, [pendantShape]);
 
+  // Keep the selected font valid for the current context: the Tag pendant hides the
+  // serif fonts that fragment in generateShapes(), and the cursive fonts are Tag-only.
+  // If the active selection isn't offered here, fall back to the first available font.
+  const availableFontKeys = visibleFontKeys(modelType, pendantShape);
+  useEffect(() => {
+    if (!availableFontKeys.includes(fontStyle)) {
+      setFontStyle(availableFontKeys[0]);
+    }
+  }, [modelType, pendantShape, fontStyle]);
+
+  // Shared "Text Size" slider — applies to pendant text and ring engraving.
+  const textSizeControl = (
+    <div>
+      <h3 className="text-xs uppercase tracking-widest font-semibold mb-2 flex justify-between">
+        <span>Text Size</span>
+        <span className="opacity-50 tabular-nums">{Math.round(textSize * 100)}%</span>
+      </h3>
+      <input
+        type="range"
+        min={0.7}
+        max={1.3}
+        step={0.05}
+        value={textSize}
+        onChange={(e) => setTextSize(parseFloat(e.target.value))}
+        className="w-full accent-[var(--color-ink)] cursor-pointer"
+      />
+      <div className="flex justify-between text-[9px] uppercase tracking-widest text-gray-400 mt-1">
+        <span>Smaller</span>
+        <button type="button" onClick={() => setTextSize(1.0)} className="hover:text-black/70">Reset</button>
+        <span>Larger</span>
+      </div>
+    </div>
+  );
+
   useEffect(() => {
     localStorage.setItem('cfg_modelType', modelType);
     localStorage.setItem('cfg_ringStyle', ringStyle);
@@ -79,7 +119,8 @@ export default function Configurator() {
     localStorage.setItem('cfg_fontItalic', String(fontItalic));
     localStorage.setItem('cfg_ringSize', ringSize);
     localStorage.setItem('cfg_textDirection', textDirection);
-  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, fontBold, fontItalic, ringSize, textDirection]);
+    localStorage.setItem('cfg_textSize', String(textSize));
+  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, fontBold, fontItalic, ringSize, textDirection, textSize]);
 
   useEffect(() => {
     const cachedModels = localStorage.getItem('cfg_cache_api_models');
@@ -273,7 +314,7 @@ export default function Configurator() {
               <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                 <group position={[0, 0, -0.6]} scale={1.5}>
                   {modelType === 'ring' ? (
-                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
+                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} textSizeMult={textSize} />
                   ) : (
                     <PendantModel
                       text={customText}
@@ -283,6 +324,7 @@ export default function Configurator() {
                       fontItalic={fontItalic}
                       shape={pendantShape}
                       textDirection={textDirection}
+                      textSizeMult={textSize}
                     />
                   )}
                 </group>
@@ -486,10 +528,12 @@ export default function Configurator() {
                     />
                   </div>
                   
+                  {textSizeControl}
+
                   <div>
                     <h3 className="text-xs uppercase tracking-widest font-semibold mb-2">Font Style</h3>
                     <div className="grid grid-cols-2 gap-2 mb-3">
-                      {(Object.keys(FONTS) as Array<keyof typeof FONTS>).map((key) => (
+                      {availableFontKeys.map((key) => (
                         <button
                           key={key}
                           onClick={() => setFontStyle(key)}
@@ -579,9 +623,13 @@ export default function Configurator() {
               </div>
 
               <div className="mb-10">
+                {textSizeControl}
+              </div>
+
+              <div className="mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2">Font Style</h3>
                 <div className="grid grid-cols-2 gap-2 mb-3">
-                  {(Object.keys(FONTS) as Array<keyof typeof FONTS>).map((key) => (
+                  {availableFontKeys.map((key) => (
                     <button
                       key={key}
                       onClick={() => setFontStyle(key)}

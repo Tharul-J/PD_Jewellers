@@ -23,4 +23,41 @@ export const FONTS = {
   playfair:   { name: 'Playfair Display',   url: '/fonts/playfair_display_regular.typeface.json',   boldUrl: '/fonts/playfair_display_bold.typeface.json' },
   poppins:    { name: 'Poppins',            url: '/fonts/poppins_regular.typeface.json',             boldUrl: '/fonts/poppins_bold.typeface.json' },
   helvetiker: { name: 'Helvetica',          url: '/fonts/helvetiker_regular.typeface.json',          boldUrl: '/fonts/helvetiker_bold.typeface.json' },
+  // Cursive scripts — single weight, so bold reuses the regular face. Chunky strokes
+  // survive generateShapes() (the Tag's cut-through path) where thin serifs fragment.
+  pacifico:   { name: 'Pacifico',           url: '/fonts/pacifico.typeface.json',                    boldUrl: '/fonts/pacifico.typeface.json' },
+  lobster:    { name: 'Lobster',            url: '/fonts/lobster_regular.typeface.json',             boldUrl: '/fonts/lobster_regular.typeface.json' },
 };
+
+// The Tag pendant builds 3D letters via font.generateShapes(); thin serif outlines
+// fragment into self-intersecting contours there, so these are hidden on Tag ONLY.
+// They remain available for Standard/Heart pendants (Text3D path) and ring engraving.
+export const TAG_HIDDEN_FONTS: Array<keyof typeof FONTS> = ['cinzel', 'cormorant', 'playfair'];
+
+// Cursive scripts are never offered on ring engraving — that selector keeps the
+// original serif/sans set unchanged.
+export const CURSIVE_FONTS: Array<keyof typeof FONTS> = ['pacifico', 'lobster'];
+
+// Pacifico's wide brush glyphs overlap into an illegible blob on the Standard/Heart
+// Text3D path (advance-width layout + the -0.08 letterSpacing), measured at ~the same
+// overlap as Dancing Script, so it stays Tag-only. Lobster's connected script remains
+// legible on Text3D, so it is allowed on all pendant shapes (and is NOT in this list).
+export const TAG_ONLY_FONTS: Array<keyof typeof FONTS> = ['pacifico'];
+
+// Font keys visible in the selector for a given context (model type + pendant shape).
+export function visibleFontKeys(
+  modelType: 'ring' | 'pendant',
+  pendantShape: 'standard' | 'heart' | 'tag',
+): Array<keyof typeof FONTS> {
+  const all = Object.keys(FONTS) as Array<keyof typeof FONTS>;
+  // Ring engraving: unchanged — original serif/sans set, no cursive scripts.
+  if (modelType === 'ring') {
+    return all.filter((k) => !CURSIVE_FONTS.includes(k));
+  }
+  // Tag pendant: hide the serifs that fragment; keep sans + both cursive scripts.
+  if (pendantShape === 'tag') {
+    return all.filter((k) => !TAG_HIDDEN_FONTS.includes(k));   // poppins, helvetica, pacifico, lobster
+  }
+  // Standard / Heart pendants: everything except the Tag-only cursive (Pacifico).
+  return all.filter((k) => !TAG_ONLY_FONTS.includes(k));        // serifs + sans + lobster
+}
