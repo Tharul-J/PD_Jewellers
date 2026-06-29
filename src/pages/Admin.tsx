@@ -21,6 +21,7 @@ export default function Admin() {
   const [modelsList, setModelsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [savingPricing, setSavingPricing] = useState(false);
   const [newModel, setNewModel] = useState({ name: '', category: 'ring', basePrice: 1000 });
   const [file, setFile] = useState<File | null>(null);
@@ -239,13 +240,32 @@ export default function Admin() {
     e.preventDefault();
     if (!file) return alert('Please select a file');
     setUploading(true);
+    setUploadProgress(0);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.message || 'File upload to Cloudinary failed');
+      // Step 1: Upload file to Cloudinary via XHR so we can track progress.
+      const uploadData = await new Promise<{ url: string }>((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener('progress', ev => {
+          if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch { reject(new Error('Invalid server response')); }
+          } else {
+            try { const err = JSON.parse(xhr.responseText); reject(new Error(err.message || 'File upload to Cloudinary failed')); }
+            catch { reject(new Error('File upload to Cloudinary failed')); }
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('File upload failed — check your connection')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+        xhr.open('POST', '/api/upload');
+        xhr.send(formData);
+      });
 
+      // Step 2: Save model record to MongoDB (uploadProgress stays at 100 — button shows "Finalizing…").
       const modelRes = await fetch('/api/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
@@ -263,6 +283,7 @@ export default function Admin() {
       alert(error.message || 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -969,7 +990,7 @@ export default function Admin() {
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">GLB File URL (optional override)</label>
                         <input
-                          type="url"
+                          type="text"
                           value={modelForm.glbUrl}
                           onChange={e => setModelForm({ ...modelForm, glbUrl: e.target.value })}
                           className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
@@ -1073,11 +1094,25 @@ export default function Admin() {
                       />
                     </div>
                   </div>
+                  {uploading && (
+                    <div className="mb-4">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>{uploadProgress < 100 ? `Uploading… ${uploadProgress}%` : 'Finalizing…'}</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div
+                          className="bg-amber-500 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <button
                     type="submit" disabled={uploading}
                     className="px-6 py-2 btn-richbrown text-white text-[10px] uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
                   >
-                    {uploading ? 'Uploading...' : 'Upload Model'}
+                    {uploading ? (uploadProgress < 100 ? `Uploading… ${uploadProgress}%` : 'Finalizing…') : 'Upload Model'}
                   </button>
                 </form>
 

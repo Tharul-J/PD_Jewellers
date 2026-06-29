@@ -33,6 +33,9 @@ type GemFit = {
   centerZ: number;
   yNorm: number;
   sizeNorm: number;
+  // Additional gem overlays rendered after the primary — same normalization as the primary.
+  // Used for multi-stone rings (e.g. ring5's two side prong settings).
+  extraGems?: Array<Omit<GemFit, 'extraGems'>>;
 };
 
 type EngraveFit = {
@@ -43,9 +46,22 @@ type EngraveFit = {
 // Manual overrides — only entries that need a non-default cut shape or precisely
 // hand-tuned placement that auto-detection cannot infer from geometry alone.
 // Ring3 must stay here: its square bezel needs the princess-cut two-cone profile.
-// Rings 1, 2, 4, 5 are omitted — they fall through to runtime auto-detection.
+// Ring5 must stay here: it has three stone settings (center + two side prong clusters)
+// that auto-detection cannot distinguish — it would average them into one central gem.
+// Rings 1, 2, 4 fall through to runtime auto-detection.
 const GEM_FIT_OVERRIDES: Record<string, GemFit> = {
   '/glb-models/rings/ring3.glb': { cut: 'square', centerX: -0.36, centerZ: -0.27, yNorm: 1.05, sizeNorm: 0.34 },
+  '/glb-models/rings/ring5.glb': {
+    // Center stone — positioned at inner prong-tip mean (X=0 by symmetry, yNorm from
+    // geometry analysis of the center stone aperture at the top of the prong cluster).
+    cut: 'round', centerX: 0, centerZ: 0, yNorm: 0.8473, sizeNorm: 0.13,
+    extraGems: [
+      // Left side prong cluster — shifted outward from vertex midpoint toward the visible gap
+      { cut: 'round', centerX: -0.24, centerZ: 0, yNorm: 0.8392, sizeNorm: 0.08 },
+      // Right side prong cluster — perfectly symmetric
+      { cut: 'round', centerX:  0.24, centerZ: 0, yNorm: 0.8392, sizeNorm: 0.08 },
+    ],
+  },
 };
 
 const DEFAULT_GEM_FIT: GemFit = { cut: 'round', centerX: 0, centerZ: 0, yNorm: 0.75, sizeNorm: 0.28 };
@@ -302,6 +318,34 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
               <meshPhysicalMaterial {...gemMatProps} />
             </mesh>
           )}
+
+          {/* Extra gem overlays (e.g. ring5 side prong settings) — same cabochon
+              geometry and material as the primary gem, each with its own position. */}
+          {syntheticStone && gemFit.extraGems && gemFit.extraGems.map((eg, i) => {
+            const egRadius = eg.sizeNorm * boundingRadius;
+            const egPos: [number, number, number] = [
+              -cx + eg.centerX * boundingRadius,
+              -cy + eg.yNorm   * boundingRadius,
+              -cz + eg.centerZ * boundingRadius,
+            ];
+            return eg.cut === 'round' ? (
+              <mesh key={i} position={egPos} scale={[1, 0.58, 1]} castShadow>
+                <sphereGeometry args={[egRadius, 24, 16]} />
+                <meshPhysicalMaterial {...gemMatProps} />
+              </mesh>
+            ) : (
+              <group key={i} position={egPos} rotation={[0, Math.PI / 4, 0]} scale={[1, 0.62, 1]}>
+                <mesh position={[0, egRadius * 0.3, 0]} castShadow>
+                  <coneGeometry args={[egRadius, egRadius * 0.6, 4]} />
+                  <meshPhysicalMaterial {...gemMatProps} />
+                </mesh>
+                <mesh position={[0, -egRadius * 0.4, 0]} rotation={[Math.PI, 0, 0]} castShadow>
+                  <coneGeometry args={[egRadius, egRadius * 0.8, 4]} />
+                  <meshPhysicalMaterial {...gemMatProps} />
+                </mesh>
+              </group>
+            );
+          })}
 
           {/*
             Princess-cut gem for square bezels (ring3 only via GEM_FIT_OVERRIDES).
