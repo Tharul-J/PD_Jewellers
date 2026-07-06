@@ -443,6 +443,50 @@ export const saveConfiguration = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// @desc    Delete a saved configuration
+// @route   DELETE /api/users/configurations/:id
+// @access  Private
+export const deleteConfiguration = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (mongoose.connection.readyState !== 1) {
+      const userId = req.user._id;
+      const list = getDefaultConfigurations(userId);
+      const before = list.length;
+      const filtered = list.filter((c: any) => c._id !== id);
+      if (filtered.length === before) {
+        res.status(404).json({ message: 'Configuration not found' });
+        return;
+      }
+      mockSavedConfigurations[userId] = filtered;
+      res.json(filtered);
+      return;
+    }
+
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      const before = user.savedConfigurations?.length || 0;
+      user.savedConfigurations = user.savedConfigurations?.filter(
+        (c: any) => c._id.toString() !== id
+      ) as any;
+
+      if ((user.savedConfigurations?.length || 0) === before) {
+        res.status(404).json({ message: 'Configuration not found' });
+        return;
+      }
+
+      await user.save();
+      res.json(user.savedConfigurations);
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private/Admin

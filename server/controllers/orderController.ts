@@ -178,6 +178,39 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// @desc    Cancel own inquiry (only while still pending review)
+// @route   DELETE /api/orders/:id/cancel
+// @access  Private
+export const cancelMyOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database required for order management' });
+      return;
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      res.status(404).json({ message: 'Inquiry not found' });
+      return;
+    }
+
+    if (order.user.toString() !== req.user._id.toString()) {
+      res.status(403).json({ message: 'Not authorised' });
+      return;
+    }
+
+    if (order.status !== 'pending') {
+      res.status(400).json({ message: 'This inquiry can no longer be cancelled. Please contact us directly.' });
+      return;
+    }
+
+    await Order.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Inquiry cancelled successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
 // @desc    Delete an inquiry
 // @route   DELETE /api/orders/:id
 // @access  Private/Admin

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X, ChevronDown } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { METALS, STONES, FONTS } from '../constants';
 
@@ -32,6 +32,9 @@ export default function Profile() {
   const navigate = useNavigate();
   
   const [profileData, setProfileData] = useState<any>(null);
+  const [deletingConfigId, setDeletingConfigId] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(true);
 
@@ -231,9 +234,57 @@ export default function Profile() {
     navigate('/inquiry');
   };
 
+  const handleDeleteConfiguration = async (configId: string) => {
+    if (!user || !window.confirm('Remove this saved design?')) return;
+    setDeletingConfigId(configId);
+    try {
+      const res = await fetch(`/api/users/configurations/${configId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (!res.ok) throw new Error('Failed');
+      const savedConfigurations = await res.json();
+      setProfileData((prev: any) => prev ? { ...prev, savedConfigurations } : prev);
+    } catch (err) {
+      console.error('[saved-designs] delete error:', err);
+      alert('Could not remove design. Please try again.');
+    } finally {
+      setDeletingConfigId(null);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const toggleOrderExpanded = (id: string) => {
+    setExpandedOrderIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const isOrderExpanded = (id: string) => expandedOrderIds.has(id);
+
+  const handleCancelInquiry = async (orderId: string) => {
+    if (!user || !window.confirm('Are you sure you want to cancel this inquiry? This action cannot be undone.')) return;
+    setCancellingOrderId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/cancel`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to cancel');
+      setOrders(prev => prev.filter(o => o._id !== orderId));
+    } catch (err: any) {
+      console.error('[inquiries] cancel error:', err);
+      alert(err.message || 'Could not cancel inquiry. Please try again.');
+    } finally {
+      setCancellingOrderId(null);
+    }
   };
 
   if (loading) {
@@ -242,7 +293,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen pt-32 pb-24 bg-[var(--color-paper)]">
-      <div className="max-w-5xl mx-auto px-4 md:px-8">
+      <div className="max-w-6xl mx-auto px-4 md:px-8">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -307,7 +358,7 @@ export default function Profile() {
                 {activeTab === 'account' && !isEditing && !isChangingPassword && (
                   <>
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                      <h2 className="text-xl font-serif text-[var(--color-ink)]">Account Details</h2>
+                      <h2 className="text-2xl font-serif text-[var(--color-ink)]">Account Details</h2>
                       <div className="flex gap-3">
                         <button 
                           onClick={() => { setIsEditing(true); setSuccessMsg(''); setErrorMsg(''); }}
@@ -332,40 +383,40 @@ export default function Profile() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Full Name</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.name || user?.name}</p>
+                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">Full Name</label>
+                        <p className="text-lg text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.name || user?.name}</p>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Email Address</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.email || user?.email}</p>
+                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">Email Address</label>
+                        <p className="text-lg text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.email || user?.email}</p>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Phone Number</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.phone || 'Not provided'}</p>
+                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">Phone Number</label>
+                        <p className="text-lg text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">{profileData?.phone || 'Not provided'}</p>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Account Type</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2 capitalize">{user?.role || 'Customer'}</p>
+                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">Account Type</label>
+                        <p className="text-lg text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2 capitalize">{user?.role || 'Customer'}</p>
                       </div>
                       <div className="md:col-span-2">
-                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Member Since</label>
-                        <p className="text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">
+                        <label className="block text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">Member Since</label>
+                        <p className="text-lg text-[var(--color-ink)] font-medium border-b border-gray-100 pb-2">
                           {profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : 'Recently'}
                         </p>
                       </div>
                     </div>
 
                     <div className="border-t border-gray-100 pt-8 mt-8">
-                      <h3 className="text-md font-serif text-[var(--color-ink)] mb-4 flex items-center gap-2"><MapPin size={16} className="text-gray-400" /> Default Delivery Address</h3>
+                      <h3 className="text-lg font-serif text-[var(--color-ink)] mb-4 flex items-center gap-2"><MapPin size={16} className="text-gray-400" /> Default Delivery Address</h3>
                       {profileData?.address?.street || profileData?.address?.city || profileData?.address?.state ? (
-                        <div className="bg-gray-50 p-4 rounded-sm border border-gray-100 text-sm text-gray-700 space-y-1">
+                        <div className="bg-gray-50 p-4 rounded-sm border border-gray-100 text-base text-gray-700 space-y-1">
                           <p className="font-semibold text-[var(--color-ink)]">{profileData.name || user?.name}</p>
                           <p>{profileData.address.street}</p>
                           <p>{profileData.address.city}, {profileData.address.state} {profileData.address.zip}</p>
-                          <p className="uppercase font-semibold tracking-wider text-[10px] text-gray-500 mt-1">{profileData.address.country}</p>
+                          <p className="uppercase font-semibold tracking-wider text-xs text-gray-500 mt-1">{profileData.address.country}</p>
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-500 italic">No delivery address saved yet. Update your profile to add an address.</p>
+                        <p className="text-base text-gray-500 italic">No delivery address saved yet. Update your profile to add an address.</p>
                       )}
                     </div>
                   </>
@@ -672,7 +723,10 @@ export default function Profile() {
                       <div className="space-y-6">
                         {orders.map((order) => (
                           <div key={order._id} className="border border-gray-100 rounded-lg overflow-hidden">
-                            <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center flex-wrap gap-4">
+                            <div
+                              className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center flex-wrap gap-4 cursor-pointer select-none"
+                              onClick={() => toggleOrderExpanded(order._id)}
+                            >
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Inquiry Sent</p>
                                 <p className="text-sm font-semibold">{new Date(order.createdAt).toLocaleDateString()}</p>
@@ -685,7 +739,7 @@ export default function Profile() {
                                 <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Inquiry Reference Code</p>
                                 <p className="text-sm font-mono font-bold text-amber-700">{order.inquiryRef || 'INQ-PENDING'}</p>
                               </div>
-                              <div>
+                              <div className="flex items-center gap-3 ml-4 shrink-0">
                                 <span className={`px-3 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold
                                   ${order.status === 'pending' ? 'bg-orange-100 text-orange-700' : ''}
                                   ${order.status === 'availability_confirmed' ? 'bg-blue-100 text-blue-700' : ''}
@@ -695,9 +749,33 @@ export default function Profile() {
                                 `}>
                                   {STATUS_LABELS[order.status] ?? order.status.replace(/_/g, ' ')}
                                 </span>
+                                <ChevronDown
+                                  size={16}
+                                  className={`text-gray-400 transition-transform duration-200 ${isOrderExpanded(order._id) ? 'rotate-180' : 'rotate-0'}`}
+                                />
                               </div>
                             </div>
-                            
+
+                            {isOrderExpanded(order._id) && (
+                              <>
+                                {order.status === 'pending' && (
+                                  <div className="px-4 pt-4 flex justify-end">
+                                    <button
+                                      onClick={() => handleCancelInquiry(order._id)}
+                                      disabled={cancellingOrderId === order._id}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50 hover:border-red-400 transition-colors disabled:opacity-40"
+                                      title="Cancel this inquiry"
+                                    >
+                                      {cancellingOrderId === order._id ? (
+                                        <div className="w-3 h-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <Trash2 size={13} />
+                                      )}
+                                      Cancel Inquiry
+                                    </button>
+                                  </div>
+                                )}
+
                             {/* Inquiry Tracker */}
                             {order.status !== 'declined' ? (
                               <div className="px-8 py-6 border-b border-gray-100 bg-white">
@@ -768,6 +846,8 @@ export default function Profile() {
                                 </div>
                               ))}
                             </div>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -795,7 +875,21 @@ export default function Profile() {
                               <h3 className="font-serif text-lg text-[var(--color-ink)]">
                                 {config.type === 'ring' ? 'Custom Ring' : 'Custom Pendant'}
                               </h3>
-                              <p className="font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(config.price).toLocaleString()}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(config.price).toLocaleString()}</p>
+                                <button
+                                  onClick={() => handleDeleteConfiguration(config._id)}
+                                  disabled={deletingConfigId === config._id}
+                                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-40 shrink-0"
+                                  title="Remove saved design"
+                                >
+                                  {deletingConfigId === config._id ? (
+                                    <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Trash2 size={16} />
+                                  )}
+                                </button>
+                              </div>
                             </div>
                             
                             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-6">
