@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, WifiOff } from 'lucide-react';
+import { Wand2, X, WifiOff } from 'lucide-react';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { Cart } from './Cart';
@@ -13,6 +13,7 @@ export function Layout() {
   const location = useLocation();
   const isHome = location.pathname === '/';
   const isAdmin = location.pathname.startsWith('/admin');
+  const isConfigurator = location.pathname.startsWith('/configurator');
 
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [dbOffline, setDbOffline] = useState(false);
@@ -45,8 +46,8 @@ export function Layout() {
       </main>
       {!isAdmin && <Footer />}
 
-      {/* Global floating style assistant — hidden on admin */}
-      {!isAdmin && (
+      {/* Global floating style assistant — hidden on admin and configurator */}
+      {!isAdmin && !isConfigurator && (
         <>
           <StyleQuiz isOpen={assistantOpen} onClose={() => setAssistantOpen(false)} position="bottom" />
 
@@ -81,7 +82,7 @@ export function Layout() {
                   </motion.span>
                 ) : (
                   <motion.span key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
-                    <Sparkles size={22} />
+                    <Wand2 size={22} />
                   </motion.span>
                 )}
               </AnimatePresence>
