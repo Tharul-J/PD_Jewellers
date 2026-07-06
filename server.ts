@@ -15,6 +15,7 @@ import uploadRoutes from "./server/routes/uploadRoutes.js";
 import pricingRoutes from "./server/routes/pricingRoutes.js";
 import productRoutes from "./server/routes/productRoutes.js";
 import blogRoutes from "./server/routes/blogRoutes.js";
+import configRoutes from "./server/routes/configRoutes.js";
 import { seedBlogPosts } from "./server/controllers/blogController.js";
 
 dotenv.config();
@@ -77,6 +78,7 @@ async function startServer() {
   app.use("/api/pricing", pricingRoutes);
   app.use("/api/products", productRoutes);
   app.use("/api/blog", blogRoutes);
+  app.use("/api/config", configRoutes);
 
   // Static uploads folder
   const uploadsDir = path.join(process.cwd(), 'uploads');

@@ -1,5 +1,5 @@
 import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
@@ -60,6 +60,14 @@ export default function Configurator() {
   const { pricing } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [configuratorEnabled, setConfiguratorEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/config/configurator-status')
+      .then(r => r.json())
+      .then(data => setConfiguratorEnabled(data.configuratorEnabled ?? true))
+      .catch(() => setConfiguratorEnabled(true)); // fail open
+  }, []);
 
   // Pre-fetch MediaPipe WASM runtime so it's ready before user opens AR modal
   useEffect(() => { warmARRuntime(); }, []);
@@ -287,6 +295,68 @@ export default function Configurator() {
       setIsSaving(false);
     }
   };
+
+  // Show nothing while checking (avoids flash of 3D scene)
+  if (configuratorEnabled === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show warning gate if disabled
+  if (!configuratorEnabled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#faf9f7] px-6">
+        <div className="max-w-lg text-center">
+          {/* Decorative icon */}
+          <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-6.836m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+            </svg>
+          </div>
+
+          {/* Heading */}
+          <h1 className="text-2xl font-light tracking-widest uppercase text-gray-800 mb-3"
+              style={{ fontFamily: 'Cormorant Garamond, serif' }}>
+            Custom Designs Paused
+          </h1>
+
+          {/* Divider */}
+          <div className="w-12 h-px bg-amber-400 mx-auto mb-5" />
+
+          {/* Body */}
+          <p className="text-gray-500 text-sm leading-relaxed mb-2">
+            Our bespoke jewellery configurator is temporarily unavailable while we
+            make improvements to bring you an even better crafting experience.
+          </p>
+          <p className="text-gray-500 text-sm leading-relaxed mb-8">
+            In the meantime, explore our curated collections — each piece is crafted
+            with the same care and artistry.
+          </p>
+
+          {/* CTA */}
+          <Link
+            to="/collections"
+            className="inline-block px-8 py-3 bg-gray-900 text-white text-xs tracking-widest uppercase hover:bg-amber-700 transition-colors duration-300"
+          >
+            Browse Our Collection
+          </Link>
+
+          {/* Sub-note */}
+          <p className="mt-6 text-xs text-gray-400">
+            For bespoke enquiries, please visit our{' '}
+            <Link to="/about" className="underline underline-offset-2 hover:text-amber-600 transition-colors">
+              contact page
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row overflow-hidden">

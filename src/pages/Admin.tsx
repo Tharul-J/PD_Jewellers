@@ -79,6 +79,10 @@ export default function Admin() {
   const [addingCatEdit, setAddingCatEdit] = useState(false);
   const [newCatInputEdit, setNewCatInputEdit] = useState('');
 
+  // Configurator kill switch state
+  const [configuratorEnabled, setConfiguratorEnabled] = useState<boolean>(true);
+  const [toggleLoading, setToggleLoading] = useState(false);
+
   // Pricing save feedback
   const [pricingSaveStatus, setPricingSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
@@ -142,6 +146,36 @@ export default function Admin() {
       fetchData();
     }
   }, [user]);
+
+  useEffect(() => {
+    fetch('/api/config/configurator-status')
+      .then(r => r.json())
+      .then(data => setConfiguratorEnabled(data.configuratorEnabled ?? true))
+      .catch(() => {}); // silent — non-critical
+  }, []);
+
+  const handleConfiguratorToggle = async () => {
+    if (!user) return;
+    setToggleLoading(true);
+    try {
+      const res = await fetch('/api/config/configurator-status', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ enabled: !configuratorEnabled }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      setConfiguratorEnabled(data.configuratorEnabled);
+    } catch (err) {
+      console.error('[admin] toggle error:', err);
+      alert('Failed to update configurator status. Please try again.');
+    } finally {
+      setToggleLoading(false);
+    }
+  };
 
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
@@ -928,6 +962,32 @@ export default function Admin() {
           {/* ── 3D MODELS ── */}
           {activeTab === 'products' && (
             <div className="space-y-6">
+              {/* Configurator Status Toggle */}
+              <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-800">3D Configurator</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {configuratorEnabled
+                      ? 'Visible to customers — custom designs are live'
+                      : 'Hidden from customers — showing maintenance message'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleConfiguratorToggle}
+                  disabled={toggleLoading}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                    configuratorEnabled ? 'bg-amber-600' : 'bg-gray-300'
+                  }`}
+                  title={configuratorEnabled ? 'Click to disable configurator' : 'Click to enable configurator'}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                      configuratorEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
               {/* Edit Form */}
               {showModelEditForm && editingModel && (
                 <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-8">
