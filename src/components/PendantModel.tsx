@@ -183,7 +183,7 @@ function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizo
 }
 
 // ── Main pendant component ────────────────────────────────────────────────────
-export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false, fontItalic = false, shape = 'standard', textDirection = 'horizontal', textSizeMult = 1 }: any) {
+export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false, fontItalic = false, shape = 'standard', textDirection = 'horizontal', textSizeMult = 1, sizeMultiplier = 1 }: any) {
   const groupRef = useRef<THREE.Group>(null);
 
   const fontKey = (fontStyle && fontStyle in FONTS) ? fontStyle : 'cinzel';
@@ -362,35 +362,24 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
 
           {/* ════ HEART: backing plate + raised text + single bail at V-notch ════ */}
           {shape === 'heart' && (<>
-            <mesh position={[0, 0, -0.10]} castShadow>
-              <extrudeGeometry args={[heartShapeGeom, {
-                depth: 0.10, bevelEnabled: true,
-                bevelThickness: 0.008, bevelSize: 0.006,
-                bevelSegments: 3, curveSegments: 24,
-              }]} />
-              <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3}
-                roughness={Math.min((metalMaterial.roughness ?? 0.05) + 0.07, 0.35)}
-                metalness={metalMaterial.metalness ?? 1} />
-            </mesh>
+            {/* Body group scales with the Pendant Size selector; the bail + chain below
+                stay fixed so the pendant reads as a smaller/larger body on the same chain. */}
+            <group scale={[sizeMultiplier, sizeMultiplier, sizeMultiplier]}>
+              <mesh position={[0, 0, -0.10]} castShadow>
+                <extrudeGeometry args={[heartShapeGeom, {
+                  depth: 0.10, bevelEnabled: true,
+                  bevelThickness: 0.008, bevelSize: 0.006,
+                  bevelSegments: 3, curveSegments: 24,
+                }]} />
+                <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3}
+                  roughness={Math.min((metalMaterial.roughness ?? 0.05) + 0.07, 0.35)}
+                  metalness={metalMaterial.metalness ?? 1} />
+              </mesh>
 
-            {/* Front text — fitScale group OUTSIDE <Center> so scaling never feeds back
-                into the cachedWidth measurement (avoids a measure→scale→measure loop) */}
-            <group scale={heartFitScale}>
-              <Center onCentered={onMeasured}>
-                <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
-                  <Text3D {...textProps}>
-                    {displayText}
-                    <meshPhysicalMaterial {...metalMaterial} envMapIntensity={6}
-                      roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
-                  </Text3D>
-                </group>
-              </Center>
-            </group>
-
-            {/* Back text — rotated PI on Y so it reads correctly from behind; same fitScale */}
-            <group position={[0, 0, -0.10]} rotation={[0, Math.PI, 0]}>
+              {/* Front text — fitScale group OUTSIDE <Center> so scaling never feeds back
+                  into the cachedWidth measurement (avoids a measure→scale→measure loop) */}
               <group scale={heartFitScale}>
-                <Center>
+                <Center onCentered={onMeasured}>
                   <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
                     <Text3D {...textProps}>
                       {displayText}
@@ -399,6 +388,21 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                     </Text3D>
                   </group>
                 </Center>
+              </group>
+
+              {/* Back text — rotated PI on Y so it reads correctly from behind; same fitScale */}
+              <group position={[0, 0, -0.10]} rotation={[0, Math.PI, 0]}>
+                <group scale={heartFitScale}>
+                  <Center>
+                    <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
+                      <Text3D {...textProps}>
+                        {displayText}
+                        <meshPhysicalMaterial {...metalMaterial} envMapIntensity={6}
+                          roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
+                      </Text3D>
+                    </group>
+                  </Center>
+                </group>
               </group>
             </group>
 
@@ -413,25 +417,29 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
 
           {/* ════ TAG: portrait rounded-rectangle with letters cut THROUGH the metal ════ */}
           {shape === 'tag' && (<>
-            {/* TagInner suspends until font loads, then builds the cut-through geometry */}
-            <Suspense fallback={
-              // Plain plate shown during font load (usually instant — font already cached)
-              <mesh position={[0, 0, -TAG_DEPTH]} castShadow>
-                <extrudeGeometry args={[(() => {
-                  const hw = TAG_W/2, hh = TAG_H/2, r = TAG_R;
-                  const s = new THREE.Shape();
-                  s.moveTo(-hw+r,-hh); s.lineTo(hw-r,-hh);
-                  s.quadraticCurveTo(hw,-hh,hw,-hh+r); s.lineTo(hw,hh-r);
-                  s.quadraticCurveTo(hw,hh,hw-r,hh); s.lineTo(-hw+r,hh);
-                  s.quadraticCurveTo(-hw,hh,-hw,hh-r); s.lineTo(-hw,-hh+r);
-                  s.quadraticCurveTo(-hw,-hh,-hw+r,-hh);
-                  return s;
-                })(), { depth: TAG_DEPTH, bevelEnabled: false }]} />
-                <meshPhysicalMaterial {...metalMaterial} envMapIntensity={4} />
-              </mesh>
-            }>
-              <TagInner fontUrl={fontUrl} displayText={displayText} metalMaterial={metalMaterial} textDirection={textDirection} textSizeMult={textSizeMult} />
-            </Suspense>
+            {/* Body group scales with the Pendant Size selector; the bail + chain below
+                stay fixed so the pendant reads as a smaller/larger body on the same chain. */}
+            <group scale={[sizeMultiplier, sizeMultiplier, sizeMultiplier]}>
+              {/* TagInner suspends until font loads, then builds the cut-through geometry */}
+              <Suspense fallback={
+                // Plain plate shown during font load (usually instant — font already cached)
+                <mesh position={[0, 0, -TAG_DEPTH]} castShadow>
+                  <extrudeGeometry args={[(() => {
+                    const hw = TAG_W/2, hh = TAG_H/2, r = TAG_R;
+                    const s = new THREE.Shape();
+                    s.moveTo(-hw+r,-hh); s.lineTo(hw-r,-hh);
+                    s.quadraticCurveTo(hw,-hh,hw,-hh+r); s.lineTo(hw,hh-r);
+                    s.quadraticCurveTo(hw,hh,hw-r,hh); s.lineTo(-hw+r,hh);
+                    s.quadraticCurveTo(-hw,hh,-hw,hh-r); s.lineTo(-hw,-hh+r);
+                    s.quadraticCurveTo(-hw,-hh,-hw+r,-hh);
+                    return s;
+                  })(), { depth: TAG_DEPTH, bevelEnabled: false }]} />
+                  <meshPhysicalMaterial {...metalMaterial} envMapIntensity={4} />
+                </mesh>
+              }>
+                <TagInner fontUrl={fontUrl} displayText={displayText} metalMaterial={metalMaterial} textDirection={textDirection} textSizeMult={textSizeMult} />
+              </Suspense>
+            </group>
 
             {/* Single bail at top-center of tag */}
             <mesh position={[0, TAG_RING_Y, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>

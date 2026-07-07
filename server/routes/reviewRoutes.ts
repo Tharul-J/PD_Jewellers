@@ -1,18 +1,17 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Review from '../models/Review.js';
-import Order from '../models/Order.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { notifyAdmins } from '../utils/notify.js';
 
 const router = express.Router();
 
-// POST /api/reviews — authenticated user submits a review for a completed inquiry
+// POST /api/reviews — authenticated user submits a shop review (one per user)
 router.post('/', protect, async (req, res) => {
   try {
-    const { inquiryId, rating, text } = req.body;
-    if (!inquiryId || !rating || !text?.trim()) {
-      res.status(400).json({ error: 'inquiryId, rating and text required' });
+    const { rating, text } = req.body;
+    if (!rating || !text?.trim()) {
+      res.status(400).json({ error: 'rating and text required' });
       return;
     }
     if (mongoose.connection.readyState !== 1) {
@@ -20,23 +19,8 @@ router.post('/', protect, async (req, res) => {
       return;
     }
 
-    const inquiry = await Order.findById(inquiryId);
-    if (!inquiry) { res.status(404).json({ error: 'Inquiry not found' }); return; }
-    if (inquiry.user.toString() !== req.user._id.toString()) {
-      res.status(403).json({ error: 'Forbidden' });
-      return;
-    }
-    if (inquiry.status !== 'completed') {
-      res.status(400).json({ error: 'Inquiry not yet completed' });
-      return;
-    }
-
-    const existing = await Review.findOne({ inquiry: inquiryId });
-    if (existing) { res.status(400).json({ error: 'Review already submitted' }); return; }
-
     const review = await Review.create({
       user: req.user._id,
-      inquiry: inquiryId,
       rating: Number(rating),
       text: text.trim(),
     });
@@ -45,7 +29,7 @@ router.post('/', protect, async (req, res) => {
 
     res.status(201).json({ review });
   } catch (err: any) {
-    if (err.code === 11000) { res.status(400).json({ error: 'Review already submitted' }); return; }
+    if (err.code === 11000) { res.status(400).json({ error: 'You have already submitted a review' }); return; }
     res.status(500).json({ error: 'Failed to submit review' });
   }
 });
@@ -82,7 +66,7 @@ router.get('/mine', protect, async (req, res) => {
   }
 });
 
-// PATCH /api/reviews/:id — user edits their own review (only if not yet approved)
+// PATCH /api/reviews/:id — user edits their own review; any edit requires re-approval
 router.patch('/:id', protect, async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
@@ -96,14 +80,14 @@ router.patch('/:id', protect, async (req, res) => {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
-    if (review.approved) {
-      res.status(400).json({ error: 'Cannot edit an approved review' });
-      return;
-    }
 
     if (rating) review.rating = Number(rating);
     if (text?.trim()) review.text = text.trim();
+    review.approved = false; // re-approval required after any edit
     await review.save();
+
+    await notifyAdmins('new_review', `Review edited by ${req.user.name} — pending re-approval`, '/admin?tab=reviews');
+
     res.json({ review });
   } catch {
     res.status(500).json({ error: 'Failed to update review' });

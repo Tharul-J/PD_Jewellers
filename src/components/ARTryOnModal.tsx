@@ -39,10 +39,19 @@ interface ARTryOnModalProps {
   fontStyle?: keyof typeof FONTS;
   // Pendant-specific — mirrors the configurator's tracked state
   pendantShape?: 'standard' | 'heart' | 'tag';
+  pendantSize?: 'small' | 'medium' | 'large';
   fontBold?: boolean;
   fontItalic?: boolean;
   textDirection?: 'horizontal' | 'vertical';
 }
+
+// Mirrors PENDANT_SIZE_SCALE in Configurator.tsx — applied uniformly to the whole
+// AR pendant group (unlike the configurator, which scales the body only).
+const AR_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
+  small: 0.70,
+  medium: 1.00,
+  large: 1.40,
+};
 
 function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {
   transformRef: any; metal: string; stone?: string; text?: string;
@@ -125,7 +134,7 @@ function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {
 // Wraps the real PendantModel with face-tracking transform logic.
 // The outer group's position/scale/rotation are driven by MediaPipe face landmarks;
 // PendantModel provides the actual visual, chain physics, and text rendering.
-function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontItalic, pendantShape, textDirection }: {
+function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontItalic, pendantShape, pendantSize, textDirection }: {
   transformRef: any;
   metal: string;
   customText?: string;
@@ -133,6 +142,7 @@ function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontI
   fontBold?: boolean;
   fontItalic?: boolean;
   pendantShape?: 'standard' | 'heart' | 'tag';
+  pendantSize?: 'small' | 'medium' | 'large';
   textDirection?: 'horizontal' | 'vertical';
 }) {
   const meshRef = useRef<THREE.Group>(null);
@@ -156,7 +166,8 @@ function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontI
     const targetX   = (nx - 0.5) * viewport.width;
     // 0.65× (down from 0.8×) compensates for the anchor already being shifted below chin
     const targetY   = -(anchorNy - 0.5) * viewport.height - screenW * 0.65;
-    const targetScale = screenW * 0.25;
+    const arSizeMultiplier = AR_SIZE_SCALE[pendantSize ?? 'medium'] ?? 1.0;
+    const targetScale = screenW * 0.25 * arSizeMultiplier;
     const targetRotZ  = rotation * 0.1;
 
     const smoothFactor = Math.min(12 * delta, 1);
@@ -201,7 +212,7 @@ function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontI
 export default function ARTryOnModal({
   isOpen, onClose, metal, metalName, stone, modelType,
   customText, fontStyle, fileUrl,
-  pendantShape, fontBold, fontItalic, textDirection,
+  pendantShape, pendantSize, fontBold, fontItalic, textDirection,
 }: ARTryOnModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -499,6 +510,7 @@ export default function ARTryOnModal({
                   fontBold={fontBold}
                   fontItalic={fontItalic}
                   pendantShape={pendantShape}
+                  pendantSize={pendantSize}
                   textDirection={textDirection}
                 />
               )}

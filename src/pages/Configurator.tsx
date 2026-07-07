@@ -16,6 +16,13 @@ import { prefetchModel } from '../utils/modelLoader';
 import { PendantModel } from '../components/PendantModel';
 import { Scene3DErrorBoundary } from '../components/Scene3DErrorBoundary';
 
+// Scales the pendant body (not the chain) for Heart/Tag shapes; Standard has no size control.
+const PENDANT_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
+  small: 0.70,
+  medium: 1.00,
+  large: 1.40,
+};
+
 const DEFAULT_RING_STYLES = [
   { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000, hasRealStone: false },
   { id: 'ring-style-2', name: 'Ring Style 2', fileUrl: '/glb-models/rings/ring2.glb', basePrice: 25000, hasRealStone: false },
@@ -34,6 +41,8 @@ export default function Configurator() {
   const [customText, setCustomText] = useState(() => localStorage.getItem('cfg_customText') || 'PD');
   const [engraveWant, setEngraveWant] = useState(() => localStorage.getItem('cfg_engraveWant') === 'true');
   const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'tag'>(() => { const s = localStorage.getItem('cfg_pendantShape'); return (s === 'standard' || s === 'heart' || s === 'tag') ? s : 'standard'; });
+  const [pendantSize, setPendantSize] = useState<'small'|'medium'|'large'>(() => { const s = localStorage.getItem('cfg_pendantSize'); return (s === 'small' || s === 'medium' || s === 'large') ? s : 'medium'; });
+  const prevPendantShapeRef = useRef(pendantShape);
   const [metal, setMetal] = useState<keyof typeof METALS>(() => {
     const saved = localStorage.getItem('cfg_metal') as keyof typeof METALS;
     return (saved && saved in METALS) ? saved : 'gold';
@@ -81,6 +90,15 @@ export default function Configurator() {
     }
   }, [pendantShape]);
 
+  // Pendant size resets to Medium whenever the shape changes (not on initial mount,
+  // so a persisted size survives a page reload).
+  useEffect(() => {
+    if (prevPendantShapeRef.current !== pendantShape) {
+      setPendantSize('medium');
+      prevPendantShapeRef.current = pendantShape;
+    }
+  }, [pendantShape]);
+
   // Keep the selected font valid for the current context: the Tag pendant hides the
   // serif fonts that fragment in generateShapes(), and the cursive fonts are Tag-only.
   // If the active selection isn't offered here, fall back to the first available font.
@@ -121,6 +139,7 @@ export default function Configurator() {
     localStorage.setItem('cfg_customText', customText);
     localStorage.setItem('cfg_engraveWant', String(engraveWant));
     localStorage.setItem('cfg_pendantShape', pendantShape);
+    localStorage.setItem('cfg_pendantSize', pendantSize);
     localStorage.setItem('cfg_metal', metal);
     localStorage.setItem('cfg_stone', stone);
     localStorage.setItem('cfg_fontStyle', fontStyle);
@@ -129,7 +148,7 @@ export default function Configurator() {
     localStorage.setItem('cfg_ringSize', ringSize);
     localStorage.setItem('cfg_textDirection', textDirection);
     localStorage.setItem('cfg_textSize', String(textSize));
-  }, [modelType, ringStyle, customText, engraveWant, pendantShape, metal, stone, fontStyle, fontBold, fontItalic, ringSize, textDirection, textSize]);
+  }, [modelType, ringStyle, customText, engraveWant, pendantShape, pendantSize, metal, stone, fontStyle, fontBold, fontItalic, ringSize, textDirection, textSize]);
 
   useEffect(() => {
     const cachedModels = localStorage.getItem('cfg_cache_api_models');
@@ -400,6 +419,7 @@ export default function Configurator() {
                       shape={pendantShape}
                       textDirection={textDirection}
                       textSizeMult={textSize}
+                      sizeMultiplier={PENDANT_SIZE_SCALE[pendantSize]}
                     />
                   )}
                 </group>
@@ -662,6 +682,28 @@ export default function Configurator() {
                 </div>
               </div>
 
+              {(pendantShape === 'heart' || pendantShape === 'tag') && (
+                <div className="mb-10">
+                  <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
+                    <span>Pendant Size</span>
+                    <span className="opacity-50 capitalize">{pendantSize}</span>
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['small', 'medium', 'large'] as const).map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => setPendantSize(size)}
+                        className={`py-3 px-4 text-xs tracking-widest transition-colors border flex flex-col items-center gap-1 capitalize ${
+                          pendantSize === size ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
                   <span>{pendantShape === 'tag' ? 'Monogram (initials)' : 'Custom Text'}</span>
@@ -798,6 +840,7 @@ export default function Configurator() {
         fontStyle={fontStyle}
         fileUrl={currentStyleDef?.fileUrl}
         pendantShape={modelType === 'pendant' ? pendantShape : undefined}
+        pendantSize={modelType === 'pendant' ? pendantSize : undefined}
         fontBold={fontBold}
         fontItalic={fontItalic}
         textDirection={textDirection}

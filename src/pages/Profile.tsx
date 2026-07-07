@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X, ChevronDown, Wand2, Gem, Package, Star } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X, ChevronDown, Wand2, Gem, Package, Star, CheckCircle } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
@@ -44,9 +44,9 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
 
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs' | 'purchases' | 'review' | 'myreviews'>(() => {
+  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs' | 'purchases' | 'reviews'>(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'configs' || tab === 'wishlist' || tab === 'orders' || tab === 'purchases' || tab === 'review' || tab === 'myreviews') return tab;
+    if (tab === 'configs' || tab === 'wishlist' || tab === 'orders' || tab === 'purchases' || tab === 'reviews') return tab;
     return 'account';
   });
 
@@ -58,7 +58,6 @@ export default function Profile() {
   const [purchasesLoading, setPurchasesLoading] = useState(false);
 
   const [myReviews, setMyReviews] = useState<any[]>([]);
-  const [selectedReviewInquiry, setSelectedReviewInquiry] = useState('');
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
@@ -286,17 +285,6 @@ export default function Profile() {
     }
   }, [activeTab]);
 
-  const reviewableInquiries = orders.filter(inq => {
-    const alreadyReviewed = myReviews.some(r => r.inquiry === inq._id);
-    return inq.status === 'completed' && !alreadyReviewed;
-  });
-
-  useEffect(() => {
-    if (!selectedReviewInquiry && reviewableInquiries.length > 0) {
-      setSelectedReviewInquiry(reviewableInquiries[0]._id);
-    }
-  }, [reviewableInquiries, selectedReviewInquiry]);
-
   const handleSubmitReview = async () => {
     if (!reviewRating || !reviewText.trim() || !user) return;
     setReviewSubmitting(true);
@@ -304,14 +292,14 @@ export default function Profile() {
       const res = await fetch('/api/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify({ inquiryId: selectedReviewInquiry, rating: reviewRating, text: reviewText }),
+        body: JSON.stringify({ rating: reviewRating, text: reviewText }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit review');
       setReviewSubmitted(true);
-      // Store the full returned review so the My Reviews tab renders it correctly
-      // (fall back to a stub carrying at least the inquiry id for the reviewable filter).
-      setMyReviews(prev => [...prev, data.review ?? { inquiry: selectedReviewInquiry }]);
+      setMyReviews(prev => [...prev, data.review ?? { rating: reviewRating, text: reviewText }]);
+      setReviewRating(0);
+      setReviewText('');
     } catch (err: any) {
       alert(err.message || 'Failed to submit review');
     } finally {
@@ -546,19 +534,11 @@ export default function Profile() {
                 >
                   <Package size={16} /> Purchased Items
                 </button>
-                {reviewableInquiries.length > 0 && (
-                  <button
-                    onClick={() => setActiveTab('review')}
-                    className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'review' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
-                  >
-                    <Star size={16} /> Write a Review
-                  </button>
-                )}
                 <button
-                  onClick={() => setActiveTab('myreviews')}
-                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'myreviews' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                  onClick={() => setActiveTab('reviews')}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'reviews' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
-                  <Star size={16} /> My Reviews{myReviews.length ? ` (${myReviews.length})` : ''}
+                  <Star size={16} /> Reviews{myReviews.length ? ` (${myReviews.length})` : ''}
                 </button>
 
                 <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-left text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-sm mt-8 border-t border-gray-200 pt-6">
@@ -573,22 +553,6 @@ export default function Profile() {
                 
                 {activeTab === 'account' && !isEditing && !isChangingPassword && (
                   <>
-                    {reviewableInquiries.length > 0 && (
-                      <div className="mb-6 p-4 border border-amber-200 bg-amber-50 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-amber-800">Share Your Experience</p>
-                          <p className="text-xs text-amber-600 mt-0.5">
-                            You have {reviewableInquiries.length} completed order{reviewableInquiries.length > 1 ? 's' : ''} awaiting your review.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setActiveTab('review')}
-                          className="text-[10px] uppercase tracking-widest px-4 py-2 btn-richbrown text-white rounded transition-colors shrink-0"
-                        >
-                          Write a Review
-                        </button>
-                      </div>
-                    )}
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                       <h2 className="text-2xl font-serif text-[var(--color-ink)]">Account Details</h2>
                       <div className="flex gap-3">
@@ -1183,89 +1147,67 @@ export default function Profile() {
                   </>
                 )}
 
-                {activeTab === 'review' && (
-                  reviewSubmitted ? (
-                    <div className="text-center py-12">
-                      <Star className="w-10 h-10 text-amber-400 mx-auto mb-3" fill="currentColor" />
-                      <p className="text-lg font-serif text-[var(--color-ink)]">Thank You</p>
-                      <p className="text-sm text-gray-500 mt-2">Your review is pending approval and will appear shortly.</p>
-                    </div>
-                  ) : reviewableInquiries.length === 0 ? (
-                    <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
-                      <Star size={32} className="mx-auto mb-4 opacity-20" />
-                      <p className="text-sm">No completed orders awaiting review right now.</p>
-                    </div>
-                  ) : (
-                    <div className="max-w-lg">
-                      <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">Share Your Experience</h2>
-                      <div className="w-10 h-px bg-[var(--color-gold)] mb-6" />
-
-                      {reviewableInquiries.length > 1 && (
-                        <div className="mb-4">
-                          <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-1">Order</label>
-                          <select
-                            value={selectedReviewInquiry}
-                            onChange={e => setSelectedReviewInquiry(e.target.value)}
-                            className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-400"
-                          >
-                            {reviewableInquiries.map(inq => (
-                              <option key={inq._id} value={inq._id}>{inq.inquiryRef}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      <div className="mb-4">
-                        <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-2">Rating</label>
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4, 5].map(s => (
-                            <button key={s} onClick={() => setReviewRating(s)} type="button">
-                              <Star
-                                size={24}
-                                className={s <= reviewRating ? 'text-amber-400' : 'text-gray-300'}
-                                fill={s <= reviewRating ? 'currentColor' : 'none'}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mb-6">
-                        <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-1">Your Review</label>
-                        <textarea
-                          value={reviewText}
-                          onChange={e => setReviewText(e.target.value)}
-                          rows={4}
-                          maxLength={600}
-                          placeholder="Tell us about your experience..."
-                          className="w-full border border-gray-200 rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
-                        />
-                        <p className="text-xs text-gray-400 text-right mt-1">{reviewText.length}/600</p>
-                      </div>
-
-                      <button
-                        onClick={handleSubmitReview}
-                        disabled={reviewSubmitting || !reviewRating || !reviewText.trim()}
-                        className="w-full py-3 btn-richbrown text-white text-xs tracking-widest uppercase transition-colors disabled:opacity-40"
-                      >
-                        {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
-                      </button>
-                    </div>
-                  )
-                )}
-
-                {activeTab === 'myreviews' && (
-                  <>
-                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">My Reviews</h2>
+                {activeTab === 'reviews' && (
+                  <div>
+                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">Reviews</h2>
                     <div className="w-10 h-px bg-[var(--color-gold)] mb-6" />
 
-                    {myReviews.length === 0 ? (
-                      <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
-                        <Star size={32} className="mx-auto mb-4 opacity-20" />
-                        <p className="text-sm">You haven't submitted any reviews yet.</p>
+                    {/* Success banner shown once, right after submitting */}
+                    {reviewSubmitted && (
+                      <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 max-w-lg">
+                        <CheckCircle size={18} className="text-green-600 shrink-0" />
+                        <p className="text-sm text-green-700">Review submitted — pending approval before it appears publicly.</p>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
+                    )}
+
+                    {/* Write a review — one per account; hidden once the user has one */}
+                    {myReviews.length === 0 && (
+                      <div className="mb-8 max-w-lg">
+                        <h3 className="text-[10px] tracking-widest uppercase text-gray-500 font-bold mb-4">Share Your Experience</h3>
+
+                        <div className="mb-4">
+                          <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-2">Rating</label>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(s => (
+                              <button key={s} onClick={() => setReviewRating(s)} type="button">
+                                <Star
+                                  size={22}
+                                  className={s <= reviewRating ? 'text-amber-400' : 'text-gray-300'}
+                                  fill={s <= reviewRating ? 'currentColor' : 'none'}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-1">Your Review</label>
+                          <textarea
+                            value={reviewText}
+                            onChange={e => setReviewText(e.target.value)}
+                            rows={3}
+                            maxLength={600}
+                            placeholder="Tell us about your experience..."
+                            className="w-full border border-gray-200 rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
+                          />
+                          <p className="text-xs text-gray-400 text-right mt-0.5">{reviewText.length}/600</p>
+                        </div>
+
+                        <button
+                          onClick={handleSubmitReview}
+                          disabled={reviewSubmitting || !reviewRating || !reviewText.trim()}
+                          className="px-6 py-2.5 btn-richbrown text-white text-xs tracking-widest uppercase transition-colors disabled:opacity-40"
+                        >
+                          {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Existing reviews */}
+                    {myReviews.length > 0 && (
+                      <div>
+                        <h3 className="text-[10px] tracking-widest uppercase text-gray-500 font-bold mb-4">My Reviews</h3>
+                        <div className="space-y-4">
                         {myReviews.map((review) => (
                           <div key={review._id} className="border border-gray-100 rounded-lg p-5">
                             {editingReviewId === review._id ? (
@@ -1318,11 +1260,9 @@ export default function Profile() {
                                     ))}
                                   </div>
                                   <div className="flex items-center gap-3">
-                                    {!review.approved && (
-                                      <button onClick={() => handleEditReview(review)} className="text-gray-400 hover:text-amber-600 transition-colors" title="Edit review">
-                                        <Edit size={13} />
-                                      </button>
-                                    )}
+                                    <button onClick={() => handleEditReview(review)} className="text-gray-400 hover:text-amber-600 transition-colors" title="Edit review">
+                                      <Edit size={13} />
+                                    </button>
                                     <button
                                       onClick={() => handleDeleteReview(review._id)}
                                       disabled={deletingReviewId === review._id}
@@ -1350,9 +1290,10 @@ export default function Profile() {
                             )}
                           </div>
                         ))}
+                        </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
 
                 {activeTab === 'configs' && (

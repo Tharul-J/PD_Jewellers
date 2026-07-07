@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Play, Star, ChevronLeft, ChevronRight, Quote, MapPin, Clock, Phone } from 'lucide-react';
@@ -96,7 +96,8 @@ const STATIC_REVIEWS = [
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(1);
   const [collBanner, setCollBanner] = useState(0);
-  const [liveReviews, setLiveReviews] = useState<any[]>([]);
+  const [allReviews, setAllReviews] = useState<any[]>(STATIC_REVIEWS);
+  const [activeReviewIdx, setActiveReviewIdx] = useState(0);
 
   useEffect(() => {
     const t = setInterval(() => setCollBanner(i => (i + 1) % COLLECTION_BANNERS.length), 4000);
@@ -107,20 +108,44 @@ export default function Home() {
     fetch('/api/reviews/homepage')
       .then(r => r.json())
       .then(d => {
-        if (d.reviews?.length) setLiveReviews(d.reviews);
-        // else keep static fallback — don't replace state
+        if (d.reviews?.length) {
+          const live = d.reviews.map((r: any) => ({
+            id: r._id,
+            name: r.user?.name || 'Verified Customer',
+            text: r.text,
+            tag: 'Verified Customer',
+            rating: r.rating,
+          }));
+          // Live reviews lead, static ones always stay as a permanent backdrop
+          setAllReviews([...live, ...STATIC_REVIEWS]);
+        }
       })
-      .catch(() => {}); // silent fallback to static
+      .catch(() => {}); // silent fallback to static-only
   }, []);
 
-  const displayReviews = liveReviews.length > 0
-    ? liveReviews.map((r: any) => ({
-        name: r.user?.name || 'Verified Customer',
-        text: r.text,
-        tag: 'Verified Customer',
-        rating: r.rating,
-      }))
-    : STATIC_REVIEWS;
+  // Auto-advance the review fan
+  useEffect(() => {
+    const t = setInterval(() => setActiveReviewIdx(i => (i + 1) % allReviews.length), 4000);
+    return () => clearInterval(t);
+  }, [allReviews.length]);
+
+  const visibleReviews = [-2, -1, 0, 1, 2].map(offset => ({
+    review: allReviews[(activeReviewIdx + offset + allReviews.length) % allReviews.length],
+    offset,
+  }));
+
+  const getReviewCardStyle = (offset: number): CSSProperties => {
+    const abs = Math.abs(offset);
+    return {
+      position: 'absolute',
+      width: '260px',
+      transform: `translateX(${offset * 160}px) rotate(${offset * 8}deg) scale(${1 - abs * 0.12})`,
+      zIndex: 10 - abs,
+      opacity: 1 - abs * 0.25,
+      transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+      cursor: abs > 0 ? 'pointer' : 'default',
+    };
+  };
 
   const sliderImages = [
     "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
@@ -430,9 +455,9 @@ export default function Home() {
       </section>
 
       {/* Structured Customer Reviews */}
-      <section className="py-24 bg-white relative">
+      <section className="py-24 bg-white relative overflow-hidden">
          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-16">
+            <div className="text-center mb-14">
                <h2 className="text-3xl md:text-5xl font-serif text-[var(--color-ink)] mb-4">
                   STORIES OF RADIANCE
                </h2>
@@ -441,24 +466,49 @@ export default function Home() {
                   Words from our esteemed clientele
                </p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-               {displayReviews.map((review, i) => (
-                  <div key={i} className="flex flex-col bg-[var(--color-paper)] p-10 relative group hover:-translate-y-2 transition-transform duration-500 border border-transparent hover:border-[var(--color-gold)]/20 shadow-sm hover:shadow-xl rounded-sm">
-                     <Quote className="w-8 h-8 text-[var(--color-gold)]/20 absolute top-8 right-8" />
-                     <div className="flex gap-1 text-[var(--color-gold-dark)] mb-6">
-                        {[1, 2, 3, 4, 5].map(s => (
-                          <Star key={s} fill={s <= review.rating ? 'currentColor' : 'none'} strokeWidth={s <= review.rating ? 0 : 1.5} className="w-4 h-4" />
-                        ))}
-                     </div>
-                     <p className="text-[13px] leading-loose opacity-80 mb-8 italic flex-grow">
-                        "{review.text}"
-                     </p>
-                     <div>
-                        <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1">{review.name}</h4>
-                        <p className="text-[10px] text-[var(--color-gold-dark)] font-medium">{review.tag}</p>
+
+            {/* Fan container */}
+            <div className="relative flex items-center justify-center" style={{ height: '340px' }}>
+               {visibleReviews.map(({ review, offset }) => (
+                  <div
+                     key={`${review.id ?? review.name}-${offset}`}
+                     style={getReviewCardStyle(offset)}
+                     onClick={() => offset !== 0 && setActiveReviewIdx(
+                        i => (i + offset + allReviews.length) % allReviews.length
+                     )}
+                  >
+                     <div className={`flex flex-col bg-[var(--color-paper)] p-8 h-full rounded-sm border ${
+                        offset === 0
+                           ? 'border-[var(--color-gold)]/30 shadow-xl'
+                           : 'border-transparent shadow-sm'
+                     }`}>
+                        <Quote className="w-7 h-7 text-[var(--color-gold)]/20 mb-3" />
+                        <div className="flex gap-1 text-[var(--color-gold-dark)] mb-4">
+                           {[1, 2, 3, 4, 5].map(s => (
+                              <Star key={s} fill={s <= review.rating ? 'currentColor' : 'none'} strokeWidth={s <= review.rating ? 0 : 1.5} className="w-3.5 h-3.5" />
+                           ))}
+                        </div>
+                        <p className="text-[13px] leading-relaxed opacity-80 italic mb-6 line-clamp-3">
+                           {review.text}
+                        </p>
+                        <div className="mt-auto border-t border-black/5 pt-3">
+                           <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] mb-1">{review.name}</h4>
+                           <p className="text-[10px] text-[var(--color-gold-dark)] font-medium">{review.tag}</p>
+                        </div>
                      </div>
                   </div>
+               ))}
+            </div>
+
+            {/* Dot indicators */}
+            <div className="flex gap-2 justify-center mt-6">
+               {allReviews.map((_, i) => (
+                  <button
+                     key={i}
+                     onClick={() => setActiveReviewIdx(i)}
+                     className={`rounded-full transition-all duration-300 ${i === activeReviewIdx ? 'bg-[var(--color-gold)] w-6 h-2' : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'}`}
+                     aria-label={`Go to review ${i + 1}`}
+                  />
                ))}
             </div>
          </div>

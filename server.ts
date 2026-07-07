@@ -20,6 +20,7 @@ import productRoutes from "./server/routes/productRoutes.js";
 import blogRoutes from "./server/routes/blogRoutes.js";
 import configRoutes from "./server/routes/configRoutes.js";
 import { seedBlogPosts } from "./server/controllers/blogController.js";
+import Review from "./server/models/Review.js";
 
 dotenv.config();
 
@@ -49,6 +50,17 @@ async function startServer() {
           await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000 });
           console.log("Connected to MongoDB established successfully.");
           await seedBlogPosts();
+          // Reviews used to be unique-per-inquiry; that index is now stale
+          // (inquiry is optional, one-review-per-user instead) and Mongoose
+          // won't drop it on its own since it's no longer in the schema.
+          try {
+            await Review.collection.dropIndex('inquiry_1');
+            console.log("Dropped stale Review.inquiry unique index.");
+          } catch (err: any) {
+            if (err.codeName !== 'IndexNotFound') {
+              console.log("Review index cleanup skipped:", err.message);
+            }
+          }
           connected = true;
           break;
         } catch (err: any) {
