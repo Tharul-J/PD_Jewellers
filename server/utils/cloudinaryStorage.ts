@@ -10,7 +10,6 @@ const configure = () => {
 
 export const uploadGlbToCloudinary = (fileBuffer: Buffer, fileName: string): Promise<string | null> => {
   configure();
-  console.log(`[Cloudinary] Starting upload: ${fileName}, ${fileBuffer?.length ?? 'null'} bytes`);
   return new Promise((resolve) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -25,10 +24,8 @@ export const uploadGlbToCloudinary = (fileBuffer: Buffer, fileName: string): Pro
           resolve(null);
           return;
         }
-        console.log(`[Cloudinary] Upload complete: ${result.public_id}, ${result.bytes} bytes — verifying...`);
         try {
           await cloudinary.api.resource(result.public_id, { resource_type: 'raw' });
-          console.log(`[Cloudinary] Verification passed: ${result.public_id}`);
           resolve(result.secure_url);
         } catch (verifyErr) {
           console.error(`[Cloudinary] Upload reported success but resource verification failed for ${result.public_id}:`, (verifyErr as any)?.message);

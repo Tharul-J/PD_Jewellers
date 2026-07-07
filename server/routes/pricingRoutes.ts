@@ -111,7 +111,6 @@ router.get('/', async (req, res) => {
         }
       );
 
-      console.log('[Pricing] Migrated flat-field doc to array format.');
       return res.json(migrated);
     }
 

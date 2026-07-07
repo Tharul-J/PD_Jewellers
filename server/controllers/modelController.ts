@@ -40,7 +40,6 @@ export const getModels = async (req: Request, res: Response): Promise<void> => {
       await ConfigurableModel.deleteMany({ category: 'ring' });
       await ConfigurableModel.insertMany(LOCAL_RING_SEEDS);
       models = await ConfigurableModel.find({});
-      console.log('[Models] Seeded 5 local ring models (replaced stale entries).');
     }
 
     res.json(models);

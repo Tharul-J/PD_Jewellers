@@ -28,7 +28,6 @@ router.post('/', upload.single('file'), async (req, res) => {
     return res.status(400).json({ message: 'No file uploaded' });
   }
 
-  console.log(`[Upload] file=${req.file.originalname} mimetype=${req.file.mimetype} buffer=${req.file.buffer?.length ?? 'null'} bytes`);
 
   const url = await uploadGlbToCloudinary(req.file.buffer, req.file.originalname);
 

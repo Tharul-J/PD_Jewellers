@@ -26,16 +26,24 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.NODE_ENV === "production" ? 3000 : 3001;
+  const PORT = process.env.PORT
+    ? parseInt(process.env.PORT, 10)
+    : process.env.NODE_ENV === "production"
+    ? 3000
+    : 3001;
 
   // Middleware
-  app.use(cors());
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_URL || "http://localhost:3000",
+      credentials: true,
+    })
+  );
   app.use(express.json());
 
   // Connect to MongoDB
   if (process.env.MONGODB_URI) {
     mongoose.connection.on('error', (err) => {
-      console.log("Mongoose connection error:", err.message || "Offline");
     });
 
     const MONGO_URI = process.env.MONGODB_URI;
@@ -46,27 +54,21 @@ async function startServer() {
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
-          console.log(`MongoDB connection attempt ${attempt}/${MAX_ATTEMPTS}...`);
           await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000 });
-          console.log("Connected to MongoDB established successfully.");
           await seedBlogPosts();
           // Reviews used to be unique-per-inquiry; that index is now stale
           // (inquiry is optional, one-review-per-user instead) and Mongoose
           // won't drop it on its own since it's no longer in the schema.
           try {
             await Review.collection.dropIndex('inquiry_1');
-            console.log("Dropped stale Review.inquiry unique index.");
           } catch (err: any) {
             if (err.codeName !== 'IndexNotFound') {
-              console.log("Review index cleanup skipped:", err.message);
             }
           }
           connected = true;
           break;
         } catch (err: any) {
-          console.log(`MongoDB attempt ${attempt}/${MAX_ATTEMPTS} failed: ${err.message || err}`);
           if (attempt < MAX_ATTEMPTS) {
-            console.log(`Retrying in ${RETRY_DELAY_MS / 1000}s...`);
             await new Promise(res => setTimeout(res, RETRY_DELAY_MS));
             try { await mongoose.disconnect(); } catch (_) {}
           }
@@ -74,12 +76,9 @@ async function startServer() {
       }
 
       if (!connected) {
-        console.log("MongoDB connection was bypassed (unreachable host). Running in mock/offline mode.");
         try { await mongoose.disconnect(); } catch (_) {}
       }
     })();
-  } else {
-    console.log("MONGODB_URI not set. Running in mock/offline mode.");
   }
 
   // API Routes

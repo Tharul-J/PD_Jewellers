@@ -8,7 +8,6 @@ dotenv.config();
 
 const connectDB = async () => {
   const conn = await mongoose.connect(process.env.MONGODB_URI as string);
-  console.log(`MongoDB Connected: ${conn.connection.host}`);
 };
 
 const importData = async () => {
@@ -39,9 +38,6 @@ const importData = async () => {
     }
     await Product.insertMany(MOCK_PRODUCTS);
 
-    console.log(`Users seeded: ${usersData.length}`);
-    console.log(`Products seeded: ${MOCK_PRODUCTS.length}`);
-    console.log('Data Imported!');
     process.exit();
   } catch (error) {
     console.error(`Error: ${error}`);

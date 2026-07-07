@@ -194,7 +194,6 @@ export const seedBlogPosts = async (): Promise<void> => {
     const count = await BlogPost.countDocuments();
     if (count === 0) {
       await BlogPost.insertMany(SEED_POSTS);
-      console.log('Blog posts seeded successfully.');
     }
   } catch (error) {
     console.error('Blog seed error:', error);

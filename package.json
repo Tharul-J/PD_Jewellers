@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -n API,Vite -c cyan,yellow \"tsx server.ts\" \"cross-env NODE_OPTIONS=--max-old-space-size=4096 vite\"",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "cross-env NODE_ENV=production node dist/server.cjs",
+    "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -22,6 +22,7 @@
     "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
+    "cross-env": "^7.0.3",
     "dotenv": "^17.2.3",
     "esbuild": "^0.28.0",
     "express": "^4.21.2",

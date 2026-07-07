@@ -20,7 +20,6 @@ export const sendPasswordResetEmail = async (to: string, resetLink: string): Pro
       return false;
     }
 
-    console.log('Password reset email sent to', to);
     return true;
   } catch (err) {
     console.error('Failed to send password reset email:', err);

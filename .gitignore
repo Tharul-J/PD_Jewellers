@@ -7,4 +7,6 @@ coverage/
 .env*
 !.env.example
 uploads/
+demo-upload/
+scripts/fonts-ttf/
 public/glb-models-compressed/
