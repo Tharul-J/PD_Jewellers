@@ -20,6 +20,7 @@ import Configurator from './pages/Configurator';
 import Materials from './pages/Materials';
 import AboutUs from './pages/AboutUs';
 import Inquiry from './pages/Inquiry';
+import PaymentPage from './pages/PaymentPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
@@ -80,6 +81,13 @@ function AnimatedRoutes() {
             <ProtectedRoute>
               <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
                 <Inquiry />
+              </motion.div>
+            </ProtectedRoute>
+          } />
+          <Route path="payment/:inquiryId" element={
+            <ProtectedRoute>
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="min-h-full">
+                <PaymentPage />
               </motion.div>
             </ProtectedRoute>
           } />

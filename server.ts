@@ -10,6 +10,9 @@ import mongoose from "mongoose";
 // Import API routes
 import userRoutes from "./server/routes/userRoutes.js";
 import orderRoutes from "./server/routes/orderRoutes.js";
+import purchaseRoutes from "./server/routes/purchaseRoutes.js";
+import notificationRoutes from "./server/routes/notificationRoutes.js";
+import reviewRoutes from "./server/routes/reviewRoutes.js";
 import modelRoutes from "./server/routes/modelRoutes.js";
 import uploadRoutes from "./server/routes/uploadRoutes.js";
 import pricingRoutes from "./server/routes/pricingRoutes.js";
@@ -73,6 +76,9 @@ async function startServer() {
   });
   app.use("/api/users", userRoutes);
   app.use("/api/orders", orderRoutes);
+  app.use("/api/purchases", purchaseRoutes);
+  app.use("/api/notifications", notificationRoutes);
+  app.use("/api/reviews", reviewRoutes);
   app.use("/api/models", modelRoutes);
   app.use("/api/upload", uploadRoutes);
   app.use("/api/pricing", pricingRoutes);

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import { mockOrders, getDefaultOrders } from './userController.js';
+import { notifyAdmins, notifyUser } from '../utils/notify.js';
 
 // @desc    Create new inquiry/order request
 // @route   POST /api/orders
@@ -50,6 +51,12 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
       });
 
       const createdOrder = await order.save();
+
+      await notifyAdmins(
+        'new_inquiry',
+        `New inquiry ${createdOrder.inquiryRef} from ${req.user.name}`,
+        '/admin?tab=orders'
+      );
 
       res.status(201).json(createdOrder);
     }
@@ -139,6 +146,29 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// @desc    Get a single inquiry (owner or admin)
+// @route   GET /api/orders/:id
+// @access  Private
+export const getOrderById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      const mock = getDefaultOrders(req.user._id).find((o: any) => o._id === req.params.id);
+      if (!mock) { res.status(404).json({ message: 'Inquiry not found' }); return; }
+      res.json(mock);
+      return;
+    }
+    const order = await Order.findById(req.params.id);
+    if (!order) { res.status(404).json({ message: 'Inquiry not found' }); return; }
+    if (order.user.toString() !== req.user._id.toString() && req.user.role !== 'administrator') {
+      res.status(403).json({ message: 'Not authorised' });
+      return;
+    }
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
 // @desc    Get logged in user inquiries
 // @route   GET /api/orders/myorders
 // @access  Private
@@ -155,6 +185,15 @@ export const getMyOrders = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending Review',
+  availability_confirmed: 'Availability Confirmed',
+  ordered: 'Ordered',
+  crafting: 'Crafting',
+  completed: 'Completed / Collection',
+  declined: 'Declined',
+};
+
 // @desc    Update inquiry status
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
@@ -169,6 +208,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     if (order) {
       order.status = req.body.status;
       const updatedOrder = await order.save();
+
+      await notifyUser(
+        updatedOrder.user.toString(),
+        'inquiry_status',
+        `Your inquiry ${updatedOrder.inquiryRef} is now: ${STATUS_LABELS[updatedOrder.status] ?? updatedOrder.status}`,
+        '/profile?tab=orders'
+      );
+
       res.json(updatedOrder);
     } else {
       res.status(404).json({ message: 'Inquiry not found' });

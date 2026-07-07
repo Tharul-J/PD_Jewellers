@@ -19,7 +19,7 @@ export interface IOrder extends Document {
     country: string;
   };
   totalPrice: number;
-  status: 'pending' | 'availability_confirmed' | 'crafting' | 'completed' | 'declined';
+  status: 'pending' | 'availability_confirmed' | 'crafting' | 'completed' | 'declined' | 'ordered';
 }
 
 const orderSchema = new Schema(
@@ -59,7 +59,7 @@ const orderSchema = new Schema(
     status: {
       type: String,
       required: true,
-      enum: ['pending', 'availability_confirmed', 'crafting', 'completed', 'declined'],
+      enum: ['pending', 'availability_confirmed', 'crafting', 'completed', 'declined', 'ordered'],
       default: 'pending',
     },
   },

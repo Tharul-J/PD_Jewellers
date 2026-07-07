@@ -60,14 +60,67 @@ const COLLECTION_BANNERS = [
   '/banners/Mens_Banner.png',
 ];
 
+const STATIC_REVIEWS = [
+  {
+    name: "Tom Timer",
+    text: "Trustworthy service .My family has been dealing with them for generations now.",
+    tag: "Verified Customer",
+    rating: 5
+  },
+  {
+    name: "Prasanna Rodrigo",
+    text: "One of my friends own this place. A really good place to buy all sorts of jwelary.",
+    tag: "Local Guide",
+    rating: 5
+  },
+  {
+    name: "Mag Tat",
+    text: "Best place . Faithfull service.",
+    tag: "Verified Customer",
+    rating: 5
+  },
+  {
+    name: "Sajith Eranga",
+    text: "One of the oldest jewellery shops in Gampaha.",
+    tag: "Local Guide",
+    rating: 5
+  },
+  {
+    name: "Chathurika Liyanage",
+    text: "The best ♥️",
+    tag: "Local Guide",
+    rating: 5
+  }
+];
+
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(1);
   const [collBanner, setCollBanner] = useState(0);
+  const [liveReviews, setLiveReviews] = useState<any[]>([]);
 
   useEffect(() => {
     const t = setInterval(() => setCollBanner(i => (i + 1) % COLLECTION_BANNERS.length), 4000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    fetch('/api/reviews/homepage')
+      .then(r => r.json())
+      .then(d => {
+        if (d.reviews?.length) setLiveReviews(d.reviews);
+        // else keep static fallback — don't replace state
+      })
+      .catch(() => {}); // silent fallback to static
+  }, []);
+
+  const displayReviews = liveReviews.length > 0
+    ? liveReviews.map((r: any) => ({
+        name: r.user?.name || 'Verified Customer',
+        text: r.text,
+        tag: 'Verified Customer',
+        rating: r.rating,
+      }))
+    : STATIC_REVIEWS;
 
   const sliderImages = [
     "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
@@ -390,41 +443,13 @@ export default function Home() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-               {[
-                 {
-                   name: "Tom Timer",
-                   text: "Trustworthy service .My family has been dealing with them for generations now.",
-                   tag: "Verified Customer"
-                 },
-                 {
-                   name: "Prasanna Rodrigo",
-                   text: "One of my friends own this place. A really good place to buy all sorts of jwelary.",
-                   tag: "Local Guide"
-                 },
-                 {
-                   name: "Mag Tat",
-                   text: "Best place . Faithfull service.",
-                   tag: "Verified Customer"
-                 },
-                 {
-                   name: "Sajith Eranga",
-                   text: "One of the oldest jewellery shops in Gampaha.",
-                   tag: "Local Guide"
-                 },
-                 {
-                   name: "Chathurika Liyanage",
-                   text: "The best ♥️",
-                   tag: "Local Guide"
-                 }
-               ].map((review, i) => (
+               {displayReviews.map((review, i) => (
                   <div key={i} className="flex flex-col bg-[var(--color-paper)] p-10 relative group hover:-translate-y-2 transition-transform duration-500 border border-transparent hover:border-[var(--color-gold)]/20 shadow-sm hover:shadow-xl rounded-sm">
                      <Quote className="w-8 h-8 text-[var(--color-gold)]/20 absolute top-8 right-8" />
                      <div className="flex gap-1 text-[var(--color-gold-dark)] mb-6">
-                        <Star fill="currentColor" strokeWidth={0} className="w-4 h-4" />
-                        <Star fill="currentColor" strokeWidth={0} className="w-4 h-4" />
-                        <Star fill="currentColor" strokeWidth={0} className="w-4 h-4" />
-                        <Star fill="currentColor" strokeWidth={0} className="w-4 h-4" />
-                        <Star fill="currentColor" strokeWidth={0} className="w-4 h-4" />
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star key={s} fill={s <= review.rating ? 'currentColor' : 'none'} strokeWidth={s <= review.rating ? 0 : 1.5} className="w-4 h-4" />
+                        ))}
                      </div>
                      <p className="text-[13px] leading-loose opacity-80 mb-8 italic flex-grow">
                         "{review.text}"

@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { sendPasswordResetEmail } from '../utils/email.js';
+import { notifyAdmins } from '../utils/notify.js';
 
 const mockProfileUpdates: Record<string, any> = {};
 export const mockWishlists: Record<string, any[]> = {};
@@ -158,6 +159,8 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     });
 
     if (user) {
+      await notifyAdmins('new_user', `New customer registered: ${user.name}`, '/admin?tab=users');
+
       res.status(201).json({
         _id: user._id,
         name: user.name,
@@ -405,7 +408,7 @@ export const toggleWishlistItem = async (req: Request, res: Response): Promise<v
 // @access  Private
 export const saveConfiguration = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, price } = req.body;
+    const { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, price, thumbnail } = req.body;
 
     if (mongoose.connection.readyState !== 1) {
       const userId = req.user._id;
@@ -419,6 +422,7 @@ export const saveConfiguration = async (req: Request, res: Response): Promise<vo
         fontStyle,
         pendantShape,
         price,
+        thumbnail,
         createdAt: new Date().toISOString()
       };
       const list = getDefaultConfigurations(userId);
@@ -431,7 +435,7 @@ export const saveConfiguration = async (req: Request, res: Response): Promise<vo
     const user = await User.findById(req.user._id);
 
     if (user) {
-      const newConfig = { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, price };
+      const newConfig = { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, price, thumbnail };
       user.savedConfigurations = user.savedConfigurations ? [...user.savedConfigurations, newConfig] : [newConfig] as any;
       await user.save();
       res.json(user.savedConfigurations);

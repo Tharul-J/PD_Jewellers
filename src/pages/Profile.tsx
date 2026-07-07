@@ -4,8 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X, ChevronDown } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X, ChevronDown, Wand2, Gem, Package, Star } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { NotificationBadge } from '../components/NotificationBadge';
+import { useNotifications } from '../hooks/useNotifications';
 import { METALS, STONES, FONTS } from '../constants';
 
 const PRESET_AVATARS = [
@@ -23,6 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
   crafting:               'Crafting',
   completed:              'Collection / Handover',
   declined:               'Declined',
+  ordered:                'Order Placed',
 };
 
 export default function Profile() {
@@ -30,24 +33,40 @@ export default function Profile() {
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
   const { addToCart, setIsCartOpen } = useCart();
   const navigate = useNavigate();
-  
+  const { unreadByType, markReadByType } = useNotifications();
+
   const [profileData, setProfileData] = useState<any>(null);
   const [deletingConfigId, setDeletingConfigId] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
+  const [expandedPurchaseIds, setExpandedPurchaseIds] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(true);
 
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs'>(() => {
+  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs' | 'purchases' | 'review' | 'myreviews'>(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'configs' || tab === 'wishlist' || tab === 'orders') return tab;
+    if (tab === 'configs' || tab === 'wishlist' || tab === 'orders' || tab === 'purchases' || tab === 'review' || tab === 'myreviews') return tab;
     return 'account';
   });
-  
+
   const [orders, setOrders] = useState<any[]>([]);
 
   const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(false);
+
+  const [myReviews, setMyReviews] = useState<any[]>([]);
+  const [selectedReviewInquiry, setSelectedReviewInquiry] = useState('');
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editReviewForm, setEditReviewForm] = useState({ rating: 0, text: '' });
+  const [editReviewSaving, setEditReviewSaving] = useState(false);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
 
   // Edit / password modes
   const [isEditing, setIsEditing] = useState(false);
@@ -207,7 +226,9 @@ export default function Profile() {
   }, [user, navigate]);
 
   useEffect(() => {
-    if (activeTab === 'orders' && user) {
+    // Fetched on mount (not tab-gated) — the review prompt banner on My Account
+    // needs completed-inquiry data regardless of which tab is active.
+    if (user) {
       const fetchOrders = async () => {
         setOrdersLoading(true);
         try {
@@ -226,12 +247,176 @@ export default function Profile() {
       };
       fetchOrders();
     }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch('/api/reviews/mine', {
+      headers: { Authorization: `Bearer ${user.token}` }
+    }).then(r => r.json()).then(d => setMyReviews(d.reviews ?? [])).catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'purchases' && user) {
+      const fetchPurchases = async () => {
+        setPurchasesLoading(true);
+        try {
+          const res = await fetch('/api/purchases/my', {
+            headers: { Authorization: `Bearer ${user.token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setPurchases(data);
+          }
+        } catch (error) {
+          console.error("Error fetching purchases", error);
+        } finally {
+          setPurchasesLoading(false);
+        }
+      };
+      fetchPurchases();
+    }
   }, [activeTab, user]);
+
+  const inquiryNotifCount = unreadByType['inquiry_status'] ?? 0;
+
+  useEffect(() => {
+    if (activeTab === 'orders' && inquiryNotifCount > 0) {
+      markReadByType('inquiry_status');
+    }
+  }, [activeTab]);
+
+  const reviewableInquiries = orders.filter(inq => {
+    const alreadyReviewed = myReviews.some(r => r.inquiry === inq._id);
+    return inq.status === 'completed' && !alreadyReviewed;
+  });
+
+  useEffect(() => {
+    if (!selectedReviewInquiry && reviewableInquiries.length > 0) {
+      setSelectedReviewInquiry(reviewableInquiries[0]._id);
+    }
+  }, [reviewableInquiries, selectedReviewInquiry]);
+
+  const handleSubmitReview = async () => {
+    if (!reviewRating || !reviewText.trim() || !user) return;
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify({ inquiryId: selectedReviewInquiry, rating: reviewRating, text: reviewText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit review');
+      setReviewSubmitted(true);
+      // Store the full returned review so the My Reviews tab renders it correctly
+      // (fall back to a stub carrying at least the inquiry id for the reviewable filter).
+      setMyReviews(prev => [...prev, data.review ?? { inquiry: selectedReviewInquiry }]);
+    } catch (err: any) {
+      alert(err.message || 'Failed to submit review');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const handleEditReview = (review: any) => {
+    setEditingReviewId(review._id);
+    setEditReviewForm({ rating: review.rating, text: review.text });
+  };
+
+  const handleEditReviewSave = async (id: string) => {
+    if (!user || !editReviewForm.rating || !editReviewForm.text.trim()) return;
+    setEditReviewSaving(true);
+    try {
+      const res = await fetch(`/api/reviews/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify(editReviewForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update review');
+      setMyReviews(prev => prev.map(r => r._id === id ? data.review : r));
+      setEditingReviewId(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update review');
+    } finally {
+      setEditReviewSaving(false);
+    }
+  };
+
+  const handleDeleteReview = async (id: string) => {
+    if (!user || !window.confirm('Delete this review?')) return;
+    setDeletingReviewId(id);
+    try {
+      const res = await fetch(`/api/reviews/mine/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (!res.ok) throw new Error();
+      setMyReviews(prev => prev.filter(r => r._id !== id));
+    } catch {
+      alert('Could not delete review.');
+    } finally {
+      setDeletingReviewId(null);
+    }
+  };
+
+  const handleOpenInConfigurator = (config: any) => {
+    // Resolve stored value to internal key; fall back to name-based lookup
+    // for any legacy entries that stored display names instead of keys.
+    const resolveKey = <T extends Record<string, { name: string }>>(
+      map: T, value: string | undefined, fallback: keyof T
+    ): string => {
+      if (!value) return fallback as string;
+      if (value in map) return value;
+      const found = Object.entries(map).find(
+        ([, v]) => v.name.toLowerCase() === value.toLowerCase()
+      );
+      return found ? found[0] : fallback as string;
+    };
+
+    const metalKey  = resolveKey(METALS, config.metal, 'silver');
+    const stoneKey  = resolveKey(STONES, config.stone, 'aquamarine');
+    const fontKey   = resolveKey(FONTS,  config.fontStyle, 'helvetiker');
+
+    localStorage.setItem('cfg_modelType', config.type || 'ring');
+    if (config.ringSize) localStorage.setItem('cfg_ringSize', config.ringSize);
+    localStorage.setItem('cfg_metal', metalKey);
+    localStorage.setItem('cfg_stone', stoneKey);
+    if (config.engravingText) {
+      localStorage.setItem('cfg_engraveWant', 'true');
+      localStorage.setItem('cfg_customText', config.engravingText);
+    } else {
+      localStorage.setItem('cfg_engraveWant', 'false');
+    }
+    localStorage.setItem('cfg_fontStyle', fontKey);
+    if (config.pendantShape) localStorage.setItem('cfg_pendantShape', config.pendantShape);
+    navigate('/configurator');
+  };
 
   const handleAddToInquiry = (item: any) => {
     addToCart({ id: item.productId, name: item.name, price: Number(item.price), image: item.image });
     setIsCartOpen(false);
     navigate('/inquiry');
+  };
+
+  const CONFIG_PLACEHOLDER_IMAGE: Record<'ring' | 'pendant', string> = {
+    ring: 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80&w=600',
+    pendant: 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80&w=600',
+  };
+
+  const handleAddConfigToInquiry = (config: any) => {
+    const type: 'ring' | 'pendant' = config.type === 'pendant' ? 'pendant' : 'ring';
+    const name = type === 'ring'
+      ? `${config.metal} ${config.stone} Ring`
+      : `${config.metal} ${config.pendantShape || 'Standard'} Pendant`;
+
+    handleAddToInquiry({
+      productId: `custom-config-${config._id}`,
+      name,
+      price: config.price,
+      image: CONFIG_PLACEHOLDER_IMAGE[type],
+    });
   };
 
   const handleDeleteConfiguration = async (configId: string) => {
@@ -267,6 +452,16 @@ export default function Profile() {
   };
 
   const isOrderExpanded = (id: string) => expandedOrderIds.has(id);
+
+  const togglePurchaseExpanded = (id: string) => {
+    setExpandedPurchaseIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const isPurchaseExpanded = (id: string) => expandedPurchaseIds.has(id);
 
   const handleCancelInquiry = async (orderId: string) => {
     if (!user || !window.confirm('Are you sure you want to cancel this inquiry? This action cannot be undone.')) return;
@@ -343,8 +538,29 @@ export default function Profile() {
                   className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'orders' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <ShoppingBag size={16} /> My Inquiries
+                  <NotificationBadge count={inquiryNotifCount} />
                 </button>
-                
+                <button
+                  onClick={() => setActiveTab('purchases')}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'purchases' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                >
+                  <Package size={16} /> Purchased Items
+                </button>
+                {reviewableInquiries.length > 0 && (
+                  <button
+                    onClick={() => setActiveTab('review')}
+                    className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'review' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                  >
+                    <Star size={16} /> Write a Review
+                  </button>
+                )}
+                <button
+                  onClick={() => setActiveTab('myreviews')}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'myreviews' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                >
+                  <Star size={16} /> My Reviews{myReviews.length ? ` (${myReviews.length})` : ''}
+                </button>
+
                 <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-left text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-sm mt-8 border-t border-gray-200 pt-6">
                   <LogOut size={16} /> Sign Out
                 </button>
@@ -357,6 +573,22 @@ export default function Profile() {
                 
                 {activeTab === 'account' && !isEditing && !isChangingPassword && (
                   <>
+                    {reviewableInquiries.length > 0 && (
+                      <div className="mb-6 p-4 border border-amber-200 bg-amber-50 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-amber-800">Share Your Experience</p>
+                          <p className="text-xs text-amber-600 mt-0.5">
+                            You have {reviewableInquiries.length} completed order{reviewableInquiries.length > 1 ? 's' : ''} awaiting your review.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('review')}
+                          className="text-[10px] uppercase tracking-widest px-4 py-2 btn-richbrown text-white rounded transition-colors shrink-0"
+                        >
+                          Write a Review
+                        </button>
+                      </div>
+                    )}
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                       <h2 className="text-2xl font-serif text-[var(--color-ink)]">Account Details</h2>
                       <div className="flex gap-3">
@@ -746,6 +978,7 @@ export default function Profile() {
                                   ${order.status === 'crafting' ? 'bg-yellow-100 text-[var(--color-gold-dark)]' : ''}
                                   ${order.status === 'completed' ? 'bg-green-100 text-green-700' : ''}
                                   ${order.status === 'declined' ? 'bg-red-100 text-red-700' : ''}
+                                  ${order.status === 'ordered' ? 'bg-amber-100 text-amber-700' : ''}
                                 `}>
                                   {STATUS_LABELS[order.status] ?? order.status.replace(/_/g, ' ')}
                                 </span>
@@ -758,37 +991,57 @@ export default function Profile() {
 
                             {isOrderExpanded(order._id) && (
                               <>
-                                {order.status === 'pending' && (
+                                {(order.status === 'pending' || order.status === 'availability_confirmed' || order.status === 'ordered') && (
                                   <div className="px-4 pt-4 flex justify-end">
-                                    <button
-                                      onClick={() => handleCancelInquiry(order._id)}
-                                      disabled={cancellingOrderId === order._id}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50 hover:border-red-400 transition-colors disabled:opacity-40"
-                                      title="Cancel this inquiry"
-                                    >
-                                      {cancellingOrderId === order._id ? (
-                                        <div className="w-3 h-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
-                                      ) : (
-                                        <Trash2 size={13} />
-                                      )}
-                                      Cancel Inquiry
-                                    </button>
+                                    {order.status === 'pending' && (
+                                      <button
+                                        onClick={() => handleCancelInquiry(order._id)}
+                                        disabled={cancellingOrderId === order._id}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50 hover:border-red-400 transition-colors disabled:opacity-40"
+                                        title="Cancel this inquiry"
+                                      >
+                                        {cancellingOrderId === order._id ? (
+                                          <div className="w-3 h-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                          <Trash2 size={13} />
+                                        )}
+                                        Cancel Inquiry
+                                      </button>
+                                    )}
+                                    {order.status === 'availability_confirmed' && (
+                                      <button
+                                        onClick={() => navigate(`/payment/${order._id}`)}
+                                        className="px-4 py-2 btn-richbrown text-white text-[10px] uppercase tracking-widest rounded transition-colors"
+                                      >
+                                        Order Now
+                                      </button>
+                                    )}
+                                    {order.status === 'ordered' && (
+                                      <span className="text-[10px] uppercase tracking-widest text-amber-700 border border-amber-200 bg-amber-50 px-3 py-1.5 rounded font-bold">
+                                        Order Placed
+                                      </span>
+                                    )}
                                   </div>
                                 )}
 
                             {/* Inquiry Tracker */}
-                            {order.status !== 'declined' ? (
+                            {order.status === 'declined' ? (
+                              <div className="px-8 py-4 bg-red-50 border-b border-gray-100 text-xs text-red-700 italic font-semibold">
+                                * The requested workshop slot or material selection has been marked as unavailable for your customization. Please contact customer care.
+                              </div>
+                            ) : (
                               <div className="px-8 py-6 border-b border-gray-100 bg-white">
                                 <div className="relative">
                                   {/* Track Line */}
                                   <div className="absolute top-1/2 left-0 w-full h-[2px] bg-gray-200 -translate-y-1/2"></div>
-                                  <div 
+                                  <div
                                     className="absolute top-1/2 left-0 h-[2px] bg-[var(--color-gold)] -translate-y-1/2 transition-all duration-500"
                                     style={{
-                                      width: 
+                                      width:
                                         order.status === 'pending' ? '0%' :
-                                        order.status === 'availability_confirmed' ? '33.33%' :
-                                        order.status === 'crafting' ? '66.66%' :
+                                        order.status === 'availability_confirmed' ? '25%' :
+                                        order.status === 'ordered' ? '50%' :
+                                        order.status === 'crafting' ? '75%' :
                                         '100%'
                                     }}
                                   ></div>
@@ -798,24 +1051,26 @@ export default function Profile() {
                                     {[
                                       { id: 'pending', label: 'Pending Review' },
                                       { id: 'availability_confirmed', label: 'Confirmed' },
+                                      { id: 'ordered', label: 'Ordered / Paid' },
                                       { id: 'crafting', label: 'Crafting' },
                                       { id: 'completed', label: 'Collection / Handover' }
                                     ].map((step, index) => {
                                       const indexMap: Record<string, number> = {
                                         'pending': 0,
                                         'availability_confirmed': 1,
-                                        'crafting': 2,
-                                        'completed': 3
+                                        'ordered': 2,
+                                        'crafting': 3,
+                                        'completed': 4
                                       };
                                       const currentIdx = indexMap[order.status] ?? 0;
                                       const isActive = currentIdx >= index;
-                                        
+
                                       return (
                                         <div key={step.id} className="flex flex-col items-center">
                                           <div className={`w-4 h-4 rounded-full border-2 bg-white z-10 transition-colors ${isActive ? 'border-[var(--color-gold)]' : 'border-gray-300'}`}>
                                             {isActive && <div className="w-2 h-2 bg-[var(--color-gold)] rounded-full mx-auto mt-[2px]"></div>}
                                           </div>
-                                          <span className={`text-[9px] uppercase tracking-wider mt-3 font-bold text-center w-24 ${isActive ? 'text-[var(--color-ink)]' : 'text-gray-400'}`}>
+                                          <span className={`text-[9px] uppercase tracking-wider mt-3 font-bold text-center w-20 ${isActive ? 'text-[var(--color-ink)]' : 'text-gray-400'}`}>
                                             {step.label}
                                           </span>
                                         </div>
@@ -823,10 +1078,6 @@ export default function Profile() {
                                     })}
                                   </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="px-8 py-4 bg-red-50 border-b border-gray-100 text-xs text-red-700 italic font-semibold">
-                                * The requested workshop slot or material selection has been marked as unavailable for your customization. Please contact customer care.
                               </div>
                             )}
 
@@ -855,6 +1106,255 @@ export default function Profile() {
                   </>
                 )}
 
+                {activeTab === 'purchases' && (
+                  <>
+                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">Purchased Items</h2>
+                    <p className="text-xs text-gray-500 mb-6">Orders you've paid for, along with their crafting progress.</p>
+
+                    {purchasesLoading ? (
+                      <div className="py-12 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
+                    ) : purchases.length === 0 ? (
+                      <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
+                        <Package size={32} className="mx-auto mb-4 opacity-20" />
+                        <p className="text-sm">You haven't purchased any items yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {purchases.map((purchase) => (
+                          <div key={purchase._id} className="border border-gray-100 rounded-lg overflow-hidden">
+                            {/* Header — always visible, full click target */}
+                            <div
+                              className="bg-gray-50 px-5 py-4 flex justify-between items-center flex-wrap gap-4 cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                              onClick={() => togglePurchaseExpanded(purchase._id)}
+                            >
+                              <div className="grid grid-cols-3 flex-1 gap-4 min-w-[240px]">
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Order Date</p>
+                                  <p className="text-sm font-semibold">{new Date(purchase.createdAt).toLocaleDateString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Total Paid</p>
+                                  <p className="text-sm font-semibold">Rs. {Number(purchase.totalAmount || 0).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Reference</p>
+                                  <p className="text-sm font-mono font-bold text-amber-700">{purchase.inquiryRef}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 ml-4 shrink-0">
+                                <span className="px-3 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold bg-green-100 text-green-700">
+                                  Paid
+                                </span>
+                                <ChevronDown
+                                  size={16}
+                                  className={`text-gray-400 transition-transform duration-200 ${isPurchaseExpanded(purchase._id) ? 'rotate-180' : 'rotate-0'}`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Collapsible detail */}
+                            {isPurchaseExpanded(purchase._id) && (
+                              <div className="border-t border-gray-100 p-4 space-y-4">
+                                <p className="text-[10px] text-gray-400">
+                                  Paid on {new Date(purchase.payment?.paidAt).toLocaleDateString()} via card ending {purchase.payment?.cardLast4}
+                                  {' · '}Track crafting progress under{' '}
+                                  <button onClick={() => setActiveTab('orders')} className="text-amber-700 hover:underline font-semibold">My Inquiries</button>.
+                                </p>
+                                {(purchase.items || []).map((item: any, idx: number) => (
+                                  <div key={idx} className="flex gap-4 items-center">
+                                    <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded">
+                                      <img src={item.image} alt={item.name} className="w-full h-full object-cover mix-blend-multiply" />
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-serif">{item.name}</p>
+                                      <p className="text-xs text-gray-500 capitalize">{item.category}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Rs. </span>{Number(item.price).toLocaleString()}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {activeTab === 'review' && (
+                  reviewSubmitted ? (
+                    <div className="text-center py-12">
+                      <Star className="w-10 h-10 text-amber-400 mx-auto mb-3" fill="currentColor" />
+                      <p className="text-lg font-serif text-[var(--color-ink)]">Thank You</p>
+                      <p className="text-sm text-gray-500 mt-2">Your review is pending approval and will appear shortly.</p>
+                    </div>
+                  ) : reviewableInquiries.length === 0 ? (
+                    <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
+                      <Star size={32} className="mx-auto mb-4 opacity-20" />
+                      <p className="text-sm">No completed orders awaiting review right now.</p>
+                    </div>
+                  ) : (
+                    <div className="max-w-lg">
+                      <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">Share Your Experience</h2>
+                      <div className="w-10 h-px bg-[var(--color-gold)] mb-6" />
+
+                      {reviewableInquiries.length > 1 && (
+                        <div className="mb-4">
+                          <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-1">Order</label>
+                          <select
+                            value={selectedReviewInquiry}
+                            onChange={e => setSelectedReviewInquiry(e.target.value)}
+                            className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-400"
+                          >
+                            {reviewableInquiries.map(inq => (
+                              <option key={inq._id} value={inq._id}>{inq.inquiryRef}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="mb-4">
+                        <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-2">Rating</label>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <button key={s} onClick={() => setReviewRating(s)} type="button">
+                              <Star
+                                size={24}
+                                className={s <= reviewRating ? 'text-amber-400' : 'text-gray-300'}
+                                fill={s <= reviewRating ? 'currentColor' : 'none'}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-1">Your Review</label>
+                        <textarea
+                          value={reviewText}
+                          onChange={e => setReviewText(e.target.value)}
+                          rows={4}
+                          maxLength={600}
+                          placeholder="Tell us about your experience..."
+                          className="w-full border border-gray-200 rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
+                        />
+                        <p className="text-xs text-gray-400 text-right mt-1">{reviewText.length}/600</p>
+                      </div>
+
+                      <button
+                        onClick={handleSubmitReview}
+                        disabled={reviewSubmitting || !reviewRating || !reviewText.trim()}
+                        className="w-full py-3 btn-richbrown text-white text-xs tracking-widest uppercase transition-colors disabled:opacity-40"
+                      >
+                        {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                      </button>
+                    </div>
+                  )
+                )}
+
+                {activeTab === 'myreviews' && (
+                  <>
+                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">My Reviews</h2>
+                    <div className="w-10 h-px bg-[var(--color-gold)] mb-6" />
+
+                    {myReviews.length === 0 ? (
+                      <div className="py-16 text-center text-gray-500 bg-gray-50 border border-gray-100 border-dashed rounded-md">
+                        <Star size={32} className="mx-auto mb-4 opacity-20" />
+                        <p className="text-sm">You haven't submitted any reviews yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {myReviews.map((review) => (
+                          <div key={review._id} className="border border-gray-100 rounded-lg p-5">
+                            {editingReviewId === review._id ? (
+                              <div>
+                                <div className="flex gap-1 mb-3">
+                                  {[1, 2, 3, 4, 5].map(s => (
+                                    <button key={s} type="button" onClick={() => setEditReviewForm(p => ({ ...p, rating: s }))}>
+                                      <Star
+                                        size={18}
+                                        className={s <= editReviewForm.rating ? 'text-amber-400' : 'text-gray-200'}
+                                        fill={s <= editReviewForm.rating ? 'currentColor' : 'none'}
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                                <textarea
+                                  value={editReviewForm.text}
+                                  onChange={e => setEditReviewForm(p => ({ ...p, text: e.target.value }))}
+                                  rows={3}
+                                  maxLength={600}
+                                  className="w-full border border-gray-200 rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400 mb-3"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleEditReviewSave(review._id)}
+                                    disabled={editReviewSaving || !editReviewForm.rating || !editReviewForm.text.trim()}
+                                    className="px-4 py-1.5 btn-richbrown text-white text-xs tracking-widest uppercase transition-colors disabled:opacity-40"
+                                  >
+                                    {editReviewSaving ? 'Saving...' : 'Save'}
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingReviewId(null)}
+                                    className="px-4 py-1.5 border border-gray-200 text-xs tracking-widest uppercase hover:bg-gray-50 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex gap-1">
+                                    {[1, 2, 3, 4, 5].map(s => (
+                                      <Star
+                                        key={s}
+                                        size={14}
+                                        className={s <= review.rating ? 'text-amber-400' : 'text-gray-200'}
+                                        fill={s <= review.rating ? 'currentColor' : 'none'}
+                                      />
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    {!review.approved && (
+                                      <button onClick={() => handleEditReview(review)} className="text-gray-400 hover:text-amber-600 transition-colors" title="Edit review">
+                                        <Edit size={13} />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteReview(review._id)}
+                                      disabled={deletingReviewId === review._id}
+                                      className="text-red-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                                      title="Delete review"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-gray-700 italic mb-3">"{review.text}"</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs text-gray-400">
+                                    {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
+                                  </p>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                                    review.approved
+                                      ? 'bg-green-50 text-green-700 border-green-200'
+                                      : 'bg-amber-50 text-amber-600 border-amber-200'
+                                  }`}>
+                                    {review.approved ? 'Published' : 'Pending Approval'}
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {activeTab === 'configs' && (
                   <>
                     <h2 className="text-xl font-serif text-[var(--color-ink)] mb-6">Saved Designs</h2>
@@ -868,98 +1368,76 @@ export default function Profile() {
                         </Link>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                         {profileData.savedConfigurations.map((config: any) => (
-                          <div key={config._id} className="border border-gray-100 rounded-lg p-5 hover:border-[var(--color-ink)] transition-colors">
-                            <div className="flex justify-between items-start mb-4">
-                              <h3 className="font-serif text-lg text-[var(--color-ink)]">
-                                {config.type === 'ring' ? 'Custom Ring' : 'Custom Pendant'}
-                              </h3>
-                              <div className="flex items-center gap-2">
-                                <p className="font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(config.price).toLocaleString()}</p>
-                                <button
-                                  onClick={() => handleDeleteConfiguration(config._id)}
-                                  disabled={deletingConfigId === config._id}
-                                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-40 shrink-0"
-                                  title="Remove saved design"
-                                >
-                                  {deletingConfigId === config._id ? (
-                                    <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <Trash2 size={16} />
-                                  )}
-                                </button>
-                              </div>
+                          <div key={config._id} className="flex flex-col group border border-gray-100 rounded-lg overflow-hidden pb-4">
+                            <div className="relative aspect-square bg-gray-50 mb-4 overflow-hidden flex items-center justify-center">
+                              {config.thumbnail ? (
+                                <img
+                                  src={config.thumbnail}
+                                  alt="Saved design preview"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : config.type === 'ring' ? (
+                                <Wand2 size={40} className="text-amber-300" />
+                              ) : (
+                                <Gem size={40} className="text-amber-300" />
+                              )}
+                              <button
+                                onClick={() => handleDeleteConfiguration(config._id)}
+                                disabled={deletingConfigId === config._id}
+                                className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-sm text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                                title="Remove saved design"
+                              >
+                                {deletingConfigId === config._id ? (
+                                  <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Trash2 size={16} />
+                                )}
+                              </button>
                             </div>
-                            
-                            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-6">
-                              <dt className="text-gray-500 text-[10px] uppercase tracking-widest">Metal</dt>
-                              <dd className="capitalize">{config.metal}</dd>
-                              
-                              {config.type === 'ring' && (
-                                <>
-                                  <dt className="text-gray-500 text-[10px] uppercase tracking-widest">Stone</dt>
-                                  <dd className="capitalize">{config.stone || 'None'}</dd>
-                                  
-                                  <dt className="text-gray-500 text-[10px] uppercase tracking-widest">Ring Size</dt>
-                                  <dd className="capitalize">{config.ringSize}</dd>
-                                </>
-                              )}
+                            <div className="px-4 text-center flex-1 flex flex-col">
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] mb-1 font-bold">
+                                {config.type === 'ring' ? 'CUSTOM RING' : 'CUSTOM PENDANT'}
+                              </p>
+                              <h3 className="font-serif text-sm md:text-md mb-2 text-[var(--color-ink)] flex-1 capitalize">
+                                {config.type === 'ring'
+                                  ? `${config.metal} ${config.stone || ''} Ring`
+                                  : `${config.metal} ${config.pendantShape || 'Standard'} Pendant`}
+                              </h3>
+                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-2"><span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Starting from</span>Rs. {Number(config.price).toLocaleString()}</p>
 
-                              {config.type === 'pendant' && (
-                                <>
-                                  <dt className="text-gray-500 text-[10px] uppercase tracking-widest">Shape</dt>
-                                  <dd className="capitalize">{config.pendantShape || 'Standard'}</dd>
-                                </>
-                              )}
+                              <div className="flex flex-wrap justify-center gap-1 mb-4">
+                                {config.metal && (
+                                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">{config.metal}</span>
+                                )}
+                                {config.type === 'ring' && config.stone && (
+                                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">{config.stone}</span>
+                                )}
+                                {config.type === 'ring' && config.ringSize && (
+                                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">{config.ringSize}</span>
+                                )}
+                                {config.type === 'pendant' && (
+                                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">{config.pendantShape || 'Standard'}</span>
+                                )}
+                                {config.engravingText && (
+                                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full italic">"{config.engravingText}"</span>
+                                )}
+                              </div>
 
-                              {config.engravingText && (
-                                <>
-                                  <dt className="text-gray-500 text-[10px] uppercase tracking-widest">Engraving</dt>
-                                  <dd className="col-span-2 mt-1">
-                                    <span className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">"{config.engravingText}"</span>
-                                  </dd>
-                                </>
-                              )}
-                            </dl>
-                            
-                            <button
-                              onClick={() => {
-                                // Resolve stored value to internal key; fall back to name-based lookup
-                                // for any legacy entries that stored display names instead of keys.
-                                const resolveKey = <T extends Record<string, { name: string }>>(
-                                  map: T, value: string | undefined, fallback: keyof T
-                                ): string => {
-                                  if (!value) return fallback as string;
-                                  if (value in map) return value;
-                                  const found = Object.entries(map).find(
-                                    ([, v]) => v.name.toLowerCase() === value.toLowerCase()
-                                  );
-                                  return found ? found[0] : fallback as string;
-                                };
-
-                                const metalKey  = resolveKey(METALS, config.metal, 'silver');
-                                const stoneKey  = resolveKey(STONES, config.stone, 'aquamarine');
-                                const fontKey   = resolveKey(FONTS,  config.fontStyle, 'helvetiker');
-
-                                localStorage.setItem('cfg_modelType', config.type || 'ring');
-                                if (config.ringSize) localStorage.setItem('cfg_ringSize', config.ringSize);
-                                localStorage.setItem('cfg_metal', metalKey);
-                                localStorage.setItem('cfg_stone', stoneKey);
-                                if (config.engravingText) {
-                                  localStorage.setItem('cfg_engraveWant', 'true');
-                                  localStorage.setItem('cfg_customText', config.engravingText);
-                                } else {
-                                  localStorage.setItem('cfg_engraveWant', 'false');
-                                }
-                                localStorage.setItem('cfg_fontStyle', fontKey);
-                                if (config.pendantShape) localStorage.setItem('cfg_pendantShape', config.pendantShape);
-                                navigate('/configurator');
-                              }}
-                              className="block w-full text-center border border-[var(--color-gold)] text-[var(--color-gold-dark)] py-2 text-[10px] uppercase tracking-widest hover:bg-[var(--color-gold)] hover:text-white transition-colors"
-                            >
-                              Open in Configurator
-                            </button>
+                              <button
+                                onClick={() => handleAddConfigToInquiry(config)}
+                                className="w-full text-center btn-richbrown text-white py-2 text-[10px] uppercase tracking-widest transition-colors mb-2"
+                              >
+                                Add to Inquiry
+                              </button>
+                              <button
+                                onClick={() => handleOpenInConfigurator(config)}
+                                className="w-full text-center border border-gray-200 text-gray-500 py-2 text-[10px] uppercase tracking-widest hover:border-[var(--color-ink)] hover:text-[var(--color-ink)] transition-colors mt-auto"
+                              >
+                                Open in Configurator
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>

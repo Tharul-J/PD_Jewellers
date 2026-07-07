@@ -1,15 +1,27 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Search, User, Menu, Sparkles, Heart } from 'lucide-react';
+import { ShoppingBag, Search, User, Menu, Sparkles, Bell } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { useWishlist } from '../context/WishlistContext';
+import { useNotifications } from '../hooks/useNotifications';
+import { NotificationBadge } from './NotificationBadge';
 import { useState, useEffect } from 'react';
 import { StyleQuiz } from './StyleQuiz';
+
+const timeAgo = (iso: string) => {
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
 
 export function Navbar() {
   const { setIsCartOpen, items } = useCart();
   const { user } = useAuth();
-  const { wishlist } = useWishlist();
+  const { notifications, unreadCount, markAllRead } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === '/';
@@ -17,6 +29,13 @@ export function Navbar() {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const handleNotificationClick = (link: string) => {
+    setNotifOpen(false);
+    markAllRead();
+    if (link) navigate(link);
+  };
   
   useEffect(() => {
     const handleScroll = () => {
@@ -28,7 +47,6 @@ export function Navbar() {
   }, []);
 
   const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
-  const wishlistItemCount = wishlist.length;
 
   // If on home page and not scrolled, hide the entire navbar
   const isHidden = isHome && !isScrolled;
@@ -78,21 +96,49 @@ export function Navbar() {
               <button onClick={() => { setSearchOpen(v => !v); setSearchQuery(''); }} className={`flex items-center justify-center p-2 transition-colors ${searchOpen ? 'text-[var(--color-gold)]' : 'hover:text-[var(--color-gold)]'}`}>
                 <Search strokeWidth={1.5} size={20} />
               </button>
-              <button 
-                onClick={() => navigate("/profile")} 
-                className="relative flex items-center justify-center p-2 hover:text-[var(--color-gold)] transition-colors" 
-                title="Wishlist"
-              >
-                <Heart strokeWidth={1.5} size={20} />
-                {wishlistItemCount > 0 && (
-                  <span className="absolute bottom-1 right-0 w-4 h-4 bg-[var(--color-gold)] text-[var(--color-paper)] rounded-full text-[9px] flex items-center justify-center font-bold">
-                    {wishlistItemCount}
-                  </span>
-                )}
-              </button>
               <button onClick={() => navigate(user ? "/profile" : "/login")} className="hover:text-[var(--color-gold)] transition-colors flex items-center justify-center p-2">
                 <User strokeWidth={1.5} size={20} />
               </button>
+              {user && (
+                <div className="relative">
+                  <button
+                    onClick={() => setNotifOpen(v => !v)}
+                    className={`relative flex items-center justify-center p-2 transition-colors ${notifOpen ? 'text-[var(--color-gold)]' : 'hover:text-[var(--color-gold)]'}`}
+                    title="Notifications"
+                  >
+                    <Bell strokeWidth={1.5} size={20} />
+                    <span className="absolute top-1 right-0.5">
+                      <NotificationBadge count={unreadCount} />
+                    </span>
+                  </button>
+                  {notifOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-80 max-w-[90vw] bg-white border border-gray-100 rounded-lg shadow-lg z-50 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Notifications</span>
+                        </div>
+                        {notifications.length === 0 ? (
+                          <p className="text-sm text-gray-400 text-center py-8">No notifications yet.</p>
+                        ) : (
+                          <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+                            {notifications.slice(0, 5).map(n => (
+                              <button
+                                key={n._id}
+                                onClick={() => handleNotificationClick(n.link)}
+                                className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors ${!n.read ? 'bg-amber-50/40' : ''}`}
+                              >
+                                <p className="text-[var(--color-ink)] leading-snug">{n.message}</p>
+                                <p className="text-[10px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <button 
               onClick={() => setIsCartOpen(true)}

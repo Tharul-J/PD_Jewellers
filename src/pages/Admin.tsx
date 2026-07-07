@@ -1,23 +1,50 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, UserX } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, UserX, Banknote, Star } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { NotificationBadge } from '../components/NotificationBadge';
+import { useNotifications } from '../hooks/useNotifications';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 // Extend this list to add new 3D model categories without other code changes
 const MODEL_CATEGORIES_DEFAULT = ['ring', 'pendant'];
 
+// Post-payment, an inquiry can only move forward through the crafting pipeline
+const getForwardStatusOptions = (currentStatus: string): string[] => {
+  switch (currentStatus) {
+    case 'ordered':
+    case 'crafting':
+      return ['crafting', 'completed'];
+    case 'completed':
+      return ['completed'];
+    default:
+      return ['pending', 'availability_confirmed', 'crafting', 'completed', 'declined'];
+  }
+};
+
+type AdminTab = 'dashboard' | 'users' | 'products' | 'catalog' | 'categories' | 'orders' | 'sold' | 'reviews' | 'pricing' | 'blog';
+
 export default function Admin() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pricing, updatePricing } = usePricing();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'products' | 'catalog' | 'categories' | 'orders' | 'pricing' | 'blog'>('dashboard');
+  const { unreadByType, markReadByType } = useNotifications();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    const tab = searchParams.get('tab');
+    const validTabs: AdminTab[] = ['dashboard', 'users', 'products', 'catalog', 'categories', 'orders', 'sold', 'reviews', 'pricing', 'blog'];
+    return (validTabs as string[]).includes(tab || '') ? (tab as AdminTab) : 'dashboard';
+  });
   const [usersList, setUsersList] = useState<any[]>([]);
   const [ordersList, setOrdersList] = useState<any[]>([]);
+  const [soldList, setSoldList] = useState<any[]>([]);
+  const [reviewsList, setReviewsList] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [deleteReviewId, setDeleteReviewId] = useState<string | null>(null);
   const [modelsList, setModelsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -127,16 +154,18 @@ export default function Admin() {
       const fetchData = async () => {
         setLoading(true);
         try {
-          const [usersRes, ordersRes, modelsRes, productsRes] = await Promise.all([
+          const [usersRes, ordersRes, modelsRes, productsRes, soldRes] = await Promise.all([
             fetch('/api/users', { headers: { Authorization: `Bearer ${user.token}` } }),
             fetch('/api/orders', { headers: { Authorization: `Bearer ${user.token}` } }),
             fetch('/api/models'),
             fetch('/api/products', { headers: { Authorization: `Bearer ${user.token}` } }),
+            fetch('/api/purchases', { headers: { Authorization: `Bearer ${user.token}` } }),
           ]);
           if (usersRes.ok) setUsersList(await usersRes.json());
           if (ordersRes.ok) setOrdersList(await ordersRes.json());
           if (modelsRes.ok) setModelsList(await modelsRes.json());
           if (productsRes.ok) setProductsList(await productsRes.json());
+          if (soldRes.ok) setSoldList(await soldRes.json());
         } catch (error) {
           console.error('Error fetching admin data', error);
         } finally {
@@ -146,6 +175,18 @@ export default function Admin() {
       fetchData();
     }
   }, [user]);
+
+  const inquiryNotifCount = unreadByType['new_inquiry'] ?? 0;
+  const orderNotifCount = unreadByType['new_order'] ?? 0;
+  const userNotifCount = unreadByType['new_user'] ?? 0;
+  const reviewNotifCount = unreadByType['new_review'] ?? 0;
+
+  useEffect(() => {
+    if (activeTab === 'orders' && inquiryNotifCount > 0) markReadByType('new_inquiry');
+    if (activeTab === 'sold' && orderNotifCount > 0) markReadByType('new_order');
+    if (activeTab === 'users' && userNotifCount > 0) markReadByType('new_user');
+    if (activeTab === 'reviews' && reviewNotifCount > 0) markReadByType('new_review');
+  }, [activeTab]);
 
   useEffect(() => {
     fetch('/api/config/configurator-status')
@@ -204,6 +245,34 @@ export default function Admin() {
       } else {
         const err = await res.json();
         alert(err.message || 'Delete failed');
+      }
+    } catch { alert('Delete failed'); }
+  };
+
+  const handleApproveReview = async (id: string, approved: boolean) => {
+    try {
+      const res = await fetch(`/api/reviews/${id}/approve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+        body: JSON.stringify({ approved }),
+      });
+      if (res.ok) {
+        setReviewsList(prev => prev.map(r => r._id === id ? { ...r, approved } : r));
+      }
+    } catch { console.error('Error updating review'); }
+  };
+
+  const handleDeleteReview = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reviews/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (res.ok) {
+        setReviewsList(prev => prev.filter(r => r._id !== id));
+        setDeleteReviewId(null);
+      } else {
+        alert('Delete failed');
       }
     } catch { alert('Delete failed'); }
   };
@@ -391,9 +460,22 @@ export default function Admin() {
     }
   };
 
+  const fetchReviews = async () => {
+    setReviewsLoading(true);
+    try {
+      const res = await fetch('/api/reviews', { headers: { Authorization: `Bearer ${user?.token}` } });
+      if (res.ok) setReviewsList((await res.json()).reviews ?? []);
+    } catch {
+      console.error('Failed to fetch reviews');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'catalog' && user?.role === 'administrator') fetchCatalog();
     if (activeTab === 'blog' && user?.role === 'administrator') fetchBlog();
+    if (activeTab === 'reviews' && user?.role === 'administrator') fetchReviews();
   }, [activeTab]);
 
   const fetchBlog = async () => {
@@ -583,6 +665,7 @@ export default function Admin() {
     crafting: 'Crafting',
     completed: 'Completed',
     declined: 'Declined',
+    ordered: 'Ordered',
   };
 
   const statusBreakdown = Object.entries(STATUS_LABELS).map(([key, label]) => ({
@@ -619,14 +702,16 @@ export default function Admin() {
           <h2 className="text-xl font-serif text-[var(--color-ink)] mb-6 px-4">Admin Panel</h2>
           <nav className="space-y-1 flex-1">
             {[
-              { id: 'dashboard', label: 'Dashboard', icon: Activity },
-              { id: 'users', label: 'Users', icon: Users },
-              { id: 'catalog', label: 'Catalog', icon: LayoutList },
-              { id: 'categories', label: 'Categories', icon: Tag },
-              { id: 'products', label: '3D Models', icon: Package },
-              { id: 'orders', label: 'Inquiries', icon: ShoppingCart },
-              { id: 'pricing', label: 'Pricing', icon: DollarSign },
-              { id: 'blog', label: 'Blog', icon: BookOpen },
+              { id: 'dashboard', label: 'Dashboard', icon: Activity, badge: 0 },
+              { id: 'users', label: 'Users', icon: Users, badge: userNotifCount },
+              { id: 'catalog', label: 'Catalog', icon: LayoutList, badge: 0 },
+              { id: 'categories', label: 'Categories', icon: Tag, badge: 0 },
+              { id: 'products', label: '3D Models', icon: Package, badge: 0 },
+              { id: 'orders', label: 'Inquiries', icon: ShoppingCart, badge: inquiryNotifCount },
+              { id: 'sold', label: 'Sold Items', icon: Banknote, badge: orderNotifCount },
+              { id: 'reviews', label: 'Reviews', icon: Star, badge: reviewNotifCount },
+              { id: 'pricing', label: 'Pricing', icon: DollarSign, badge: 0 },
+              { id: 'blog', label: 'Blog', icon: BookOpen, badge: 0 },
             ].map(item => (
               <button
                 key={item.id}
@@ -639,6 +724,7 @@ export default function Admin() {
               >
                 <item.icon size={18} />
                 {item.label}
+                <NotificationBadge count={item.badge} />
               </button>
             ))}
           </nav>
@@ -666,6 +752,8 @@ export default function Admin() {
             <div>
               <h1 className="text-3xl font-serif text-[var(--color-ink)] tracking-tight capitalize">
                 {activeTab === 'orders' ? 'Inquiries'
+                  : activeTab === 'sold' ? 'Sold Items'
+                  : activeTab === 'reviews' ? 'Reviews'
                   : activeTab === 'products' ? '3D Models'
                   : activeTab === 'catalog' ? 'Catalog Products'
                   : activeTab === 'blog' ? 'Blog Posts'
@@ -674,6 +762,8 @@ export default function Admin() {
               </h1>
               <p className="text-sm text-gray-500 mt-2">
                 Manage your platform's {activeTab === 'orders' ? 'inquiries'
+                  : activeTab === 'sold' ? 'sold items and crafting progress'
+                  : activeTab === 'reviews' ? 'customer reviews'
                   : activeTab === 'products' ? '3D models'
                   : activeTab === 'catalog' ? 'product catalog'
                   : activeTab === 'blog' ? 'blog posts and articles'
@@ -751,6 +841,7 @@ export default function Admin() {
                           crafting: { bar: 'from-amber-500 to-yellow-400', badge: 'bg-amber-100 text-amber-700', text: 'text-amber-600' },
                           completed: { bar: 'from-green-500 to-emerald-400', badge: 'bg-green-100 text-green-700', text: 'text-green-600' },
                           declined: { bar: 'from-red-500 to-rose-400', badge: 'bg-red-100 text-red-700', text: 'text-red-600' },
+                          ordered: { bar: 'from-amber-600 to-amber-400', badge: 'bg-amber-100 text-amber-700', text: 'text-amber-700' },
                         };
                         const s = style[key] || style.pending;
                         return (
@@ -1523,6 +1614,7 @@ export default function Admin() {
                           crafting: { pill: 'bg-amber-100 text-amber-700 border border-amber-200 focus:ring-amber-300', chevron: 'text-amber-500' },
                           completed: { pill: 'bg-green-100 text-green-700 border border-green-200 focus:ring-green-300', chevron: 'text-green-500' },
                           declined: { pill: 'bg-red-100 text-red-700 border border-red-200 focus:ring-red-300', chevron: 'text-red-400' },
+                          ordered: { pill: 'bg-amber-100 text-amber-700 border border-amber-200', chevron: 'text-amber-500' },
                         };
                         const ss = statusStyle[order.status] || statusStyle.pending;
                         return (
@@ -1542,20 +1634,43 @@ export default function Admin() {
                               <td className="py-4 px-4 font-semibold text-gray-700">Rs. {Number(order.totalPrice || 0).toLocaleString()}</td>
                               <td className="py-4 px-4 text-gray-500 text-xs">{new Date(order.createdAt).toLocaleDateString()}</td>
                               <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
-                                <div className="relative inline-flex items-center">
-                                  <select
-                                    value={order.status}
-                                    onChange={e => handleUpdateOrderStatus(order._id, e.target.value)}
-                                    className={`appearance-none pl-3 pr-7 py-1.5 rounded-full text-[11px] font-bold cursor-pointer focus:outline-none focus:ring-2 transition-colors ${ss.pill}`}
-                                  >
-                                    <option value="pending">Pending Review</option>
-                                    <option value="availability_confirmed">Availability Confirmed</option>
-                                    <option value="crafting">Crafting</option>
-                                    <option value="completed">Completed / Collection</option>
-                                    <option value="declined">Declined / Slot full</option>
-                                  </select>
-                                  <ChevronDown size={11} className={`absolute right-2 pointer-events-none ${ss.chevron}`} />
-                                </div>
+                                {['ordered', 'crafting', 'completed'].includes(order.status) ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-flex px-3 py-1.5 rounded-full text-[11px] font-bold ${ss.pill}`}>
+                                      {STATUS_LABELS[order.status] ?? order.status}
+                                    </span>
+                                    {getForwardStatusOptions(order.status).filter(s => s !== order.status).length > 0 && (
+                                      <div className="relative inline-flex items-center">
+                                        <select
+                                          value=""
+                                          onChange={e => e.target.value && handleUpdateOrderStatus(order._id, e.target.value)}
+                                          className="appearance-none pl-2 pr-6 py-1 rounded-full text-[10px] font-bold cursor-pointer border border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                                        >
+                                          <option value="" disabled>Move to...</option>
+                                          {getForwardStatusOptions(order.status).filter(s => s !== order.status).map(s => (
+                                            <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
+                                          ))}
+                                        </select>
+                                        <ChevronDown size={10} className="absolute right-1.5 pointer-events-none text-gray-400" />
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="relative inline-flex items-center">
+                                    <select
+                                      value={order.status}
+                                      onChange={e => handleUpdateOrderStatus(order._id, e.target.value)}
+                                      className={`appearance-none pl-3 pr-7 py-1.5 rounded-full text-[11px] font-bold cursor-pointer focus:outline-none focus:ring-2 transition-colors ${ss.pill}`}
+                                    >
+                                      <option value="pending">Pending Review</option>
+                                      <option value="availability_confirmed">Availability Confirmed</option>
+                                      <option value="crafting">Crafting</option>
+                                      <option value="completed">Completed / Collection</option>
+                                      <option value="declined">Declined / Slot full</option>
+                                    </select>
+                                    <ChevronDown size={11} className={`absolute right-2 pointer-events-none ${ss.chevron}`} />
+                                  </div>
+                                )}
                               </td>
                               <td className="py-4 px-4 text-right" onClick={e => e.stopPropagation()}>
                                 {isPendingDelete ? (
@@ -1617,6 +1732,140 @@ export default function Admin() {
                   </table>
                   {ordersList.length === 0 && (
                     <div className="text-center py-12 text-gray-500 text-sm">No inquiries found.</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── SOLD ITEMS ── */}
+          {activeTab === 'sold' && (
+            <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
+              {loading ? (
+                <div className="py-20 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Order Date</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Customer</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Inq. Ref</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Total</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Paid At</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {soldList.map(purchase => {
+                        const items: any[] = purchase.items || [];
+                        return (
+                          <tr key={purchase._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                            <td className="py-4 px-4 text-gray-500 text-xs">{new Date(purchase.createdAt).toLocaleDateString()}</td>
+                            <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{purchase.user?.name || 'Unknown'}</td>
+                            <td className="py-4 px-4">
+                              <button
+                                onClick={() => { setActiveTab('orders'); setExpandedOrderId(purchase.order); }}
+                                className="text-amber-600 hover:underline text-xs font-mono font-bold"
+                                title="View inquiry"
+                              >
+                                {purchase.inquiryRef}
+                              </button>
+                            </td>
+                            <td className="py-4 px-4 font-semibold text-gray-700">
+                              Rs. {Number(purchase.totalAmount || 0).toLocaleString()}
+                              <p className="text-[10px] text-gray-400 font-normal mt-0.5">{items.length} item{items.length !== 1 ? 's' : ''}</p>
+                            </td>
+                            <td className="py-4 px-4 text-gray-500 text-xs">{purchase.payment?.paidAt ? new Date(purchase.payment.paidAt).toLocaleDateString() : '—'}</td>
+                            <td className="py-4 px-4">
+                              <span className="px-3 py-1 text-[11px] font-bold bg-green-50 text-green-700 border border-green-200 rounded-full">
+                                Paid
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {soldList.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 text-sm">No sold items yet.</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── REVIEWS ── */}
+          {activeTab === 'reviews' && (
+            <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
+              {reviewsLoading ? (
+                <div className="py-20 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Customer</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Rating</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Review</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Date</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Status</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {reviewsList.map(review => {
+                        const isPendingDelete = deleteReviewId === review._id;
+                        return (
+                          <tr key={review._id} className={`transition-colors border-b border-gray-100 ${isPendingDelete ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                            <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{review.user?.name || 'Unknown'}</td>
+                            <td className="py-4 px-4">
+                              <div className="flex gap-0.5 text-amber-400">
+                                {[1, 2, 3, 4, 5].map(s => (
+                                  <Star key={s} size={13} fill={s <= review.rating ? 'currentColor' : 'none'} className={s <= review.rating ? '' : 'text-gray-300'} />
+                                ))}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-gray-600 max-w-sm">
+                              <p className="line-clamp-2">{review.text}</p>
+                            </td>
+                            <td className="py-4 px-4 text-gray-500 text-xs">{new Date(review.createdAt).toLocaleDateString()}</td>
+                            <td className="py-4 px-4">
+                              <span className={`px-3 py-1 text-[11px] font-bold rounded-full ${review.approved ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                {review.approved ? 'Approved' : 'Pending'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              {isPendingDelete ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="text-xs text-red-600 font-medium">Delete?</span>
+                                  <button onClick={() => handleDeleteReview(review._id)} className="px-2.5 py-1 text-xs bg-red-600 text-white rounded font-semibold hover:bg-red-700 transition-colors">Yes</button>
+                                  <button onClick={() => setDeleteReviewId(null)} className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded font-semibold hover:bg-gray-200 transition-colors">No</button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-2">
+                                  {review.approved ? (
+                                    <button onClick={() => handleApproveReview(review._id, false)} className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded font-semibold hover:bg-gray-200 transition-colors">Reject</button>
+                                  ) : (
+                                    <button onClick={() => handleApproveReview(review._id, true)} className="px-2.5 py-1 text-xs bg-green-600 text-white rounded font-semibold hover:bg-green-700 transition-colors">Approve</button>
+                                  )}
+                                  <button
+                                    onClick={() => setDeleteReviewId(review._id)}
+                                    className="p-1.5 border border-red-100 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    title="Delete review"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {reviewsList.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 text-sm">No reviews yet.</div>
                   )}
                 </div>
               )}
