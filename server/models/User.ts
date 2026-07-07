@@ -52,6 +52,7 @@ const userSchema = new mongoose.Schema({
     fontStyle: String,
     pendantShape: String,
     price: Number,
+    thumbnail: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }
   }],
   resetPasswordToken: { type: String, default: null },

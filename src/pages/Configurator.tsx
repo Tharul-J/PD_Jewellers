@@ -61,6 +61,7 @@ export default function Configurator() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [configuratorEnabled, setConfiguratorEnabled] = useState<boolean | null>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch('/api/config/configurator-status')
@@ -252,6 +253,9 @@ export default function Configurator() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
+      const canvas = viewerRef.current?.querySelector('canvas');
+      const thumbnail = canvas ? canvas.toDataURL('image/jpeg', 0.6) : '';
+
       const response = await fetch('/api/users/configurations', {
         method: 'POST',
         headers: {
@@ -266,7 +270,8 @@ export default function Configurator() {
           engravingText: (modelType === 'ring' && engraveWant) || modelType === 'pendant' ? customText : undefined,
           fontStyle,
           pendantShape: modelType === 'pendant' ? pendantShape : undefined,
-          price: calculatePrice().total
+          price: calculatePrice().total,
+          thumbnail
         })
       });
 
@@ -361,7 +366,7 @@ export default function Configurator() {
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row overflow-hidden">
       {/* 3D Viewer */}
-      <div className="flex-1 min-h-0 h-[50vh] lg:h-full relative border-r border-black/10 flex items-center justify-center" style={{ background: '#eae4dc' }}>
+      <div ref={viewerRef} className="flex-1 min-h-0 h-[50vh] lg:h-full relative border-r border-black/10 flex items-center justify-center" style={{ background: '#eae4dc' }}>
         {isLoadingModels ? (
            <div className="animate-pulse w-full h-full flex items-center justify-center bg-gray-50">
              <div className="flex flex-col items-center">
@@ -374,7 +379,7 @@ export default function Configurator() {
             <div className="absolute top-4 right-4 z-10 bg-white/70 border border-black/10 px-3 py-1.5 rounded-full text-[9px] uppercase tracking-widest text-black/50 backdrop-blur-sm">
               Drag to Revolve
             </div>
-            <Canvas shadows camera={{ position: [0, 0.5, 3.2], fov: 42 }}>
+            <Canvas shadows camera={{ position: [0, 0.5, 3.2], fov: 42 }} gl={{ preserveDrawingBuffer: true }}>
               {/* Set THREE.js scene background so WebGL clear color matches the CSS bg */}
               <color attach="background" args={['#eae4dc']} />
               <ambientLight intensity={0.6} />
