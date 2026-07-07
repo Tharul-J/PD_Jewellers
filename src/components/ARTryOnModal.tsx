@@ -45,12 +45,14 @@ interface ARTryOnModalProps {
   textDirection?: 'horizontal' | 'vertical';
 }
 
-// Mirrors PENDANT_SIZE_SCALE in Configurator.tsx — applied uniformly to the whole
-// AR pendant group (unlike the configurator, which scales the body only).
+// Applied uniformly to the whole AR pendant group (unlike the configurator, which scales
+// the body only). Deliberately a WIDER spread than the configurator's PENDANT_SIZE_SCALE:
+// against a real-world camera backdrop the pendant is small in-frame, so ±18% reads as
+// negligible — the size difference needs to be exaggerated to be perceptible on the neck.
 const AR_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
-  small: 0.70,
+  small: 0.65,
   medium: 1.00,
-  large: 1.40,
+  large: 1.45,
 };
 
 function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {

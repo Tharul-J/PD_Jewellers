@@ -68,7 +68,7 @@ export default function Admin() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [productForm, setProductForm] = useState({ name: '', category: 'Rings', description: '', price: '', image: '' });
+  const [productForm, setProductForm] = useState({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', hasStones: false });
   const [productFile, setProductFile] = useState<File | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
@@ -588,7 +588,7 @@ export default function Admin() {
       await fetchCatalog();
       setShowProductForm(false);
       setEditingProduct(null);
-      setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '' });
+      setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', hasStones: false });
       setProductFile(null);
     } catch (err: any) {
       alert(err.message);
@@ -623,6 +623,8 @@ export default function Admin() {
       description: product.description || '',
       price: String(product.price),
       image: product.image || '',
+      karatage: product.karatage || '',
+      hasStones: !!product.hasStones,
     });
     setProductFile(null);
     setShowProductForm(true);
@@ -631,7 +633,7 @@ export default function Admin() {
 
   const handleCancelProductForm = () => {
     setEditingProduct(null);
-    setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '' });
+    setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', hasStones: false });
     setProductFile(null);
     setShowProductForm(false);
   };
@@ -1396,6 +1398,27 @@ export default function Admin() {
                         {productForm.image && !productFile && (
                           <img src={productForm.image} alt="preview" className="mt-2 h-16 w-16 object-cover rounded border border-gray-100" onError={e => (e.currentTarget.style.display = 'none')} />
                         )}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Karatage / Metal</label>
+                        <input
+                          type="text"
+                          value={productForm.karatage}
+                          onChange={e => setProductForm({ ...productForm, karatage: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                          placeholder="e.g. 22K Yellow Gold"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <label className="flex items-center gap-2.5 cursor-pointer select-none pb-1">
+                          <input
+                            type="checkbox"
+                            checked={productForm.hasStones}
+                            onChange={e => setProductForm({ ...productForm, hasStones: e.target.checked })}
+                            className="w-4 h-4 accent-amber-500 cursor-pointer"
+                          />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Set with gemstones</span>
+                        </label>
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Description</label>

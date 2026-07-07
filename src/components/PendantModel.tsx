@@ -220,15 +220,20 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
   const { leftLinks, rightLinks, singleLinks } = useMemo(() => {
     const w = cachedWidth;
 
+    // Standard's corner attach points ride on the scaled letter group, so they scale with
+    // sizeMultiplier (the letters shrink/grow toward origin — rings/chain must follow).
+    // Only the bottom (attach) control point scales; the neck control points stay fixed.
+    const stdRingX = (w / 2 - 0.04) * sizeMultiplier;
+    const stdRingY = ATTACH_Y * sizeMultiplier;
     const lCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-w / 2 + 0.04, ATTACH_Y, 0),
-      new THREE.Vector3(-0.9,           1.5,      0),
-      new THREE.Vector3(-1.7,           3.2,      0),
+      new THREE.Vector3(-stdRingX, stdRingY, 0),
+      new THREE.Vector3(-0.9,      1.5,      0),
+      new THREE.Vector3(-1.7,      3.2,      0),
     ]);
     const rCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(w / 2 - 0.04, ATTACH_Y, 0),
-      new THREE.Vector3( 0.9,          1.5,      0),
-      new THREE.Vector3( 1.7,          3.2,      0),
+      new THREE.Vector3( stdRingX, stdRingY, 0),
+      new THREE.Vector3( 0.9,      1.5,      0),
+      new THREE.Vector3( 1.7,      3.2,      0),
     ]);
 
     const hs     = 1.1;   // fixed heart size — keep chain bail aligned with HEART_VNOT
@@ -286,7 +291,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
       rightLinks:  shape === 'standard' ? build(rCurve)  : shape === 'heart' ? build(heartRCurve) : shape === 'tag' ? build(tagRCurve) : [],
       singleLinks: [],
     };
-  }, [cachedWidth, cachedHeight, shape]);
+  }, [cachedWidth, cachedHeight, shape, sizeMultiplier]);
 
   // Heart outline shape (bezier, symmetric, centered at origin)
   const heartShapeGeom = useMemo(() => {
@@ -336,22 +341,27 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
 
           {/* ════ STANDARD: thin text, two-strand chain, rings tucked into letter corners ════ */}
           {shape === 'standard' && (<>
-            <Center onCentered={onMeasured}>
-              <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
-                <Text3D {...textProps}>
-                  {displayText}
-                  <meshPhysicalMaterial {...metalMaterial} envMapIntensity={5}
-                    roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
-                </Text3D>
-              </group>
-            </Center>
+            {/* Body group scales with the Pendant Size selector; rings + chain below stay
+                fixed (same jump-ring/chain anchor pattern as Heart/Tag). */}
+            <group scale={[sizeMultiplier, sizeMultiplier, sizeMultiplier]}>
+              <Center onCentered={onMeasured}>
+                <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
+                  <Text3D {...textProps}>
+                    {displayText}
+                    <meshPhysicalMaterial {...metalMaterial} envMapIntensity={5}
+                      roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
+                  </Text3D>
+                </group>
+              </Center>
+            </group>
 
-            {/* Rings inset 0.04 into letter corners; z=0 centers ring in letter depth */}
-            <mesh position={[-cachedWidth / 2 + 0.04, ATTACH_Y, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
+            {/* Rings inset 0.04 into letter corners; z=0 centers ring in letter depth.
+                Scaled by sizeMultiplier to track the scaled letter group's corners. */}
+            <mesh position={[(-cachedWidth / 2 + 0.04) * sizeMultiplier, ATTACH_Y * sizeMultiplier, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
               <torusGeometry args={[0.055, 0.018, 32, 64]} />
               {metalMat}
             </mesh>
-            <mesh position={[cachedWidth / 2 - 0.04, ATTACH_Y, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
+            <mesh position={[(cachedWidth / 2 - 0.04) * sizeMultiplier, ATTACH_Y * sizeMultiplier, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
               <torusGeometry args={[0.055, 0.018, 32, 64]} />
               {metalMat}
             </mesh>
@@ -363,8 +373,14 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
           {/* ════ HEART: backing plate + raised text + single bail at V-notch ════ */}
           {shape === 'heart' && (<>
             {/* Body group scales with the Pendant Size selector; the bail + chain below
-                stay fixed so the pendant reads as a smaller/larger body on the same chain. */}
-            <group scale={[sizeMultiplier, sizeMultiplier, sizeMultiplier]}>
+                stay fixed so the pendant reads as a smaller/larger body on the same chain.
+                The scale is about the origin, which would drop the V-notch away from the
+                fixed bail when s < 1 — so we offset the group up by (1-s)·HEART_VNOT to keep
+                the attach point glued to the bail at every size (no gap). */}
+            <group
+              scale={[sizeMultiplier, sizeMultiplier, sizeMultiplier]}
+              position={[0, (1 - sizeMultiplier) * HEART_VNOT, 0]}
+            >
               <mesh position={[0, 0, -0.10]} castShadow>
                 <extrudeGeometry args={[heartShapeGeom, {
                   depth: 0.10, bevelEnabled: true,
@@ -418,8 +434,14 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
           {/* ════ TAG: portrait rounded-rectangle with letters cut THROUGH the metal ════ */}
           {shape === 'tag' && (<>
             {/* Body group scales with the Pendant Size selector; the bail + chain below
-                stay fixed so the pendant reads as a smaller/larger body on the same chain. */}
-            <group scale={[sizeMultiplier, sizeMultiplier, sizeMultiplier]}>
+                stay fixed so the pendant reads as a smaller/larger body on the same chain.
+                The scale is about the origin, which would drop the tag's top edge away from
+                the fixed bail when s < 1 — so we offset the group up by (1-s)·(TAG_H/2) to
+                keep the top edge glued to the bail at every size (no gap). */}
+            <group
+              scale={[sizeMultiplier, sizeMultiplier, sizeMultiplier]}
+              position={[0, (1 - sizeMultiplier) * (TAG_H / 2), 0]}
+            >
               {/* TagInner suspends until font loads, then builds the cut-through geometry */}
               <Suspense fallback={
                 // Plain plate shown during font load (usually instant — font already cached)

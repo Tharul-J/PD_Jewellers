@@ -90,7 +90,10 @@ export default function ProductDetail() {
       setSelectedFont(queryFont);
       setSelectedSize(querySize);
     } else if (product) {
-      // Determine default metal from name
+      // Catalog products have no stored metal-color/stone-type field (only karatage
+      // text and a hasStones flag), so this heuristic is still needed to pick a
+      // swatch for the AR preview and cart/wishlist line items. The spec sheet
+      // below no longer uses these guesses — it reads product.karatage/hasStones directly.
       if (product.name.toLowerCase().includes('white gold') || product.name.toLowerCase().includes('platinum')) {
         setSelectedMetal('silver');
       } else if (product.name.toLowerCase().includes('rose gold') || product.name.toLowerCase().includes('18k')) {
@@ -99,7 +102,6 @@ export default function ProductDetail() {
         setSelectedMetal('gold');
       }
 
-      // Determine stone state
       if (product.hasStones) {
         if (product.name.toLowerCase().includes('diamond')) setSelectedStone('diamond');
         else if (product.name.toLowerCase().includes('amethyst')) setSelectedStone('ruby');
@@ -111,6 +113,10 @@ export default function ProductDetail() {
 
   // If the product doesn't exist and not custom, let the UI handle fallback nicely
   const finalProductExists = product || isCustomProduct;
+
+  // Stored catalog fields — used verbatim for spec-sheet display, no name-guessing.
+  const displayKaratage = product?.karatage || null;
+  const displayHasStones = product?.hasStones ?? false;
 
   // Calculate pricing based on options
   const computedPrice = useMemo(() => {
@@ -135,26 +141,9 @@ export default function ProductDetail() {
 
       return Math.round(metalPart + stonePart + engravingPart);
     } else if (product) {
-      // Base catalog price represents the metal model
-      let metalMultiplier = 1;
-      if (selectedMetal === 'white')    metalMultiplier = 1.2;
-      if (selectedMetal === 'rose')     metalMultiplier = 1.2;
-      if (selectedMetal === 'gold')     metalMultiplier = 1.35;
-      if (selectedMetal === 'platinum') metalMultiplier = 1.5;
-
-      let stonePremium = 0;
-      if (product.hasStones && selectedStone !== 'aquamarine') {
-        const storedStonePrice = pricing ? (pricing as any)[`stonePrice_${selectedStone}`] : undefined;
-        const stonePrice = storedStonePrice ?? STONES[selectedStone]?.price ?? 0;
-        stonePremium = Math.round(stonePrice * 0.4);
-      }
-
-      let engravingPart = 0;
-      if (wantEngraving) {
-        engravingPart = pricing?.engravingPrice || 5000;
-      }
-
-      return Math.round((product.price * metalMultiplier) + stonePremium + engravingPart);
+      // Catalog products are ready-to-wear with no customization options exposed,
+      // so the displayed price is exactly the admin-entered catalog price.
+      return Math.round(product.price);
     }
     return 0;
   }, [product, isCustomProduct, selectedMetal, selectedStone, wantEngraving, queryType, pricing]);
@@ -630,7 +619,7 @@ export default function ProductDetail() {
                   <div className="flex justify-between items-center">
                     <span className="text-stone-400">Standard Metal Alloy</span>
                     <span className="font-bold text-stone-800 uppercase tracking-widest font-mono">
-                      {product ? (product.name.toLowerCase().includes('platinum') ? 'Platinum 950' : (product.name.toLowerCase().includes('white gold') ? '18K White Gold' : (product.name.toLowerCase().includes('rose gold') ? '18K Rose Gold' : '22K Gold Sovereign'))) : 'Solid Precious Metal'}
+                      {displayKaratage ? `${displayKaratage} SOVEREIGN` : 'Solid Precious Metal'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -718,11 +707,11 @@ export default function ProductDetail() {
                     <div className="text-stone-400">Metal Weight:</div>
                     <div className="text-stone-800 font-medium">Bespoke (4.50g - 14.50g average)</div>
                     <div className="text-stone-400">Metal Purity:</div>
-                    <div className="text-stone-800 font-medium">{METALS[selectedMetal].name}</div>
+                    <div className="text-stone-800 font-medium">{isCustomProduct ? METALS[selectedMetal].name : (displayKaratage || 'Solid Precious Metal')}</div>
                     <div className="text-stone-400">Hallmark Grade:</div>
                     <div className="text-stone-800 font-medium">PD Certified 916 Luxury Shield</div>
                     <div className="text-stone-400">Accent stones:</div>
-                    <div className="text-stone-800 font-medium">{(isCustomProduct || product?.hasStones) ? STONES[selectedStone].name : 'No stones (Solid plain)'}</div>
+                    <div className="text-stone-800 font-medium">{isCustomProduct ? STONES[selectedStone].name : (displayHasStones ? 'Genuine Fine Gemstones' : 'None')}</div>
                     <div className="text-stone-400">Country of birth:</div>
                     <div className="text-stone-800 font-medium">Sri Lanka (Colombo House)</div>
                   </div>

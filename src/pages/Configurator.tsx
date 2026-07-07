@@ -1,6 +1,6 @@
 import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAuth } from '../context/AuthContext';
@@ -16,12 +16,39 @@ import { prefetchModel } from '../utils/modelLoader';
 import { PendantModel } from '../components/PendantModel';
 import { Scene3DErrorBoundary } from '../components/Scene3DErrorBoundary';
 
-// Scales the pendant body (not the chain) for Heart/Tag shapes; Standard has no size control.
+// Scales the pendant body (not the chain/attachment) for all three pendant shapes.
 const PENDANT_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
-  small: 0.70,
+  small: 0.82,
   medium: 1.00,
-  large: 1.40,
+  large: 1.22,
 };
+
+// Camera FOV compensates for body scale so Large stays framed and Small doesn't look lost.
+const PENDANT_SIZE_FOV: Record<'small' | 'medium' | 'large', number> = {
+  small: 38,
+  medium: 42,
+  large: 46,
+};
+
+// Real-world reference sizes shown in the UI only — geometry is already calibrated visually.
+const PENDANT_SIZE_INFO: Record<'small' | 'medium' | 'large', { label: string; mm: string }> = {
+  small:  { label: 'Small',  mm: '~18 mm' },
+  medium: { label: 'Medium', mm: '~22 mm' },
+  large:  { label: 'Large',  mm: '~27 mm' },
+};
+
+// Lives inside <Canvas> so it can read the active camera via useThree(). Ring scenes
+// always resolve to 42 (the original constant fov), so only the pendant scene reacts.
+function PendantCameraFov({ fov }: { fov: number }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+      (camera as THREE.PerspectiveCamera).fov = fov;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, fov]);
+  return null;
+}
 
 const DEFAULT_RING_STYLES = [
   { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000, hasRealStone: false },
@@ -399,6 +426,7 @@ export default function Configurator() {
               Drag to Revolve
             </div>
             <Canvas shadows camera={{ position: [0, 0.5, 3.2], fov: 42 }} gl={{ preserveDrawingBuffer: true }}>
+              <PendantCameraFov fov={modelType === 'pendant' ? PENDANT_SIZE_FOV[pendantSize] : 42} />
               {/* Set THREE.js scene background so WebGL clear color matches the CSS bg */}
               <color attach="background" args={['#eae4dc']} />
               <ambientLight intensity={0.6} />
@@ -682,27 +710,26 @@ export default function Configurator() {
                 </div>
               </div>
 
-              {(pendantShape === 'heart' || pendantShape === 'tag') && (
-                <div className="mb-10">
-                  <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
-                    <span>Pendant Size</span>
-                    <span className="opacity-50 capitalize">{pendantSize}</span>
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['small', 'medium', 'large'] as const).map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => setPendantSize(size)}
-                        className={`py-3 px-4 text-xs tracking-widest transition-colors border flex flex-col items-center gap-1 capitalize ${
-                          pendantSize === size ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
+              <div className="mb-10">
+                <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
+                  <span>Pendant Size</span>
+                  <span className="opacity-50">{PENDANT_SIZE_INFO[pendantSize].label} · {PENDANT_SIZE_INFO[pendantSize].mm}</span>
+                </h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['small', 'medium', 'large'] as const).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setPendantSize(size)}
+                      className={`py-3 px-4 min-h-[3.25rem] text-xs tracking-widest transition-colors border flex flex-col items-center justify-center gap-0.5 ${
+                        pendantSize === size ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'
+                      }`}
+                    >
+                      <span className="capitalize font-medium">{PENDANT_SIZE_INFO[size].label}</span>
+                      <span className="text-[9px] opacity-65 normal-case tracking-normal">{PENDANT_SIZE_INFO[size].mm}</span>
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
 
               <div className="mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
