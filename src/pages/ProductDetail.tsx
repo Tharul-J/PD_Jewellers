@@ -20,6 +20,8 @@ import { PendantModel } from '../components/PendantModel';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import ARTryOnModal from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
+import { useAdminGuard } from '../hooks/useAdminGuard';
+import AdminActionWarning from '../components/AdminActionWarning';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +31,7 @@ export default function ProductDetail() {
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { pricing } = usePricing();
   const { user } = useAuth();
+  const { guard, showWarning, dismiss } = useAdminGuard();
 
   const isCustomProduct = id === 'custom';
 
@@ -351,8 +354,8 @@ export default function ProductDetail() {
 
               {/* Heart and Share Floating over Picture */}
               <div className="absolute bottom-6 right-6 flex flex-col gap-3 z-10">
-                <button 
-                  onClick={handleToggleWishlist}
+                <button
+                  onClick={() => guard(handleToggleWishlist)}
                   className="w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur-md hover:bg-white rounded-full shadow-lg border border-stone-100 transition-all active:scale-95 text-rose-500"
                   aria-label="Toggle Wishlist"
                 >
@@ -659,8 +662,8 @@ export default function ProductDetail() {
                   </button>
                 </div>
 
-                <button 
-                  onClick={handleAddToBag}
+                <button
+                  onClick={() => guard(handleAddToBag)}
                   className="flex-1 bg-stone-950 text-white rounded-xl py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-stone-900 transition-colors flex items-center justify-center gap-2 shadow-md shadow-stone-900/10"
                 >
                   <ShoppingBag size={15} /> Inquire Now
@@ -775,10 +778,11 @@ export default function ProductDetail() {
         fontStyle={selectedFont}
       />
 
-      <SizeGuideModal 
-        isOpen={isSizeOpen} 
-        onClose={() => setIsSizeOpen(false)} 
+      <SizeGuideModal
+        isOpen={isSizeOpen}
+        onClose={() => setIsSizeOpen(false)}
       />
+      {showWarning && <AdminActionWarning onClose={dismiss} />}
     </div>
   );
 }

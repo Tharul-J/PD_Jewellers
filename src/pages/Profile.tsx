@@ -8,6 +8,8 @@ import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lo
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
+import { useAdminGuard } from '../hooks/useAdminGuard';
+import AdminActionWarning from '../components/AdminActionWarning';
 import { METALS, STONES, FONTS } from '../constants';
 
 const PRESET_AVATARS = [
@@ -34,6 +36,7 @@ export default function Profile() {
   const { addToCart, setIsCartOpen } = useCart();
   const navigate = useNavigate();
   const { unreadByType, markReadByType } = useNotifications();
+  const { guard, showWarning, dismiss } = useAdminGuard();
 
   const [profileData, setProfileData] = useState<any>(null);
   const [deletingConfigId, setDeletingConfigId] = useState<string | null>(null);
@@ -881,7 +884,7 @@ export default function Profile() {
                               <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-4"><span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Starting from</span>Rs. {Number(item.price).toLocaleString()}</p>
                               
                               <button
-                                onClick={() => handleAddToInquiry(item)}
+                                onClick={() => guard(() => handleAddToInquiry(item))}
                                 className="w-full text-center btn-richbrown text-white py-2 text-[10px] uppercase tracking-widest transition-colors mb-2"
                               >
                                 Add to Inquiry
@@ -1194,7 +1197,7 @@ export default function Profile() {
                         </div>
 
                         <button
-                          onClick={handleSubmitReview}
+                          onClick={() => guard(handleSubmitReview)}
                           disabled={reviewSubmitting || !reviewRating || !reviewText.trim()}
                           className="px-6 py-2.5 btn-richbrown text-white text-xs tracking-widest uppercase transition-colors disabled:opacity-40"
                         >
@@ -1367,7 +1370,7 @@ export default function Profile() {
                               </div>
 
                               <button
-                                onClick={() => handleAddConfigToInquiry(config)}
+                                onClick={() => guard(() => handleAddConfigToInquiry(config))}
                                 className="w-full text-center btn-richbrown text-white py-2 text-[10px] uppercase tracking-widest transition-colors mb-2"
                               >
                                 Add to Inquiry
@@ -1392,6 +1395,7 @@ export default function Profile() {
           </div>
         </motion.div>
       </div>
+      {showWarning && <AdminActionWarning onClose={dismiss} />}
     </div>
   );
 }

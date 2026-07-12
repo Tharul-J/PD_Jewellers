@@ -6,6 +6,8 @@ import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/products';
+import { useAdminGuard } from '../hooks/useAdminGuard';
+import AdminActionWarning from '../components/AdminActionWarning';
 export { MOCK_PRODUCTS };
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -134,6 +136,7 @@ export default function Collections() {
   const { addToCart } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { user } = useAuth();
+  const { guard, showWarning, dismiss } = useAdminGuard();
 
   const filteredProducts = useMemo(() => {
     let products =
@@ -535,7 +538,7 @@ export default function Collections() {
                         navigate('/login');
                         return;
                       }
-                      toggleWishlistItem(item);
+                      guard(() => toggleWishlistItem(item));
                     }}
                     className="w-9 h-9 flex items-center justify-center bg-white rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
                   >
@@ -579,7 +582,7 @@ export default function Collections() {
                   className="w-full h-full object-cover mix-blend-multiply transition-transform duration-300 ease-out group-hover:scale-[2]"
                 />
                 <button
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); addToCart(product); }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); guard(() => addToCart(product)); }}
                   className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gold-gradient text-white p-3 rounded-full opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 shadow-xl hover:opacity-90 hover:scale-105 z-10"
                   title="Add to Bag"
                 >
@@ -598,6 +601,7 @@ export default function Collections() {
       )}
       </div>
       </div>
+      {showWarning && <AdminActionWarning onClose={dismiss} />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -11,9 +11,11 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +42,7 @@ export default function Register() {
       }
 
       login(data);
-      navigate('/profile');
+      navigate(redirectTo || '/profile');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -126,7 +128,7 @@ export default function Register() {
         </form>
 
         <div className="text-center mt-12 text-sm text-gray-500">
-          <p>Already have an account? <Link to="/login" className="text-[var(--color-ink)] font-semibold border-b border-[var(--color-ink)] hover:text-[var(--color-gold)] hover:border-[var(--color-gold)] transition-all pb-0.5">Sign in</Link></p>
+          <p>Already have an account? <Link to={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'} className="text-[var(--color-ink)] font-semibold border-b border-[var(--color-ink)] hover:text-[var(--color-gold)] hover:border-[var(--color-gold)] transition-all pb-0.5">Sign in</Link></p>
         </div>
       </motion.div>
     </div>

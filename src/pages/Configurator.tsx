@@ -15,6 +15,8 @@ import { prefetchModel } from '../utils/modelLoader';
 
 import { PendantModel } from '../components/PendantModel';
 import { Scene3DErrorBoundary } from '../components/Scene3DErrorBoundary';
+import { useAdminGuard } from '../hooks/useAdminGuard';
+import AdminActionWarning from '../components/AdminActionWarning';
 
 // Scales the pendant body (not the chain/attachment) for all three pendant shapes.
 const PENDANT_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
@@ -93,11 +95,13 @@ export default function Configurator() {
   const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const { user } = useAuth();
+  const { guard, showWarning, dismiss } = useAdminGuard();
   const { pricing } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [configuratorEnabled, setConfiguratorEnabled] = useState<boolean | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     fetch('/api/config/configurator-status')
@@ -239,12 +243,35 @@ export default function Configurator() {
   const currentStyleDef = dynamicStyles.find(r => r.id === ringStyle);
 
   // After login redirect back here, auto-trigger the save the user originally attempted.
+  // A brand-new account hits this on a cold cache (no cfg_cache_api_models, no cached GLB),
+  // so the canvas can take well over a fixed delay to mount — poll for it instead of guessing.
   useEffect(() => {
     if (user && localStorage.getItem('cfg_pendingAutoSave') === 'true') {
-      localStorage.removeItem('cfg_pendingAutoSave');
-      // Small delay to let models finish loading before the save request fires.
-      const t = setTimeout(() => handleSaveConfiguration(), 800);
-      return () => clearTimeout(t);
+      let cancelled = false;
+      let attempts = 0;
+      const maxAttempts = 20; // ~4s ceiling waiting for the canvas to mount
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const waitForCanvas = () => {
+        if (cancelled) return;
+        attempts++;
+        if (canvasRef.current || attempts >= maxAttempts) {
+          // Extra buffer so the GLB model has a chance to render before capture.
+          timeoutId = setTimeout(() => {
+            if (cancelled) return;
+            // Flag removal is deferred to the actual fire (not detection time) so that
+            // StrictMode's dev-only double-invoke — which cancels the first run before
+            // it completes — doesn't leave the second run with nothing to consume.
+            if (localStorage.getItem('cfg_pendingAutoSave') === 'true') {
+              localStorage.removeItem('cfg_pendingAutoSave');
+              guard(() => handleSaveConfiguration());
+            }
+          }, 600);
+        } else {
+          timeoutId = setTimeout(waitForCanvas, 200);
+        }
+      };
+      timeoutId = setTimeout(waitForCanvas, 200);
+      return () => { cancelled = true; clearTimeout(timeoutId); };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -299,8 +326,15 @@ export default function Configurator() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const canvas = viewerRef.current?.querySelector('canvas');
-      const thumbnail = canvas ? canvas.toDataURL('image/jpeg', 0.6) : '';
+      const canvas = canvasRef.current;
+      let thumbnail = '';
+      if (canvas) {
+        try {
+          thumbnail = canvas.toDataURL('image/jpeg', 0.6);
+        } catch (e) {
+          console.error('Thumbnail capture failed:', e);
+        }
+      }
 
       const response = await fetch('/api/users/configurations', {
         method: 'POST',
@@ -425,7 +459,7 @@ export default function Configurator() {
             <div className="absolute top-4 right-4 z-10 bg-white/70 border border-black/10 px-3 py-1.5 rounded-full text-[9px] uppercase tracking-widest text-black/50 backdrop-blur-sm">
               Drag to Revolve
             </div>
-            <Canvas shadows camera={{ position: [0, 0.5, 3.2], fov: 42 }} gl={{ preserveDrawingBuffer: true }}>
+            <Canvas ref={canvasRef} shadows camera={{ position: [0, 0.5, 3.2], fov: 42 }} gl={{ preserveDrawingBuffer: true }}>
               <PendantCameraFov fov={modelType === 'pendant' ? PENDANT_SIZE_FOV[pendantSize] : 42} />
               {/* Set THREE.js scene background so WebGL clear color matches the CSS bg */}
               <color attach="background" args={['#eae4dc']} />
@@ -838,7 +872,7 @@ export default function Configurator() {
           )}
           <div className="flex gap-2">
             <button
-              onClick={handleSaveConfiguration}
+              onClick={() => guard(handleSaveConfiguration)}
               disabled={isSaving}
               className="flex-1 bg-gold-gradient text-white py-4 uppercase tracking-[0.2em] text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
             >
@@ -873,10 +907,11 @@ export default function Configurator() {
         textDirection={textDirection}
       />
       
-      <SizeGuideModal 
-        isOpen={isSizeGuideOpen} 
-        onClose={() => setIsSizeGuideOpen(false)} 
+      <SizeGuideModal
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
       />
+      {showWarning && <AdminActionWarning onClose={dismiss} />}
     </div>
   );
 }

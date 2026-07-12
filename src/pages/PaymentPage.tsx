@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CreditCard, Lock, CheckCircle, ShieldAlert } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { useAdminGuard } from '../hooks/useAdminGuard';
+import AdminActionWarning from '../components/AdminActionWarning';
 
 declare global {
   interface Window { PasswordCredential: any; }
@@ -12,6 +14,7 @@ export default function PaymentPage() {
   const { inquiryId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { guard, showWarning, dismiss } = useAdminGuard();
 
   const [inquiry, setInquiry] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -197,7 +200,7 @@ export default function PaymentPage() {
         {error && <p className="text-rose-600 text-xs mb-4">{error}</p>}
 
         <button
-          onClick={handleSubmit}
+          onClick={() => guard(handleSubmit)}
           disabled={submitting}
           className="w-full btn-richbrown text-white text-xs tracking-widest uppercase py-3.5 rounded transition-colors disabled:opacity-50"
         >
@@ -208,6 +211,7 @@ export default function PaymentPage() {
           <Lock size={11} /> SSL encrypted &middot; Demo environment
         </p>
       </div>
+      {showWarning && <AdminActionWarning onClose={dismiss} />}
     </div>
   );
 }

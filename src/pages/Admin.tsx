@@ -798,17 +798,32 @@ export default function Admin() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
                 {[
                   { label: 'Catalog Products', value: productsList.length, icon: LayoutList, sub: 'In collection', gradient: 'from-amber-500 via-yellow-400 to-amber-300', shadow: 'shadow-amber-200/60' },
-                  { label: 'Customers', value: customerCount, icon: Users, sub: 'Registered', gradient: 'from-stone-800 via-stone-700 to-stone-800', shadow: 'shadow-stone-400/30' },
+                  { label: 'Customers', value: customerCount, icon: Users, sub: 'Registered', gradient: 'from-amber-900 via-yellow-800 to-amber-700', shadow: 'shadow-amber-800/30' },
                   { label: 'Inquiries', value: ordersList.length, icon: ShoppingCart, sub: 'Total received', gradient: 'from-amber-700 via-amber-600 to-yellow-500', shadow: 'shadow-amber-300/50' },
                   { label: '3D Models', value: modelsList.length, icon: Package, sub: 'Uploaded', gradient: 'from-yellow-600 via-amber-500 to-yellow-400', shadow: 'shadow-yellow-300/50' },
                 ].map((stat, i) => (
-                  <div key={i} className={`relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${stat.gradient} shadow-lg ${stat.shadow}`}>
+                  <motion.div
+                    key={i}
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      e.currentTarget.style.setProperty('--spot-x', `${((e.clientX - rect.left) / rect.width) * 100}%`);
+                      e.currentTarget.style.setProperty('--spot-y', `${((e.clientY - rect.top) / rect.height) * 100}%`);
+                    }}
+                    whileHover={{ y: -6, scale: 1.025 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                    className={`group relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${stat.gradient} shadow-lg ${stat.shadow} hover:shadow-2xl transition-shadow duration-300`}
+                  >
+                    {/* Cursor-follow spotlight */}
+                    <div
+                      className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      style={{ background: 'radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(255,255,255,0.35), transparent 60%)' }}
+                    />
                     {/* Decorative rings */}
-                    <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10" />
-                    <div className="absolute -bottom-8 -right-2 w-20 h-20 rounded-full bg-white/5" />
+                    <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-125" />
+                    <div className="absolute -bottom-8 -right-2 w-20 h-20 rounded-full bg-white/5 transition-transform duration-500 group-hover:scale-110" />
                     <div className="relative">
                       <div className="flex items-start justify-between mb-5">
-                        <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm transition-transform duration-300 group-hover:scale-110 group-hover:bg-white/30">
                           <stat.icon size={20} className="text-white" />
                         </div>
                         <span className="text-white/60 text-[9px] font-bold uppercase tracking-widest text-right leading-tight">{stat.sub}</span>
@@ -818,7 +833,7 @@ export default function Admin() {
                       </h3>
                       <p className="text-white/75 text-[10px] font-semibold uppercase tracking-widest">{stat.label}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
 

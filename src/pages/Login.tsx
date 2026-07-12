@@ -197,7 +197,7 @@ export default function Login() {
             <p>
               New here?{' '}
               <Link
-                to="/register"
+                to={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'}
                 className="text-stone-900 hover:text-amber-600 font-bold underline decoration-amber-200 decoration-2 transition-colors inline-block ml-1"
               >
                 Create an account

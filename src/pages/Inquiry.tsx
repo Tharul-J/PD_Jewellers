@@ -4,11 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { FileText, ClipboardCheck, ArrowLeft, Phone, Calendar, Truck, Landmark, Mail, User } from 'lucide-react';
+import { useAdminGuard } from '../hooks/useAdminGuard';
+import AdminActionWarning from '../components/AdminActionWarning';
 
 export default function Inquiry() {
   const { items, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { guard, showWarning, dismiss } = useAdminGuard();
   const [isProcessing, setIsProcessing] = useState(false);
   const [inquiryCreated, setInquiryCreated] = useState<any | null>(null);
 
@@ -158,7 +161,7 @@ export default function Inquiry() {
             Submit a bespoke order or check availability for luxury items. One of our master jewellers will review parameters instantly.
           </p>
           
-          <form onSubmit={handleInquirySubmit} className="space-y-10">
+          <form onSubmit={(e) => { e.preventDefault(); guard(() => handleInquirySubmit(e)); }} className="space-y-10">
             {/* Contact Information */}
             <section className="bg-white border border-stone-100 p-8 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.01)] space-y-6">
               <h2 className="text-xs uppercase tracking-[0.15em] font-extrabold text-[#cca150] border-b border-stone-100 pb-3 flex items-center gap-2">
@@ -362,6 +365,7 @@ export default function Inquiry() {
           </div>
         </div>
       </div>
+      {showWarning && <AdminActionWarning onClose={dismiss} />}
     </div>
   );
 }
