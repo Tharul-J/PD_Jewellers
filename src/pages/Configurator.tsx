@@ -608,12 +608,12 @@ export default function Configurator() {
                 <span>Center Stone</span>
                 <span className="opacity-50">{STONES[stone].name}</span>
               </h3>
-              <div className="flex gap-4 cursor-pointer">
+              <div className="flex flex-wrap gap-2 cursor-pointer">
                 {(Object.keys(STONES) as Array<keyof typeof STONES>).map((key) => (
                   <button
                     key={key}
                     onClick={() => setStone(key)}
-                    className={`w-12 h-12 rounded-full border-2 p-1 transition-all ${
+                    className={`w-10 h-10 rounded-full border-2 p-1 transition-all ${
                       stone === key ? 'border-[var(--color-ink)]' : 'border-transparent'
                     }`}
                   >

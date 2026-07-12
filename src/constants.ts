@@ -2,6 +2,7 @@ export const METALS = {
   silver:   { name: '925 Sterling Silver',       color: '#e4e4e4', metalness: 0.9,  roughness: 0.15, clearcoat: 0.3,  clearcoatRoughness: 0.2,  priceMultiplier: 1  },
   white:    { name: '18K White Gold',             color: '#eeecea', metalness: 1,    roughness: 0.04, clearcoat: 0.8,  clearcoatRoughness: 0.05, priceMultiplier: 13 },
   gold:     { name: '22K Yellow Gold (916 Gold)', color: '#d4a820', metalness: 1,    roughness: 0.04, clearcoat: 0.6,  clearcoatRoughness: 0.08, priceMultiplier: 18 },
+  gold18k: { name: '18K Yellow Gold', color: '#F5C842', metalness: 1, roughness: 0.03, clearcoat: 0.85, clearcoatRoughness: 0.04, priceMultiplier: 13 },
   rose:     { name: '18K Rose Gold',              color: '#e89080', metalness: 1,    roughness: 0.05, clearcoat: 0.5,  clearcoatRoughness: 0.1,  priceMultiplier: 13 },
   platinum: { name: 'Platinum (Pt950)',            color: '#b8b8b4', metalness: 1,    roughness: 0.03, clearcoat: 1.0,  clearcoatRoughness: 0.03, priceMultiplier: 22 },
 };
@@ -15,6 +16,12 @@ export const STONES = {
   padparadscha:  { name: 'Ceylon Padparadscha Sapphire',   color: '#FF7F50', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0,    clearcoat: 1, price: 480000 },
   moonstone:     { name: 'Premium Blue-Sheen Moonstone',   color: '#B0C4DE', transmission: 0.6, ior: 1.52, thickness: 2, roughness: 0.05, clearcoat: 1, price: 45000  },
   yellowsapphire:{ name: 'Yellow Ceylon Sapphire',         color: '#FFD166', transmission: 0.9, ior: 1.76, thickness: 2, roughness: 0,    clearcoat: 1, price: 75000  },
+  tourmaline:  { name: 'Ceylon Violet Tourmaline',    color: '#5D2E8C', transmission: 0.9,  ior: 1.634, thickness: 2, roughness: 0,    clearcoat: 1, price: 55000  },
+  amethyst:    { name: 'Purple Amethyst',              color: '#9B59B6', transmission: 0.9,  ior: 1.544, thickness: 2, roughness: 0,    clearcoat: 1, price: 35000  },
+  spinel:      { name: 'Rose Spinel',                  color: '#E0306A', transmission: 0.9,  ior: 1.718, thickness: 2, roughness: 0,    clearcoat: 1, price: 95000  },
+  alexandrite: { name: 'Alexandrite',                  color: '#2E7D55', transmission: 0.9,  ior: 1.746, thickness: 2, roughness: 0,    clearcoat: 1, price: 350000 },
+  catseye:     { name: "Chrysoberyl Cat's Eye",        color: '#C8901A', transmission: 0.75, ior: 1.746, thickness: 2, roughness: 0.08, clearcoat: 1, price: 180000 },
+  zircon:      { name: 'Blue Zircon',                  color: '#0098C9', transmission: 0.9,  ior: 1.930, thickness: 2, roughness: 0,    clearcoat: 1, price: 60000  },
 };
 
 export const FONTS = {
