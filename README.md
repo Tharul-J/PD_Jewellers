@@ -1,121 +1,123 @@
-# PD Jewellers — Premium Bespoke Fine Jewelry & Custom 3D Studio
+# PD Jewellers
 
-PD Jewellers is an elegant, premium e-commerce platform dedicated to showcasing and configuring fine luxury jewelry. Combining a highly-polished, Asian-inspired aesthetic with state-of-the-art interactive 3D rendering and Augmented Reality (AR), this full-stack application allows users to preview luxury collections, customize bespoke jewelry pieces in real time, and request atelier inquiries.
+A full-stack MERN e-commerce platform for a jewellery business, built as a university final-year project. Features a live 3D jewellery configurator and an AR try-on experience alongside standard e-commerce functionality.
 
----
-
-## 💎 Core Highlights & Features
-
-### 1. Custom 3D Configurator
-*   **Real-time 3D Rendering**: Built using **Three.js** and **React Three Fiber (R3F)** for high-fidelity materials, lighting, and ambient jewelry reflection.
-*   **Bespoke Options**:
-    *   **Style**: Solitaire, Three-Stone Princess, Vintage Twist, Classic Engraved, and Braided Bands.
-    *   **Metals**: Platinum, Yellow Gold, White Gold, and Rose Gold.
-    *   **Center Stones**: Diamond, Sapphire, Ruby, Emerald, and Aquamarine.
-    *   **Custom Engraving**: Configurable 3D text engraving rendered on the metal band with font pairings.
-*   **AR Try-On Integration**: Supports WebXR (`@react-three/xr`) for seamless, device-level augmented reality visualization of jewelry designs.
-
-### 2. High-Fidelity Shopping & Inquiry Services
-*   **Bespoke Order/Inquiry Flow**: Users build their dream design and submit inquiry requests. Costs are displayed in Sri Lankan Rupees (Rs.).
-*   **Real-Time Status Tracking**: Customers can log in to view their active inquiries on a multi-stage timeline:
-    `Pending Review` ➔ `Availability Confirmed` ➔ `Crafting` ➔ `Collection / Handover`.
-*   **Exquisite Aesthetic**: Responsive modern grid layouts with classic serif typography pairings (*Playfair Display* and *Montserrat*), gold accent colorways, and bespoke micro-interactions.
-
-### 3. Comprehensive Admin Dashboard
-*   Authorized managers can log in to:
-    *   Track active inquiries via inquiry codes (e.g., `INQ-4209`).
-    *   Approve, modify, or decline workshop slot requests.
-    *   Adjust gold/platinum rates, stone pricing dynamics, and handcraft overhead parameters dynamically.
+**Live demo:** [LIVE_URL]
 
 ---
 
-## 🛠️ Technology Stack
+## Tech Stack
 
-*   **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Motion (formerly Framer Motion), React Router v7.
-*   **3D / Graphics**: Three.js, React Three Fiber, React Three Drei, `@react-three/xr`.
-*   **Backend**: Node.js, Express, Custom CommonJS compilation with `esbuild`.
-*   **Database & Auth**: MongoDB (Mongoose ODM), JWT-based stateless session authentication, Bcrypt.js password hashing.
-*   **Icons & Assets**: Lucide React.
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-*   [Node.js](https://nodejs.org/) v18.0.0 or higher.
-*   [MongoDB](https://www.mongodb.com/) (Local installation or MongoDB Atlas cloud connection string).
-
-### Installation
-
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/your-username/pd-jewellers.git
-    cd pd-jewellers
-    ```
-
-2.  **Install dependencies**
-    ```bash
-    npm install
-    ```
-
-3.  **Environment Setup**
-    Create a `.env` file in the root directory and populate it with your MongoDB connection string and JWT signature secret. Use `.env.example` as a template:
-    ```env
-    MONGODB_URI=mongodb://localhost:27017/pd_jewellers
-    JWT_SECRET=your_jwt_private_key_secret_here
-    ```
-
-4.  **Seed Initial Products (Optional)**
-    Run the seed script to populate products, precious stones, and pricing matrices:
-    ```bash
-    npx tsx seeder.ts
-    ```
+| Layer | Technologies |
+|---|---|
+| Frontend | React 18 + TypeScript, Vite, Tailwind CSS |
+| 3D / AR | React Three Fiber, Three.js, MediaPipe (CDN) |
+| Backend | Node.js, Express (TypeScript), esbuild |
+| Database | MongoDB Atlas + Mongoose |
+| Auth | JWT (access + refresh tokens), bcryptjs |
+| Storage | Cloudinary (images + GLB models via `resource_type: raw`) |
+| Email | Resend (transactional — order confirmation, password reset) |
+| Hosting | Render (single-service: Express serves built React SPA) |
 
 ---
 
-## 💻 Running the Application
+## Features
 
-### Development Mode
-Boot the API server and Vite client concurrently in development mode:
+### Customer
+- Browse products by category with image galleries
+- **3D Jewellery Configurator** — customise rings and pendants (metal, stone, engraving, size, chain style) with live Three.js rendering; canvas snapshot thumbnails saved per design
+- **AR Try-On** — overlay rings and pendants on a live camera feed using MediaPipe hand/pose landmarks
+- Wishlist, Saved Designs, and My Inquiries with delete support
+- Cart → checkout with a simulated payment gateway (dummy card flow)
+- Order history (Purchased Items tab)
+- Post/edit shop reviews (star rating + text)
+- Real-time notification badges (polled every 5 s) for inquiry and order updates
+
+### Admin
+- Full product CRUD with Cloudinary image upload and progress bar
+- 3D model management (GLB upload/replace via Cloudinary raw)
+- Order management (Sold Items) with status updates
+- User management and role assignment
+- Inquiry management with collapsible cards and status lifecycle
+- Review moderation (approve/reject; approved reviews feed "Stories of Radiance" card fan)
+- Configurator kill switch (disables the 3D feature globally with a user-facing warning)
+- Notification badges for incoming inquiries, new users, and sold items
+
+---
+
+## Project Structure
+
+```
+/
+├── src/                  # React frontend (TypeScript)
+│   ├── components/       # Shared UI + Three.js configurator + AR components
+│   ├── pages/            # Route-level pages
+│   ├── context/          # Auth, Cart, Wishlist contexts
+│   └── utils/
+├── server/               # Express backend (TypeScript)
+│   ├── models/           # Mongoose schemas
+│   ├── routes/           # REST API routes
+│   └── middleware/       # Auth, error handling
+├── server.ts             # Entry point — serves API + SPA in production
+└── dist/                 # Built frontend (gitignored, generated at deploy)
+```
+
+---
+
+## Environment Variables
+
+Copy `.env.example` and fill in your own values:
+
+```
+MONGODB_URI=
+JWT_SECRET=
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+RESEND_API_KEY=
+FRONTEND_URL=
+PORT=3001
+```
+
+---
+
+## Local Development
+
 ```bash
+npm install
+# Start both servers (Vite on :3000, Express on :3001)
 npm run dev
 ```
-Open your browser to `http://localhost:3000` to preview the app.
-
-### Production Build & Deployment
-For cloud scaling, container ingress, or general production hosting, the backend compiles into a pre-bundled CommonJS format via `esbuild` to eliminate Node relative-path ESM errors:
-
-1.  **Build the application**:
-    ```bash
-    npm run build
-    ```
-    This bundles the static client assets via Vite and packages the unified Express server into `dist/server.cjs`.
-
-2.  **Start the production server**:
-    ```bash
-    npm run start
-    ```
 
 ---
 
-## 📂 Project Structure
+## Deployment (Render)
 
-```text
-├── src/                    # Frontend client code
-│   ├── components/         # Shared micro-components (Cart drawer, Nav, StyleQuiz)
-│   ├── context/            # Auth, Cart, and Wishlist context providers
-│   ├── pages/              # Primary view templates (Home, Configurator, Admin, Profile)
-│   ├── types.ts            # Shared global TypeScript types and interfaces
-│   ├── main.tsx            # Main Web App entry point
-│   └── index.css           # Global custom CSS incorporating Tailwind layers
-├── server/                 # Database schemas, controller logic, and API routes
-├── server.ts               # Express entry point & middleware manager
-├── vite.config.ts          # Vite configuration
-└── package.json            # Scripts and package manifests
+Single Web Service — Express serves the built React SPA.
+
+**Build command:**
+```bash
+npm install --include=dev && npm run build
 ```
 
+**Start command:**
+```bash
+npm start
+```
+
+**Required env vars on Render dashboard:**
+`NODE_ENV`, `MONGODB_URI`, `JWT_SECRET`, `CLOUDINARY_*`, `RESEND_API_KEY`, `FRONTEND_URL`
+
+> MongoDB Atlas → Network Access → must allow `0.0.0.0/0` for Render to connect.  
+> Free tier: service sleeps after ~15 min of inactivity. Wake it manually before a demo.
+
 ---
 
-## 🔒 Security & Optimization Guidelines
-*   **Lazy SDK Loading**: Integrates on-demand initializing of database/security utilities to avoid system startup crashes.
-*   **Exposed Variables**: API keys or sensitive credentials remain safely isolated on the Node server. Only browser-safe configuration parameters are packaged with the client bundle.
+## Key Architectural Notes
+
+- Single-origin deployment — no CORS complexity; all `/api/` calls and the SPA share one Render origin.
+- `devDependencies` (Vite, esbuild) are needed at build time → `--include=dev` flag is required.
+- GLB assets stored in Cloudinary with `resource_type: 'raw'`; fetched at runtime by the configurator.
+- AR Try-On uses MediaPipe via CDN (version-pinned) for hand and pose landmark detection.
+- Simulated payment gateway — no real payment processor integrated; dummy card `4242 4242 4242 4242` triggers the order flow.
+- Notification polling runs at 5 s intervals with per-type badge counts; `markReadByType` clears badges on tab open.
