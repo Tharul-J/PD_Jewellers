@@ -1094,7 +1094,7 @@ export default function Profile() {
                               className="bg-gray-50 px-5 py-4 flex justify-between items-center flex-wrap gap-4 cursor-pointer select-none hover:bg-gray-100 transition-colors"
                               onClick={() => togglePurchaseExpanded(purchase._id)}
                             >
-                              <div className="grid grid-cols-3 flex-1 gap-4 min-w-[240px]">
+                              <div className="grid grid-cols-3 flex-1 gap-4">
                                 <div>
                                   <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Order Date</p>
                                   <p className="text-sm font-semibold">{new Date(purchase.createdAt).toLocaleDateString()}</p>

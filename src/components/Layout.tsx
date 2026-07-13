@@ -51,7 +51,7 @@ export function Layout() {
         <>
           <StyleQuiz isOpen={assistantOpen} onClose={() => setAssistantOpen(false)} position="bottom" />
 
-          <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
+          <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 flex flex-col items-end gap-3 pointer-events-none">
             {/* Tooltip label */}
             <AnimatePresence>
               {!assistantOpen && (
@@ -60,7 +60,7 @@ export function Layout() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
                   transition={{ delay: 1.0, duration: 0.3 }}
-                  className="btn-richbrown text-white text-[11px] font-semibold tracking-wider uppercase px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap"
+                  className="hidden sm:block btn-richbrown text-white text-[11px] font-semibold tracking-wider uppercase px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap"
                 >
                   Find Your Style
                 </motion.div>

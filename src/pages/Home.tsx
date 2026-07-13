@@ -181,6 +181,9 @@ export default function Home() {
            />
         </div>
 
+        {/* Legibility scrim — stronger on mobile where the wordmark overlaps the model */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/40 sm:from-black/30 sm:via-transparent sm:to-black/30 pointer-events-none" />
+
         <div className="max-w-7xl mx-auto h-full px-6 relative z-10">
           
           {/* Logo on Left */}
@@ -259,7 +262,7 @@ export default function Home() {
              </div>
           </div>
           
-          <div className="grid grid-cols-3 gap-4 mt-20 text-center border-y border-[var(--color-gold)]/10 py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-8 mt-20 text-center border-y border-[var(--color-gold)]/10 py-12">
              <div className="flex flex-col items-center justify-center gap-2">
                <span className="text-3xl font-serif text-[var(--color-gold-dark)]">110+</span>
                <span className="text-[9px] md:text-[10px] uppercase tracking-[0.2em] opacity-60">Years Of<br/>Excellence</span>
