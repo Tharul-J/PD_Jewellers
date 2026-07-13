@@ -99,6 +99,7 @@ export default function Configurator() {
   const { pricing } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
   const [configuratorEnabled, setConfiguratorEnabled] = useState<boolean | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -444,9 +445,9 @@ export default function Configurator() {
   }
 
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row overflow-hidden">
+    <div className="h-[calc(100dvh-112px)] md:h-[calc(100dvh-128px)] relative flex flex-col lg:flex-row overflow-hidden">
       {/* 3D Viewer */}
-      <div ref={viewerRef} className="flex-1 min-h-0 h-[50vh] lg:h-full relative border-r border-black/10 flex items-center justify-center" style={{ background: '#eae4dc' }}>
+      <div ref={viewerRef} className="absolute inset-0 lg:relative lg:inset-auto lg:flex-1 lg:min-h-0 lg:h-full border-r border-black/10 flex items-center justify-center" style={{ background: '#eae4dc' }}>
         {isLoadingModels ? (
            <div className="animate-pulse w-full h-full flex items-center justify-center bg-gray-50">
              <div className="flex flex-col items-center">
@@ -502,8 +503,34 @@ export default function Configurator() {
         )}
       </div>
 
-      {/* Controls Panel */}
-      <div className="w-full lg:w-[450px] bg-[var(--color-paper)] flex flex-col flex-1 min-h-0 lg:h-full lg:flex-none border-l border-white/50 shadow-xl overflow-hidden">
+      {/* Controls Panel — bottom sheet on mobile, fixed column at lg */}
+      <div className={`absolute inset-x-0 bottom-0 z-20 rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] transition-[height] duration-300 ease-out ${sheetExpanded ? 'h-[88%]' : 'h-[60%]'} lg:static lg:z-auto lg:rounded-none lg:shadow-xl lg:h-full lg:w-[450px] lg:flex-none lg:transition-none flex flex-col min-h-0 overflow-hidden border-l border-white/50 bg-[var(--color-paper)]`}>
+        {/* Drag handle — mobile only. Tap toggles; vertical swipe snaps. */}
+        <button
+          type="button"
+          onPointerDown={(e) => { (e.currentTarget as any)._y = e.clientY; (e.currentTarget as any)._swiped = false; }}
+          onPointerUp={(e) => {
+            const start = (e.currentTarget as any)._y;
+            if (typeof start === 'number') {
+              const dy = e.clientY - start;
+              if (dy < -30) { setSheetExpanded(true); (e.currentTarget as any)._swiped = true; }
+              else if (dy > 30) { setSheetExpanded(false); (e.currentTarget as any)._swiped = true; }
+            }
+          }}
+          onClick={(e) => {
+            // A swipe already snapped in onPointerUp; swallow the trailing click.
+            if ((e.currentTarget as any)._swiped) { (e.currentTarget as any)._swiped = false; return; }
+            setSheetExpanded(v => !v);
+          }}
+          aria-expanded={sheetExpanded}
+          aria-label={sheetExpanded ? 'Collapse options' : 'Expand options'}
+          className="lg:hidden w-full shrink-0 py-3 flex flex-col items-center gap-1 touch-none"
+        >
+          <span className="w-10 h-1 rounded-full bg-black/20" />
+          <span className="text-[11px] tracking-[0.15em] uppercase opacity-70 truncate max-w-[80%]">
+            {sheetExpanded ? 'Hide options' : (modelType === 'ring' ? (currentStyleDef?.name || 'Signature Ring') : 'Name Pendant')}
+          </span>
+        </button>
         {isLoadingModels ? (
           <div className="p-10 flex-1 animate-pulse">
             <div className="h-3 w-32 bg-gray-200 rounded mb-4"></div>
@@ -526,16 +553,16 @@ export default function Configurator() {
           </div>
         ) : (
           <>
-          <div className="p-10 flex-1 overflow-y-auto">
-          <p className="text-[10px] uppercase tracking-[0.2em] opacity-50 mb-4">Bespoke Design</p>
-          <h1 className="text-4xl font-serif mb-2">
+          <div className="px-5 pt-2 pb-6 lg:p-10 flex-1 overflow-y-auto">
+          <p className="hidden lg:block text-[10px] uppercase tracking-[0.2em] opacity-50 mb-4">Bespoke Design</p>
+          <h1 className="hidden lg:block text-2xl lg:text-4xl font-serif mb-2">
             {modelType === 'ring' ? (currentStyleDef?.name || 'Signature Ring') : 'Name Pendant'}
           </h1>
-          <p className="font-serif text-2xl opacity-60 mb-10">
+          <p className="hidden lg:block font-serif text-2xl opacity-60 mb-4 lg:mb-10">
             Rs. {modelType === 'ring' ? (currentStyleDef?.basePrice?.toLocaleString() || '25,000') : '12,000'}
           </p>
 
-          <div className="mb-10">
+          <div className="mb-6 lg:mb-10">
             <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2">Model</h3>
             <div className="flex gap-4">
               <button 
@@ -554,7 +581,7 @@ export default function Configurator() {
           </div>
 
           {modelType === 'ring' && (
-            <div className="mb-10">
+            <div className="mb-6 lg:mb-10">
               <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
                 <span>Ring Design</span>
                 <span className="opacity-50">{currentStyleDef?.name}</span>
@@ -576,7 +603,7 @@ export default function Configurator() {
           )}
 
           {/* Metal Option */}
-          <div className="mb-10">
+          <div className="mb-6 lg:mb-10">
             <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
               <span>Metal</span>
               <span className="opacity-50">{METALS[metal].name}</span>
@@ -603,7 +630,7 @@ export default function Configurator() {
 
           {/* Stone Option */}
           {modelType === 'ring' && (
-            <div className="mb-10">
+            <div className="mb-6 lg:mb-10">
               <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
                 <span>Center Stone</span>
                 <span className="opacity-50">{STONES[stone].name}</span>
@@ -631,7 +658,7 @@ export default function Configurator() {
 
           {/* Size Option (Rings only) */}
           {modelType === 'ring' && (
-            <div className="mb-10">
+            <div className="mb-6 lg:mb-10">
               <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between items-center">
                 <span>Ring Size</span>
                 <button 
@@ -658,7 +685,7 @@ export default function Configurator() {
 
           {/* Engraving & Fonts */}
           {modelType === 'ring' ? (
-            <div className="mb-10 border border-black/10 p-5 rounded-md">
+            <div className="mb-6 lg:mb-10 border border-black/10 p-5 rounded-md">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs uppercase tracking-widest font-semibold">Add Custom Engraving</span>
                 <button 
@@ -724,7 +751,7 @@ export default function Configurator() {
           ) : (
             <>
               {/* Pendant Properties */}
-              <div className="mb-10">
+              <div className="mb-6 lg:mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
                   <span>Pendant Shape</span>
                   <span className="opacity-50 capitalize">{pendantShape}</span>
@@ -744,7 +771,7 @@ export default function Configurator() {
                 </div>
               </div>
 
-              <div className="mb-10">
+              <div className="mb-6 lg:mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
                   <span>Pendant Size</span>
                   <span className="opacity-50">{PENDANT_SIZE_INFO[pendantSize].label} · {PENDANT_SIZE_INFO[pendantSize].mm}</span>
@@ -765,7 +792,7 @@ export default function Configurator() {
                 </div>
               </div>
 
-              <div className="mb-10">
+              <div className="mb-6 lg:mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
                   <span>{pendantShape === 'tag' ? 'Monogram (initials)' : 'Custom Text'}</span>
                   <span className={`opacity-60 tabular-nums ${pendantShape === 'tag' && customText.length >= 3 ? 'text-amber-600' : ''}`}>
@@ -800,11 +827,11 @@ export default function Configurator() {
                 )}
               </div>
 
-              <div className="mb-10">
+              <div className="mb-6 lg:mb-10">
                 {textSizeControl}
               </div>
 
-              <div className="mb-10">
+              <div className="mb-6 lg:mb-10">
                 <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2">Font Style</h3>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {availableFontKeys.map((key) => (
@@ -839,7 +866,7 @@ export default function Configurator() {
           )}
         </div>
 
-        <div className="p-6 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-paper)] shrink-0">
+        <div className="px-5 py-4 lg:p-6 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-paper)] shrink-0">
           <div className="flex flex-col mb-4">
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                <span>Base + Metal:</span>
