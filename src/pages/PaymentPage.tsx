@@ -5,6 +5,7 @@ import { CreditCard, Lock, CheckCircle, ShieldAlert } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
+import { formatExact } from '../lib/price';
 
 declare global {
   interface Window { PasswordCredential: any; }
@@ -150,7 +151,7 @@ export default function PaymentPage() {
             </div>
             <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
               <span className="text-xs text-gray-500">Total</span>
-              <span className="text-sm font-semibold text-[var(--color-ink)]">Rs. {Number(inquiry.totalPrice || 0).toLocaleString()}</span>
+              <span className="text-sm font-semibold text-[var(--color-ink)]">{formatExact(inquiry.totalPrice)}</span>
             </div>
           </div>
         )}

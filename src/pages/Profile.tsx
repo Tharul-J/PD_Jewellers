@@ -11,6 +11,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import { METALS, STONES, FONTS } from '../constants';
+import { formatPrice, formatExact } from '../lib/price';
 
 const PRESET_AVATARS = [
   { name: 'Emerald Monarch', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200' },
@@ -881,7 +882,7 @@ export default function Profile() {
                             <div className="px-4 text-center flex-1 flex flex-col">
                               <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] mb-1 font-bold">{item.category}</p>
                               <h3 className="font-serif text-sm md:text-md mb-2 text-[var(--color-ink)] flex-1">{item.name}</h3>
-                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-4"><span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Starting from</span>Rs. {Number(item.price).toLocaleString()}</p>
+                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-4"><span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Starting from</span>{formatPrice(item.price)}</p>
                               
                               <button
                                 onClick={() => guard(() => handleAddToInquiry(item))}
@@ -932,7 +933,7 @@ export default function Profile() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Estimated Value</p>
-                                <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(order.totalPrice || 0).toLocaleString()}</p>
+                                <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>{formatPrice(order.totalPrice)}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Inquiry Reference Code</p>
@@ -1059,7 +1060,7 @@ export default function Profile() {
                                     <p className="text-xs text-gray-500 capitalize">{item.category}</p>
                                   </div>
                                   <div>
-                                    <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>Rs. {Number(item.price).toLocaleString()}</p>
+                                    <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Starting from </span>{formatPrice(item.price)}</p>
                                   </div>
                                 </div>
                               ))}
@@ -1101,7 +1102,7 @@ export default function Profile() {
                                 </div>
                                 <div>
                                   <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Total Paid</p>
-                                  <p className="text-sm font-semibold">Rs. {Number(purchase.totalAmount || 0).toLocaleString()}</p>
+                                  <p className="text-sm font-semibold">{formatExact(purchase.totalAmount)}</p>
                                 </div>
                                 <div>
                                   <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Reference</p>
@@ -1137,7 +1138,7 @@ export default function Profile() {
                                       <p className="text-xs text-gray-500 capitalize">{item.category}</p>
                                     </div>
                                     <div>
-                                      <p className="text-sm font-semibold"><span className="text-[10px] text-gray-400 font-normal">Rs. </span>{Number(item.price).toLocaleString()}</p>
+                                      <p className="text-sm font-semibold">{formatExact(item.price)}</p>
                                     </div>
                                   </div>
                                 ))}
@@ -1349,7 +1350,7 @@ export default function Profile() {
                                   ? `${config.metal} ${config.stone || ''} Ring`
                                   : `${config.metal} ${config.pendantShape || 'Standard'} Pendant`}
                               </h3>
-                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-2"><span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Starting from</span>Rs. {Number(config.price).toLocaleString()}</p>
+                              <p className="font-sans font-medium text-sm text-[var(--color-ink)] mb-2"><span className="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Starting from</span>{formatPrice(config.price)}</p>
 
                               <div className="flex flex-wrap justify-center gap-1 mb-4">
                                 {config.metal && (

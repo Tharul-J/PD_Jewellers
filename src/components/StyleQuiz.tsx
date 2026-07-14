@@ -40,7 +40,7 @@ const STEPS = [
     key: 'price',
     label: `Step 5 of ${TOTAL_STEPS}`,
     question: 'What is your comfort range?',
-    options: ['Under Rs. 150K', 'Rs. 150K – 600K', 'Over Rs. 600K'],
+    options: ['Under LKR 150K', 'LKR 150K – 600K', 'Over LKR 600K'],
   },
 ];
 

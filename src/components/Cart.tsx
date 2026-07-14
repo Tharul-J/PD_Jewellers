@@ -4,6 +4,7 @@ import { X, Minus, Plus, ShoppingBag, ChevronRight, User } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
 
 export function Cart() {
   const { isCartOpen, setIsCartOpen, items, updateQuantity, removeFromCart, cartTotal } = useCart();
@@ -94,7 +95,7 @@ export function Cart() {
                                 <Plus size={11} />
                               </button>
                             </div>
-                            <span className="font-serif text-sm font-semibold text-stone-900">Est. Rs. {Number(item.price).toLocaleString()}</span>
+                            <span className="font-serif text-sm font-semibold text-stone-900">{formatEstimate(item.price)}</span>
                           </div>
                         </div>
                         <button 
@@ -247,8 +248,8 @@ export function Cart() {
                   <span>Total Est. Value</span>
                   <div className="text-right">
                     <span className="block text-[9px] text-stone-400 font-sans tracking-widest uppercase mb-0.5">Starting from</span>
-                    <span className="font-bold">Rs. {cartTotal.toLocaleString()}</span>
-                    <span className="block text-[10px] text-stone-500 font-sans tracking-normal font-semibold mt-0.5 animate-pulse">Excludes Handcrafting Overhead</span>
+                    <span className="font-bold">{formatPrice(cartTotal)}</span>
+                    <span className="block text-[10px] text-stone-500 font-sans tracking-normal font-normal mt-0.5">{INDICATIVE_NOTE}</span>
                   </div>
                 </div>
                 <button 

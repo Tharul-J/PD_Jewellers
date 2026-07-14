@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatIndicative } from '../lib/price';
 
 export interface Product {
   id: string;
   name: string;
-  price: string;
+  price: number;
   image: string;
   category: string;
 }
@@ -109,7 +110,7 @@ export function ProductCarousel({
                   <div className="text-center">
                     <p className="text-[10px] uppercase tracking-widest text-[var(--color-gold-dark)] font-bold mb-2">{product.category}</p>
                     <h3 className="text-lg font-serif text-[var(--color-ink)] mb-2 group-hover:text-[var(--color-gold)] transition-colors">{product.name}</h3>
-                    <p className="text-sm tracking-wide text-gray-500">{product.price}</p>
+                    <p className="text-sm tracking-wide text-gray-500">{formatIndicative(product.price)}</p>
                   </div>
                 </Link>
               ))}

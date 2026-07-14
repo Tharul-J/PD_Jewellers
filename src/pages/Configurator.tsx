@@ -12,6 +12,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { METALS, STONES, FONTS, visibleFontKeys } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
+import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
 
 import { PendantModel } from '../components/PendantModel';
 import { Scene3DErrorBoundary } from '../components/Scene3DErrorBoundary';
@@ -99,7 +100,7 @@ export default function Configurator() {
   const { pricing } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [configuratorEnabled, setConfiguratorEnabled] = useState<boolean | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -113,6 +114,14 @@ export default function Configurator() {
 
   // Pre-fetch MediaPipe WASM runtime so it's ready before user opens AR modal
   useEffect(() => { warmARRuntime(); }, []);
+
+  // Close the mobile options sheet on Escape (matches the nav drawer's behaviour).
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSheetOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sheetOpen]);
 
   // Auto-save configuration changes
   // Tag shape is monogram-only — enforce 3-char max when switching to tag
@@ -444,10 +453,16 @@ export default function Configurator() {
     );
   }
 
+  // Computed once per render; shared by the slim bar (mobile) and the sheet footer.
+  const price = calculatePrice();
+
   return (
     <div className="h-[calc(100dvh-112px)] md:h-[calc(100dvh-128px)] relative flex flex-col lg:flex-row overflow-hidden">
-      {/* 3D Viewer */}
-      <div ref={viewerRef} className="absolute inset-0 lg:relative lg:inset-auto lg:flex-1 lg:min-h-0 lg:h-full border-r border-black/10 flex items-center justify-center" style={{ background: '#eae4dc' }}>
+      {/* 3D Viewer — on mobile it fills the region ABOVE the persistent slim bar.
+          bottom-[64px] MUST match the slim bar's h-[64px]; keep them in sync. This box is
+          CONSTANT (independent of sheetOpen) so the canvas never resizes on toggle.
+          lg:inset-auto resets all of this at desktop. */}
+      <div ref={viewerRef} className="absolute inset-x-0 top-0 bottom-[64px] lg:relative lg:inset-auto lg:flex-1 lg:min-h-0 lg:h-full border-r border-black/10 flex items-center justify-center" style={{ background: '#eae4dc' }}>
         {isLoadingModels ? (
            <div className="animate-pulse w-full h-full flex items-center justify-center bg-gray-50">
              <div className="flex flex-col items-center">
@@ -503,32 +518,33 @@ export default function Configurator() {
         )}
       </div>
 
-      {/* Controls Panel — bottom sheet on mobile, fixed column at lg */}
-      <div className={`absolute inset-x-0 bottom-0 z-20 rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] transition-[height] duration-300 ease-out ${sheetExpanded ? 'h-[88%]' : 'h-[60%]'} lg:static lg:z-auto lg:rounded-none lg:shadow-xl lg:h-full lg:w-[450px] lg:flex-none lg:transition-none flex flex-col min-h-0 overflow-hidden border-l border-white/50 bg-[var(--color-paper)]`}>
-        {/* Drag handle — mobile only. Tap toggles; vertical swipe snaps. */}
+      {/* Slim bar — persistent on mobile; shows the live total and opens the sheet */}
+      <div className="lg:hidden absolute inset-x-0 bottom-0 h-[64px] z-20 px-5 flex items-center justify-between border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-paper)]">
+        <div className="flex flex-col leading-tight">
+          <span className="text-[10px] tracking-[0.2em] uppercase opacity-60">Starting From</span>
+          <span className="font-serif text-2xl text-[var(--color-ink)]">{formatPrice(price.total)}</span>
+        </div>
         <button
           type="button"
-          onPointerDown={(e) => { (e.currentTarget as any)._y = e.clientY; (e.currentTarget as any)._swiped = false; }}
-          onPointerUp={(e) => {
-            const start = (e.currentTarget as any)._y;
-            if (typeof start === 'number') {
-              const dy = e.clientY - start;
-              if (dy < -30) { setSheetExpanded(true); (e.currentTarget as any)._swiped = true; }
-              else if (dy > 30) { setSheetExpanded(false); (e.currentTarget as any)._swiped = true; }
-            }
-          }}
-          onClick={(e) => {
-            // A swipe already snapped in onPointerUp; swallow the trailing click.
-            if ((e.currentTarget as any)._swiped) { (e.currentTarget as any)._swiped = false; return; }
-            setSheetExpanded(v => !v);
-          }}
-          aria-expanded={sheetExpanded}
-          aria-label={sheetExpanded ? 'Collapse options' : 'Expand options'}
-          className="lg:hidden w-full shrink-0 py-3 flex flex-col items-center gap-1 touch-none"
+          onClick={() => setSheetOpen(true)}
+          className="bg-gold-gradient text-white px-5 py-3 rounded-sm text-xs tracking-[0.15em] uppercase font-bold hover:opacity-90 transition-opacity"
+        >
+          Customize
+        </button>
+      </div>
+
+      {/* Controls Panel — slide-over sheet on mobile, fixed column at lg */}
+      <div className={`absolute inset-x-0 bottom-0 z-30 h-[88%] rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] transition-transform duration-300 ease-out ${sheetOpen ? 'translate-y-0' : 'translate-y-full'} lg:static lg:z-auto lg:translate-y-0 lg:h-full lg:w-[450px] lg:flex-none lg:rounded-none lg:shadow-xl lg:transition-none flex flex-col min-h-0 overflow-hidden border-l border-white/50 bg-[var(--color-paper)]`}>
+        {/* Handle — mobile only; tap (or Escape) closes the sheet */}
+        <button
+          type="button"
+          onClick={() => setSheetOpen(false)}
+          aria-label="Close options"
+          className="lg:hidden w-full shrink-0 py-3 flex flex-col items-center gap-1"
         >
           <span className="w-10 h-1 rounded-full bg-black/20" />
           <span className="text-[11px] tracking-[0.15em] uppercase opacity-70 truncate max-w-[80%]">
-            {sheetExpanded ? 'Hide options' : (modelType === 'ring' ? (currentStyleDef?.name || 'Signature Ring') : 'Name Pendant')}
+            {modelType === 'ring' ? (currentStyleDef?.name || 'Signature Ring') : 'Name Pendant'}
           </span>
         </button>
         {isLoadingModels ? (
@@ -559,7 +575,7 @@ export default function Configurator() {
             {modelType === 'ring' ? (currentStyleDef?.name || 'Signature Ring') : 'Name Pendant'}
           </h1>
           <p className="hidden lg:block font-serif text-2xl opacity-60 mb-4 lg:mb-10">
-            Rs. {modelType === 'ring' ? (currentStyleDef?.basePrice?.toLocaleString() || '25,000') : '12,000'}
+            {modelType === 'ring' ? formatPrice(currentStyleDef?.basePrice ?? 25000) : formatPrice(12000)}
           </p>
 
           <div className="mb-6 lg:mb-10">
@@ -870,18 +886,18 @@ export default function Configurator() {
           <div className="flex flex-col mb-4">
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                <span>Base + Metal:</span>
-               <span>Est. Rs. {calculatePrice().breakdown.metal.toLocaleString()}</span>
+               <span>{formatEstimate(price.breakdown.metal)}</span>
             </div>
             {modelType === 'ring' && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
                  <span>Stone:</span>
-                 <span>Est. Rs. {calculatePrice().breakdown.stone.toLocaleString()}</span>
+                 <span>{formatEstimate(price.breakdown.stone)}</span>
               </div>
             )}
             {((modelType === 'ring' && engraveWant) || modelType === 'pendant') && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-2 border-b border-black/5 pb-1">
                  <span>Engraving:</span>
-                 <span>Est. Rs. {calculatePrice().breakdown.engraving.toLocaleString()}</span>
+                 <span>{formatEstimate(price.breakdown.engraving)}</span>
               </div>
             )}
             <div className="flex justify-between items-end mt-2">
@@ -889,8 +905,9 @@ export default function Configurator() {
                 <span className="block text-[9px] uppercase tracking-widest text-gray-400 mb-0.5">Starting from</span>
                 <span className="text-xs uppercase tracking-widest font-bold text-gray-800">Total Price:</span>
               </div>
-              <span className="font-serif text-2xl text-[var(--color-ink)]">Rs. {calculatePrice().total.toLocaleString()}</span>
+              <span className="font-serif text-2xl text-[var(--color-ink)]">{formatPrice(price.total)}</span>
             </div>
+            <p className="text-[10px] leading-snug opacity-60 mt-1">{INDICATIVE_NOTE}</p>
           </div>
           {saveMessage && (
             <div className={`mb-3 px-3 py-2 rounded text-xs font-medium ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>

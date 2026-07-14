@@ -14,6 +14,7 @@ import { useWishlist } from '../context/WishlistContext';
 import { usePricing } from '../context/PricingContext';
 import { useAuth } from '../context/AuthContext';
 import { MOCK_PRODUCTS } from '../data/products';
+import { formatPrice, formatIndicative, INDICATIVE_NOTE } from '../lib/price';
 import { METALS, STONES, FONTS } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { PendantModel } from '../components/PendantModel';
@@ -417,11 +418,11 @@ export default function ProductDetail() {
                 <div>
                   <span className="block text-[10px] uppercase tracking-widest text-stone-400 mb-0.5">Starting from</span>
                   <span className="text-3xl font-normal text-stone-900">
-                    Rs. {computedPrice.toLocaleString()}
+                    {formatPrice(computedPrice)}
                   </span>
                 </div>
-                <span className="text-xs uppercase tracking-widest text-stone-400">
-                  (Tax and duty included)
+                <span className="text-xs text-stone-400 leading-snug">
+                  {INDICATIVE_NOTE}
                 </span>
               </div>
             </div>
@@ -757,7 +758,7 @@ export default function ProductDetail() {
                     {related.name}
                   </h4>
                   <p className="text-xs font-bold text-stone-900">
-                    Starting from Rs. {related.price.toLocaleString()}
+                    {formatIndicative(related.price)}
                   </p>
                 </div>
               </Link>

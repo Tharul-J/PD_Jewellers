@@ -54,7 +54,7 @@ function migrateFromFlatFields(old: Record<string, any>) {
     return { key: s.key, displayName: s.displayName, price };
   });
 
-  // Stale engraving price (old system used Rs. 45 000; Phase 2 canonical is Rs. 5 000)
+  // Stale engraving price (old system used LKR 45 000; Phase 2 canonical is LKR 5 000)
   const rawEngraving = typeof old.engravingPrice === 'number' ? old.engravingPrice : DEFAULT_ENGRAVING;
   const engravingPrice = rawEngraving > 20000 ? DEFAULT_ENGRAVING : rawEngraving;
 

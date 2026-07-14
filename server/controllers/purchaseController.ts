@@ -77,7 +77,7 @@ export const createPurchase = async (req: Request, res: Response): Promise<void>
 
     await notifyAdmins(
       'new_order',
-      `Order placed for inquiry ${order.inquiryRef} — Rs. ${Number(purchase.totalAmount).toLocaleString()}`,
+      `Order placed for inquiry ${order.inquiryRef} — LKR ${Number(purchase.totalAmount).toLocaleString()}`,
       '/admin?tab=sold'
     );
 

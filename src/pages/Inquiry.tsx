@@ -6,6 +6,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { FileText, ClipboardCheck, ArrowLeft, Phone, Calendar, Truck, Landmark, Mail, User } from 'lucide-react';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
+import { formatPrice, formatEstimate } from '../lib/price';
 
 export default function Inquiry() {
   const { items, cartTotal, clearCart } = useCart();
@@ -339,7 +340,7 @@ export default function Inquiry() {
                     </p>
                     <div className="flex justify-between items-center mt-2">
                       <span className="text-gray-400 text-xs">Qty: {item.quantity}</span>
-                      <span className="font-serif font-semibold text-stone-900 text-xs">Est. Rs. {Number(item.price).toLocaleString()}</span>
+                      <span className="font-serif font-semibold text-stone-900 text-xs">{formatEstimate(item.price)}</span>
                     </div>
                   </div>
                 </div>
@@ -355,7 +356,7 @@ export default function Inquiry() {
                 <span>Total Est. Value</span>
                 <div className="text-right">
                   <span className="block text-[9px] text-stone-400 font-sans tracking-widest uppercase mb-0.5">Starting from</span>
-                  <span className="font-semibold">Rs. {cartTotal.toLocaleString()}</span>
+                  <span className="font-semibold">{formatPrice(cartTotal)}</span>
                 </div>
               </div>
               <p className="text-[9px] text-stone-400 font-sans leading-relaxed text-center italic mt-2">

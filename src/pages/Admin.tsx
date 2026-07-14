@@ -7,6 +7,7 @@ import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil,
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
+import { formatExact } from '../lib/price';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -975,7 +976,7 @@ export default function Admin() {
                               <p className="text-xs text-gray-400 capitalize">{model.category}</p>
                             </div>
                           </div>
-                          <p className="text-sm font-semibold text-gray-700">Rs. {Number(model.basePrice).toLocaleString()}</p>
+                          <p className="text-sm font-semibold text-gray-700">{formatExact(model.basePrice)}</p>
                         </div>
                       ))}
                     </div>
@@ -1147,7 +1148,7 @@ export default function Admin() {
                         )}
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Base Price (Rs.)</label>
+                        <label className="block text-xs text-gray-500 mb-1">Base Price (LKR)</label>
                         <input
                           type="number" required min="0"
                           value={modelForm.basePrice}
@@ -1245,7 +1246,7 @@ export default function Admin() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Base Price (Rs.)</label>
+                      <label className="block text-xs text-gray-500 mb-1">Base Price (LKR)</label>
                       <input
                         type="number" required min="0"
                         value={newModel.basePrice}
@@ -1300,7 +1301,7 @@ export default function Admin() {
                         <tr key={model._id} className={`transition-colors ${deleteModelId === model._id ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                           <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{model.name}</td>
                           <td className="py-4 px-4 text-gray-600 capitalize">{model.category}</td>
-                          <td className="py-4 px-4 text-gray-600">Rs. {Number(model.basePrice).toLocaleString()}</td>
+                          <td className="py-4 px-4 text-gray-600">{formatExact(model.basePrice)}</td>
                           <td className="py-4 px-4 text-blue-500">
                             <a href={model.glbUrl} target="_blank" rel="noreferrer" className="hover:underline">View File</a>
                           </td>
@@ -1376,7 +1377,7 @@ export default function Admin() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Price (Rs.) *</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Price (LKR) *</label>
                         <input
                           type="number" required min="0"
                           value={productForm.price}
@@ -1516,7 +1517,7 @@ export default function Admin() {
                             <td className="py-3 px-4 font-medium text-[var(--color-ink)] max-w-[180px] truncate">{product.name}</td>
                             <td className="py-3 px-4 text-gray-500 text-xs">{product.category}</td>
                             <td className="py-3 px-4 font-mono text-[10px] text-gray-400">{product.id}</td>
-                            <td className="py-3 px-4 font-semibold text-gray-700">Rs. {Number(product.price).toLocaleString()}</td>
+                            <td className="py-3 px-4 font-semibold text-gray-700">{formatExact(product.price)}</td>
                             <td className="py-3 px-4 text-right">
                               {deleteConfirmId === product._id ? (
                                 <div className="flex items-center justify-end gap-2">
@@ -1669,7 +1670,7 @@ export default function Admin() {
                               </td>
                               <td className="py-4 px-4 font-mono text-xs font-bold text-amber-700">{order.inquiryRef || 'INQ-PENDING'}</td>
                               <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{order.user?.name || 'Unknown'}</td>
-                              <td className="py-4 px-4 font-semibold text-gray-700">Rs. {Number(order.totalPrice || 0).toLocaleString()}</td>
+                              <td className="py-4 px-4 font-semibold text-gray-700">{formatExact(order.totalPrice)}</td>
                               <td className="py-4 px-4 text-gray-500 text-xs">{new Date(order.createdAt).toLocaleDateString()}</td>
                               <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
                                 {['ordered', 'crafting', 'completed'].includes(order.status) ? (
@@ -1754,7 +1755,7 @@ export default function Admin() {
                                                 {item.category && <span className="text-xs text-gray-400 ml-auto">{item.category}</span>}
                                               </div>
                                             </div>
-                                            <p className="text-sm font-semibold text-gray-700 flex-shrink-0">Rs. {Number(item.price || 0).toLocaleString()}</p>
+                                            <p className="text-sm font-semibold text-gray-700 flex-shrink-0">{formatExact(item.price)}</p>
                                           </div>
                                         ))}
                                       </div>
@@ -1811,7 +1812,7 @@ export default function Admin() {
                               </button>
                             </td>
                             <td className="py-4 px-4 font-semibold text-gray-700">
-                              Rs. {Number(purchase.totalAmount || 0).toLocaleString()}
+                              {formatExact(purchase.totalAmount)}
                               <p className="text-[10px] text-gray-400 font-normal mt-0.5">{items.length} item{items.length !== 1 ? 's' : ''}</p>
                             </td>
                             <td className="py-4 px-4 text-gray-500 text-xs">{purchase.payment?.paidAt ? new Date(purchase.payment.paidAt).toLocaleDateString() : '—'}</td>
@@ -1997,7 +1998,7 @@ export default function Admin() {
                   <div className="w-2 h-5 bg-blue-400 rounded-full" />
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Center Stone Prices</h3>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Price per stone in Rs. — added on top of metal cost</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Price per stone in LKR — added on top of metal cost</p>
                   </div>
                 </div>
 
@@ -2005,7 +2006,7 @@ export default function Admin() {
                   {stonesList.map((s, i) => (
                     <div key={s.key} className="flex items-center gap-2 bg-gray-50 rounded-md px-3 py-2">
                       <span className="flex-1 text-xs text-gray-700 font-medium truncate min-w-0">{s.displayName}</span>
-                      <span className="text-xs text-gray-400 shrink-0">Rs.</span>
+                      <span className="text-xs text-gray-400 shrink-0">LKR</span>
                       <input
                         type="number" min="0"
                         value={s.price}
@@ -2040,7 +2041,7 @@ export default function Admin() {
                       onChange={e => setNewStone({ ...newStone, displayName: e.target.value })}
                       className="flex-1 min-w-[160px] p-2 border border-blue-200 text-sm rounded bg-white focus:outline-none focus:border-blue-300"
                     />
-                    <span className="text-xs text-gray-400 shrink-0">Rs.</span>
+                    <span className="text-xs text-gray-400 shrink-0">LKR</span>
                     <input
                       type="number" min="0" placeholder="Price"
                       value={newStone.price || ''}
@@ -2076,7 +2077,7 @@ export default function Admin() {
                 </div>
                 <div className="flex items-center gap-2 bg-gray-50 rounded-md p-3 max-w-xs">
                   <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 shrink-0">Engraving</label>
-                  <span className="text-xs text-gray-400 shrink-0 ml-auto">Rs.</span>
+                  <span className="text-xs text-gray-400 shrink-0 ml-auto">LKR</span>
                   <input
                     type="number" min="0"
                     value={engravingPriceLocal}
