@@ -8,6 +8,7 @@ import { METALS, STONES, FONTS } from '../constants';
 import { CustomGLBRingModel } from './RingModels';
 import { PendantModel } from './PendantModel';
 import { Scene3DErrorBoundary } from './Scene3DErrorBoundary';
+import { Vec3Filter, OneEuroFilter } from '../lib/oneEuro';
 
 // Camera facing is now runtime state (see facingMode). Front cam is mirrored
 // (scaleX(-1)); back cam is not. The mirror transform is applied conditionally to
@@ -54,6 +55,23 @@ const AR_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
   large: 1.45,
 };
 
+// Bump this if the ring reads too small/large on device. Started ~35% up from the old
+// effective size (which was nw * viewport.width * 0.5). This is the SINGLE size knob —
+// no model-diameter magic numbers live anywhere else in the ring path.
+const RING_FIT_SCALE = 1.35; // TUNABLE — primary knob for overall ring size
+
+// Raw normalized hand landmarks the ring fitter needs. Populated by the frame loop and
+// consumed in ARRing's useFrame so all fit math (basis, depth-scale, smoothing) lives in
+// one place. All coords are UNMIRRORED MediaPipe space (x,y in 0..1, y-down; z depth,
+// negative = closer). Fitting must never couple to facingMode.
+interface RingLandmarks {
+  mcp: { x: number; y: number; z: number };       // 13 — ring-finger base knuckle (MCP)
+  pip: { x: number; y: number; z: number };       // 14 — ring-finger PIP
+  indexMcp: { x: number; y: number; z: number };  // 5  — index MCP
+  middleMcp: { x: number; y: number; z: number }; // 9  — middle MCP
+  pinkyMcp: { x: number; y: number; z: number };  // 17 — pinky MCP
+}
+
 function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {
   transformRef: any; metal: string; stone?: string; text?: string;
   fontStyle?: string; fileUrl?: string;
@@ -64,57 +82,82 @@ function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {
   const metalMaterial = METALS[metal as keyof typeof METALS] || METALS.silver;
   const stoneMaterial = stone ? STONES[stone as keyof typeof STONES] : STONES.diamond;
 
-  const targetScale = useRef(0);
-  const currentScale = useRef(0);
-  const targetPos = useRef(new THREE.Vector3());
-  const targetDir = useRef(new THREE.Vector3(0, 1, 0));
+  // Persistent smoothing state — One Euro for position + depth-scale, quaternion slerp for
+  // rotation. Held in refs so they survive across frames; reset on tracking loss so a
+  // re-acquire snaps to the new pose instead of lerping in from a stale one.
+  const posFilter = useRef(new Vec3Filter());
+  const scaleFilter = useRef(new OneEuroFilter());
+  const currentQuat = useRef(new THREE.Quaternion());
+  const initialized = useRef(false);
 
-  useFrame((state, delta) => {
-    if (!meshRef.current) return;
-    const { nx, ny, nw, dirX, dirY, dirZ, visible } = transformRef.current;
+  useFrame(() => {
+    const g = meshRef.current;
+    if (!g) return;
+    const t = transformRef.current;
+    const ring = t.ring as RingLandmarks | null | undefined;
 
-    if (!visible || !nw) {
-      meshRef.current.visible = false;
+    if (!t.visible || !ring) {
+      g.visible = false;
+      if (initialized.current) {
+        posFilter.current.reset();
+        scaleFilter.current.reset();
+        initialized.current = false;
+      }
       return;
     }
-    meshRef.current.visible = true;
+    g.visible = true;
+    const now = performance.now() / 1000;
 
-    targetPos.current.set(
-      (nx - 0.5) * viewport.width,
-      -(ny - 0.5) * viewport.height,
-      0
-    );
+    // Map normalized landmark -> R3F world: x right, y up (flip y-down), +z toward camera
+    // (MediaPipe z is negative when closer; z uses ~same scale as x, so scale by viewport.width).
+    const toWorld = (lm: { x: number; y: number; z: number }) =>
+      new THREE.Vector3(
+        (lm.x - 0.5) * viewport.width,
+        -(lm.y - 0.5) * viewport.height,
+        -lm.z * viewport.width
+      );
 
-    // Adjust ring scale to fit finger width (nw is MCP-to-PIP length in normalised coords).
-    targetScale.current = (nw * viewport.width) * 0.5;
+    const p13 = toWorld(ring.mcp);
+    const p14 = toWorld(ring.pip);
+    const p5 = toWorld(ring.indexMcp);
+    const p9 = toWorld(ring.middleMcp);
+    const p17 = toWorld(ring.pinkyMcp);
 
-    // Note: Mediapipe Y is down. R3F Y is up. So we invert Y.
-    // Mediapipe Z is down (negative is closer). R3F Z is up. So we use -dirZ.
-    // Multiplied dirZ by 2 to emphasize depth since mediapipe z is sometimes subtle
-    targetDir.current.set(dirX, -dirY, -dirZ * 2).normalize();
+    // POSITION — ~0.35 of the way from the base knuckle toward the PIP, One Euro filtered.
+    const rawPos = p13.clone().lerp(p14, 0.35);
+    const fp = posFilter.current.filter(rawPos, now);
 
-    const smoothFactor = Math.min(15 * delta, 1);
+    // DEPTH-PROXY SCALE — finger width (ring MCP <-> middle MCP) tracks apparent hand size,
+    // so the ring holds its real-world size as the hand moves toward/away from the camera.
+    const fingerWidthProxy = p13.distanceTo(p9);
+    const sizeMultiplier = 1; // ring path has no S/M/L knob; RING_FIT_SCALE is the sole size source
+    const rawScale = fingerWidthProxy * RING_FIT_SCALE * sizeMultiplier;
+    const fScale = scaleFilter.current.filter(rawScale, now);
 
-    if (!meshRef.current.userData.initialized) {
-      meshRef.current.userData.initialized = true;
-      meshRef.current.userData.currentDir = new THREE.Vector3().copy(targetDir.current);
-      meshRef.current.position.copy(targetPos.current);
-      currentScale.current = targetScale.current;
-      meshRef.current.scale.setScalar(currentScale.current);
+    // ROTATION — orthonormal basis from the hand so the band wraps the finger (hole axis
+    // along the finger) and its ellipse follows hand roll. Composed to a quaternion, slerped.
+    const fingerDir = p14.clone().sub(p13).normalize();          // model local Z = ring hole axis
+    const across = p17.clone().sub(p5);                          // across the palm (index->pinky)
+    across.addScaledVector(fingerDir, -across.dot(fingerDir));   // orthogonalize against finger
+
+    const rotValid = across.lengthSq() > 1e-8;
+    if (rotValid) {
+      across.normalize();
+      const normal = new THREE.Vector3().crossVectors(fingerDir, across);
+      if (normal.z < 0) normal.negate();                        // model local Y (stone up) faces camera
+      const xAxis = new THREE.Vector3().crossVectors(normal, fingerDir).normalize(); // right-handed
+      const basis = new THREE.Matrix4().makeBasis(xAxis, normal, fingerDir);
+      const targetQuat = new THREE.Quaternion().setFromRotationMatrix(basis);
+
+      if (!initialized.current) currentQuat.current.copy(targetQuat);
+      else currentQuat.current.slerp(targetQuat, 0.35);
     }
 
-    meshRef.current.position.lerp(targetPos.current, smoothFactor);
-
-    currentScale.current = THREE.MathUtils.lerp(currentScale.current, targetScale.current, smoothFactor);
-    meshRef.current.scale.setScalar(currentScale.current);
-
-    const currentDir = meshRef.current.userData.currentDir as THREE.Vector3;
-    currentDir.lerp(targetDir.current, smoothFactor).normalize();
-
-    // Ring hole (-Z) points along the finger; stone top (+Y) faces camera (+Z)
-    meshRef.current.up.set(0, 0, 1);
-    const lookTarget = meshRef.current.position.clone().add(currentDir);
-    meshRef.current.lookAt(lookTarget);
+    // Apply. Orthographic camera → depth is irrelevant to screen placement, so pin z = 0.
+    if (!initialized.current) initialized.current = true;
+    g.position.set(fp.x, fp.y, 0);
+    g.scale.setScalar(fScale);
+    g.quaternion.copy(currentQuat.current);
   });
 
   return (
@@ -230,8 +273,13 @@ export default function ARTryOnModal({
   const lastVideoTimeRef = useRef<number>(-1);
   const [videoSize, setVideoSize] = useState({ w: 1, h: 1 });
 
-  // Store transformation out of React state to avoid frame drops
-  const transformRef = useRef({ nx: 0, ny: 0, nw: 0, rotation: 0, dirX: 0, dirY: 1, dirZ: 0, visible: false });
+  // Store transformation out of React state to avoid frame drops.
+  // `ring` carries raw landmarks for the ring fitter (see RingLandmarks); pendant path leaves it unset.
+  const transformRef = useRef<{
+    nx: number; ny: number; nw: number; rotation: number;
+    dirX: number; dirY: number; dirZ: number; visible: boolean;
+    ring?: RingLandmarks | null;
+  }>({ nx: 0, ny: 0, nw: 0, rotation: 0, dirX: 0, dirY: 1, dirZ: 0, visible: false });
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -406,28 +454,26 @@ export default function ARTryOnModal({
               detected = true;
               const landmarks = results.landmarks[0];
 
-              const pt14 = landmarks[14]; // RING PIP
-              const pt13 = landmarks[13]; // RING MCP
-              const pt15 = landmarks[15]; // RING DIP
+              // Landmarks the finger-basis fitter needs (see RingLandmarks). All fit math
+              // (basis, depth-scale, One Euro smoothing) is done in ARRing; here we only relay.
+              const pt13 = landmarks[13]; // ring MCP (base knuckle)
+              const pt14 = landmarks[14]; // ring PIP
+              const pt5 = landmarks[5];   // index MCP
+              const pt9 = landmarks[9];   // middle MCP
+              const pt17 = landmarks[17]; // pinky MCP
 
-              if (pt14 && pt13 && pt15) {
-                const dx13_14 = pt14.x - pt13.x;
-                const dy13_14 = pt14.y - pt13.y;
-                const dz13_14 = pt14.z - pt13.z;
-
-                // Use full 3D distance to avoid shrinking when finger points at camera
-                const fingerLengthNorm = Math.sqrt(dx13_14 * dx13_14 + dy13_14 * dy13_14 + dz13_14 * dz13_14);
-
+              if (pt13 && pt14 && pt5 && pt9 && pt17) {
                 transformRef.current = {
-                  // Position just above the base knuckle (MCP joint)
-                  nx: pt13.x + dx13_14 * 0.1,
-                  ny: pt13.y + dy13_14 * 0.1,
-                  nw: fingerLengthNorm,
-                  dirX: dx13_14,
-                  dirY: dy13_14,
-                  dirZ: dz13_14,
-                  rotation: 0,
-                  visible: true
+                  nx: pt13.x, ny: pt13.y, nw: 1,
+                  dirX: 0, dirY: 1, dirZ: 0, rotation: 0,
+                  visible: true,
+                  ring: {
+                    mcp: { x: pt13.x, y: pt13.y, z: pt13.z },
+                    pip: { x: pt14.x, y: pt14.y, z: pt14.z },
+                    indexMcp: { x: pt5.x, y: pt5.y, z: pt5.z },
+                    middleMcp: { x: pt9.x, y: pt9.y, z: pt9.z },
+                    pinkyMcp: { x: pt17.x, y: pt17.y, z: pt17.z },
+                  },
                 };
               } else {
                 transformRef.current.visible = false;
