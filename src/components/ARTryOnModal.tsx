@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState, Suspense } from 'react';
+import React, { useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { HandLandmarker, FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { X, Camera } from 'lucide-react';
+import { X, Camera, SwitchCamera } from 'lucide-react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
@@ -9,10 +9,9 @@ import { CustomGLBRingModel } from './RingModels';
 import { PendantModel } from './PendantModel';
 import { Scene3DErrorBoundary } from './Scene3DErrorBoundary';
 
-// Front camera so the user can see themselves while trying on jewellery.
-// The container already applies scaleX(-1) mirroring, which is correct for front-facing.
-const CAMERA_FACING = 'user' as const;
-
+// Camera facing is now runtime state (see facingMode). Front cam is mirrored
+// (scaleX(-1)); back cam is not. The mirror transform is applied conditionally to
+// the container wrapping BOTH the video canvas and the R3F overlay so they flip together.
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 
 // Module-level singleton. Calling warmARRuntime() from the parent page on
@@ -222,6 +221,9 @@ export default function ARTryOnModal({
   const [handDetected, setHandDetected] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const landmarkerRef = useRef<HandLandmarker | FaceLandmarker | null>(null);
   const requestRef = useRef<number>(0);
@@ -230,6 +232,63 @@ export default function ARTryOnModal({
 
   // Store transformation out of React state to avoid frame drops
   const transformRef = useRef({ nx: 0, ny: 0, nw: 0, rotation: 0, dirX: 0, dirY: 1, dirZ: 0, visible: false });
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  // STOP the old stream before starting a new one — mobile throws "camera in use"
+  // if two live streams from the same device overlap.
+  const startStream = useCallback(async (mode: 'user' | 'environment') => {
+    stopStream();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: mode }, // 'ideal' NOT 'exact' → graceful fallback, no OverconstrainedError
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    });
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => {});
+    }
+    // Drive the mirror off the TRUE facing mode where the browser reports it
+    // (desktop often omits facingMode from track settings).
+    const settings = stream.getVideoTracks()[0]?.getSettings();
+    const actual =
+      settings?.facingMode === 'environment' ? 'environment'
+      : settings?.facingMode === 'user' ? 'user'
+      : mode;
+    setFacingMode(actual);
+    return stream;
+  }, [stopStream]);
+
+  // Only reliable AFTER permission is granted — labels/full list are empty before that.
+  const detectCameras = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === 'videoinput');
+      setHasMultipleCameras(cams.length > 1);
+    } catch {
+      setHasMultipleCameras(false);
+    }
+  }, []);
+
+  const switchCamera = useCallback(async () => {
+    if (switching) return;
+    setSwitching(true);
+    const next = facingMode === 'user' ? 'environment' : 'user';
+    try {
+      await startStream(next);
+    } catch {
+      await startStream(facingMode).catch(() => {}); // revert if target cam unavailable
+    } finally {
+      setSwitching(false);
+    }
+  }, [facingMode, switching, startStream]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -281,20 +340,16 @@ export default function ARTryOnModal({
         landmarkerRef.current = landmarker;
 
         setStatus('Starting camera...');
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: CAMERA_FACING, width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
+        // Request permission with the front cam FIRST, THEN enumerate — device
+        // labels/full list are gated on permission being granted.
+        await startStream('user');
 
         if (!isMounted) {
-          stream.getTracks().forEach(track => track.stop());
+          stopStream();
           return;
         }
 
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
+        await detectCameras();
       } catch (error: any) {
         if (!isMounted) return;
         if (error?.message === 'AR_TIMEOUT') {
@@ -311,9 +366,7 @@ export default function ARTryOnModal({
 
     return () => {
       isMounted = false;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      stopStream();
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
@@ -321,7 +374,7 @@ export default function ARTryOnModal({
         landmarkerRef.current.close();
       }
     };
-  }, [isOpen, modelType, retryKey]);
+  }, [isOpen, modelType, retryKey, startStream, stopStream, detectCameras]);
 
   useEffect(() => {
     if (!isOpen || !videoRef.current || !canvasRef.current) return;
@@ -431,11 +484,18 @@ export default function ARTryOnModal({
       requestRef.current = requestAnimationFrame(renderLoop);
     };
 
-    video.addEventListener('loadeddata', () => {
+    // Fires on initial stream AND again on every camera switch (srcObject swap).
+    // Cancel any in-flight loop first so switching cameras never stacks RAF loops.
+    const handleLoadedData = () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
       setStatus(modelType === 'ring' ? '🔍 Looking for hand...' : '🔍 Looking for face...');
       renderLoop();
-    });
+    };
+    video.addEventListener('loadeddata', handleLoadedData);
 
+    return () => {
+      video.removeEventListener('loadeddata', handleLoadedData);
+    };
   }, [isOpen, modelType]);
 
   const handleCapture = () => {
@@ -449,9 +509,11 @@ export default function ARTryOnModal({
     const ctx = resultCanvas.getContext('2d');
     if (!ctx) return;
 
-    // Flip horizontally because the wrapper has scaleX(-1)
-    ctx.translate(resultCanvas.width, 0);
-    ctx.scale(-1, 1);
+    // Match the on-screen mirror: front cam wrapper has scaleX(-1), back cam does not.
+    if (facingMode === 'user') {
+      ctx.translate(resultCanvas.width, 0);
+      ctx.scale(-1, 1);
+    }
 
     ctx.drawImage(canvasRef.current, 0, 0);
     ctx.drawImage(r3fCanvas, 0, 0, resultCanvas.width, resultCanvas.height);
@@ -473,7 +535,7 @@ export default function ARTryOnModal({
       <div
         className="relative bg-gray-900 rounded-xl overflow-hidden shadow-2xl flex-shrink-0"
         style={{
-          transform: 'scaleX(-1)',
+          transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
           width: '100%',
           height: '100%',
           maxWidth: `calc((100vh - 4rem) * ${videoSize.w / videoSize.h})`,
@@ -520,6 +582,19 @@ export default function ARTryOnModal({
           </Scene3DErrorBoundary>
         </div>
       </div>
+
+      {hasMultipleCameras && (
+        <button
+          type="button"
+          onClick={switchCamera}
+          disabled={switching}
+          aria-label="Switch camera"
+          title="Switch camera"
+          className="absolute top-6 right-[8.5rem] p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <SwitchCamera className="w-6 h-6" />
+        </button>
+      )}
 
       <button
         onClick={handleCapture}
