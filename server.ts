@@ -104,8 +104,28 @@ async function startServer() {
   // Production: serve built frontend
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+          // The shell filename is NOT content-hashed. Caching it would leave returning
+          // visitors on a stale page pointing at hashed asset names that no longer exist
+          // after a deploy, so it has to revalidate every time.
+          res.setHeader('Cache-Control', 'no-cache');
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          // Vite writes a content hash into these filenames, so a changed file is a
+          // changed URL — safe to cache hard and never revalidate.
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('.glb')) {
+          // Models are large and rarely change, but the filename carries no hash — long
+          // max-age WITHOUT `immutable`, so a redeployed model can still be picked up on
+          // reload rather than being pinned for the full week.
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+      },
+    }));
     app.get('*', (req, res) => {
+      // The SPA fallback bypasses express.static, so it needs the same no-cache rule.
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

@@ -24,6 +24,20 @@ export const STONES = {
   zircon:      { name: 'Blue Zircon',                  color: '#0098C9', transmission: 0.9,  ior: 1.930, thickness: 2, roughness: 0,    clearcoat: 1, price: 60000  },
 };
 
+// METALS and STONES double as pricing/display config: `priceMultiplier`, `price` and the
+// human-readable `name` sit alongside the PBR fields. Spreading an entry straight onto a
+// Three.js material makes it log "'priceMultiplier' is not a property of
+// THREE.MeshPhysicalMaterial" on every build of the material, and quietly overwrites
+// material.name with the display string. Strip them at the material boundary instead —
+// the fields stay in the tables above, where PricingContext and the UI read them.
+type NonMaterialKey = 'name' | 'price' | 'priceMultiplier';
+
+export function materialProps<T extends object>(config: T): Omit<T, NonMaterialKey> {
+  const { name: _name, price: _price, priceMultiplier: _priceMultiplier, ...rest } =
+    config as Record<string, unknown>;
+  return rest as Omit<T, NonMaterialKey>;
+}
+
 export const FONTS = {
   cinzel:     { name: 'Cinzel',             url: '/fonts/cinzel_regular.typeface.json',             boldUrl: '/fonts/cinzel_bold.typeface.json' },
   cormorant:  { name: 'Cormorant Garamond', url: '/fonts/cormorant_garamond_regular.typeface.json', boldUrl: '/fonts/cormorant_garamond_bold.typeface.json' },

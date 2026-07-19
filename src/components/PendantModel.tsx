@@ -3,7 +3,7 @@ import { useFrame, useLoader } from '@react-three/fiber';
 import { Float, Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-import { FONTS } from '../constants';
+import { FONTS, materialProps } from '../constants';
 
 // ── Tag constants (portrait orientation, fixed-size monogram plate) ──────────
 const TAG_W     = 0.88;
@@ -160,7 +160,7 @@ function TagInner({ fontUrl, displayText, metalMaterial, textDirection = 'horizo
 
   const islandMaterial = (
     <meshPhysicalMaterial
-      {...metalMaterial}
+      {...materialProps(metalMaterial)}
       envMapIntensity={4}
       roughness={Math.min((metalMaterial.roughness ?? 0.05) + 0.05, 0.3)}
       metalness={metalMaterial.metalness ?? 1}
@@ -305,7 +305,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
     return s;
   }, [heartScale]);
 
-  const metalMat = <meshPhysicalMaterial {...metalMaterial} envMapIntensity={5} />;
+  const metalMat = <meshPhysicalMaterial {...materialProps(metalMaterial)} envMapIntensity={5} />;
   const displayText = (text && text.trim().length > 0) ? text.toUpperCase() : 'PD';
 
   const onMeasured = ({ width, height }: { width: number; height: number }) => {
@@ -348,7 +348,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                 <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
                   <Text3D {...textProps}>
                     {displayText}
-                    <meshPhysicalMaterial {...metalMaterial} envMapIntensity={5}
+                    <meshPhysicalMaterial {...materialProps(metalMaterial)} envMapIntensity={5}
                       roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
                   </Text3D>
                 </group>
@@ -387,7 +387,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                   bevelThickness: 0.008, bevelSize: 0.006,
                   bevelSegments: 3, curveSegments: 24,
                 }]} />
-                <meshPhysicalMaterial {...metalMaterial} envMapIntensity={3}
+                <meshPhysicalMaterial {...materialProps(metalMaterial)} envMapIntensity={3}
                   roughness={Math.min((metalMaterial.roughness ?? 0.05) + 0.07, 0.35)}
                   metalness={metalMaterial.metalness ?? 1} />
               </mesh>
@@ -399,7 +399,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                   <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
                     <Text3D {...textProps}>
                       {displayText}
-                      <meshPhysicalMaterial {...metalMaterial} envMapIntensity={6}
+                      <meshPhysicalMaterial {...materialProps(metalMaterial)} envMapIntensity={6}
                         roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
                     </Text3D>
                   </group>
@@ -413,7 +413,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                     <group rotation={[0, 0, fontItalic ? -0.42 : 0]}>
                       <Text3D {...textProps}>
                         {displayText}
-                        <meshPhysicalMaterial {...metalMaterial} envMapIntensity={6}
+                        <meshPhysicalMaterial {...materialProps(metalMaterial)} envMapIntensity={6}
                           roughness={metalMaterial.roughness ?? 0.05} metalness={metalMaterial.metalness ?? 1} />
                       </Text3D>
                     </group>
@@ -456,7 +456,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
                     s.quadraticCurveTo(-hw,-hh,-hw+r,-hh);
                     return s;
                   })(), { depth: TAG_DEPTH, bevelEnabled: false }]} />
-                  <meshPhysicalMaterial {...metalMaterial} envMapIntensity={4} />
+                  <meshPhysicalMaterial {...materialProps(metalMaterial)} envMapIntensity={4} />
                 </mesh>
               }>
                 <TagInner fontUrl={fontUrl} displayText={displayText} metalMaterial={metalMaterial} textDirection={textDirection} textSizeMult={textSizeMult} />

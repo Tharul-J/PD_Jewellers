@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
 import * as THREE from 'three';
 import { useLoadedModel } from '../utils/modelLoader';
+import { materialProps } from '../constants';
 
 class ModelErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
@@ -68,8 +69,8 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
     if (!scene) return new THREE.Group();
     const localClone = scene.clone(true);
 
-    const metalMat = new THREE.MeshPhysicalMaterial({ ...metalMaterial, envMapIntensity: 3 });
-    const stoneMat = new THREE.MeshPhysicalMaterial({ ...stoneMaterial, envMapIntensity: 2 });
+    const metalMat = new THREE.MeshPhysicalMaterial({ ...materialProps(metalMaterial), envMapIntensity: 3 });
+    const stoneMat = new THREE.MeshPhysicalMaterial({ ...materialProps(stoneMaterial), envMapIntensity: 2 });
 
     const meshes: { mesh: THREE.Mesh; vol: number }[] = [];
     localClone.traverse((child) => {
@@ -205,7 +206,7 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
 
   // envMapIntensity=6: smooth sphere surfaces show environment specular more
   // prominently than faceted shapes — bump intensity so the gem reads as glossy.
-  const gemMatProps = { ...stoneMaterial, envMapIntensity: 6, metalness: 0, side: THREE.DoubleSide };
+  const gemMatProps = { ...materialProps(stoneMaterial), envMapIntensity: 6, metalness: 0, side: THREE.DoubleSide };
 
   return (
     <group ref={groupRef}>
