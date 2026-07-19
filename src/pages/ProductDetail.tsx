@@ -138,8 +138,9 @@ export default function ProductDetail() {
         stonePart = storedStonePrice ?? STONES[selectedStone]?.price ?? 0;
       }
 
+      // Engraving is a pendant-only add-on now; rings never include an engraving charge.
       let engravingPart = 0;
-      if (wantEngraving || queryType === 'pendant') {
+      if (queryType !== 'ring' && (wantEngraving || queryType === 'pendant')) {
         engravingPart = pricing?.engravingPrice || 5000;
       }
 
@@ -209,7 +210,7 @@ export default function ProductDetail() {
       options: {
         material: METALS[selectedMetal].name,
         size: selectedSize,
-        ...(wantEngraving && { engraving: engravingText, font: FONTS[selectedFont].name }),
+        ...(wantEngraving && queryType !== 'ring' && { engraving: engravingText, font: FONTS[selectedFont].name }),
         ...((isCustomProduct || product?.hasStones) && { gemstone: STONES[selectedStone].name })
       },
       quantity: quantity
@@ -311,12 +312,10 @@ export default function ProductDetail() {
                     <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                       <group scale={1.6} position={[0, -0.2, -0.4]}>
                         {queryType === 'ring' ? (
-                          <CustomGLBRingModel 
-                            style={queryStyle} 
-                            text={wantEngraving ? engravingText : undefined} 
-                            metalMaterial={METALS[selectedMetal]} 
-                            stoneMaterial={STONES[selectedStone]} 
-                            fontStyle={selectedFont} 
+                          <CustomGLBRingModel
+                            style={queryStyle}
+                            metalMaterial={METALS[selectedMetal]}
+                            stoneMaterial={STONES[selectedStone]}
                           />
                         ) : (
                           <PendantModel 
@@ -532,7 +531,8 @@ export default function ProductDetail() {
                   </select>
                 </div>
 
-                {/* Option 4: Custom Diamond Laser Engraving Toggle & Text */}
+                {/* Option 4: Micro-Laser Engraving — pendant-only add-on, hidden for rings */}
+                {queryType !== 'ring' && (
                 <div className="border border-stone-200 p-5 rounded-xl bg-white space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -584,6 +584,7 @@ export default function ProductDetail() {
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Option 5: Pendant Shape selection (Custom Pendants helper) */}
                 {isCustomProduct && queryType === 'pendant' && (

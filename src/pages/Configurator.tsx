@@ -69,7 +69,6 @@ export default function Configurator() {
   const [isARModalOpen, setIsARModalOpen] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [customText, setCustomText] = useState(() => localStorage.getItem('cfg_customText') || 'PD');
-  const [engraveWant, setEngraveWant] = useState(() => localStorage.getItem('cfg_engraveWant') === 'true');
   const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'tag'>(() => { const s = localStorage.getItem('cfg_pendantShape'); return (s === 'standard' || s === 'heart' || s === 'tag') ? s : 'standard'; });
   const [pendantSize, setPendantSize] = useState<'small'|'medium'|'large'>(() => { const s = localStorage.getItem('cfg_pendantSize'); return (s === 'small' || s === 'medium' || s === 'large') ? s : 'medium'; });
   const prevPendantShapeRef = useRef(pendantShape);
@@ -178,7 +177,6 @@ export default function Configurator() {
     localStorage.setItem('cfg_modelType', modelType);
     localStorage.setItem('cfg_ringStyle', ringStyle);
     localStorage.setItem('cfg_customText', customText);
-    localStorage.setItem('cfg_engraveWant', String(engraveWant));
     localStorage.setItem('cfg_pendantShape', pendantShape);
     localStorage.setItem('cfg_pendantSize', pendantSize);
     localStorage.setItem('cfg_metal', metal);
@@ -189,7 +187,7 @@ export default function Configurator() {
     localStorage.setItem('cfg_ringSize', ringSize);
     localStorage.setItem('cfg_textDirection', textDirection);
     localStorage.setItem('cfg_textSize', String(textSize));
-  }, [modelType, ringStyle, customText, engraveWant, pendantShape, pendantSize, metal, stone, fontStyle, fontBold, fontItalic, ringSize, textDirection, textSize]);
+  }, [modelType, ringStyle, customText, pendantShape, pendantSize, metal, stone, fontStyle, fontBold, fontItalic, ringSize, textDirection, textSize]);
 
   useEffect(() => {
     const cachedModels = localStorage.getItem('cfg_cache_api_models');
@@ -308,9 +306,9 @@ export default function Configurator() {
       }
     }
 
-    // Engraving fee
+    // Engraving fee — pendant only (rings no longer offer engraving)
     let engravingPart = 0;
-    if ((modelType === 'ring' && engraveWant) || modelType === 'pendant') {
+    if (modelType === 'pendant') {
       if (customText.length > 0) {
         engravingPart = pricing?.engravingPrice ?? 5000;
       }
@@ -357,7 +355,7 @@ export default function Configurator() {
           ringSize: modelType === 'ring' ? ringSize : undefined,
           metal,
           stone,
-          engravingText: (modelType === 'ring' && engraveWant) || modelType === 'pendant' ? customText : undefined,
+          engravingText: modelType === 'pendant' ? customText : undefined,
           fontStyle,
           pendantShape: modelType === 'pendant' ? pendantShape : undefined,
           price: calculatePrice().total,
@@ -486,7 +484,7 @@ export default function Configurator() {
               <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                 <group position={[0, 0, -0.6]} scale={1.5}>
                   {modelType === 'ring' ? (
-                     <CustomGLBRingModel key={ringStyle} style={ringStyle} text={engraveWant ? customText : undefined} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fontStyle={fontStyle} fontBold={fontBold} fontItalic={fontItalic} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} textSizeMult={textSize} />
+                     <CustomGLBRingModel key={ringStyle} style={ringStyle} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
                   ) : (
                     <PendantModel
                       text={customText}
@@ -699,72 +697,9 @@ export default function Configurator() {
             </div>
           )}
 
-          {/* Engraving & Fonts */}
-          {modelType === 'ring' ? (
-            <div className="mb-6 lg:mb-10 border border-black/10 p-5 rounded-md">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-widest font-semibold">Add Custom Engraving</span>
-                <button 
-                  onClick={() => setEngraveWant(!engraveWant)}
-                  className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${engraveWant ? 'bg-[var(--color-ink)]' : 'bg-gray-300'}`}
-                >
-                  <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${engraveWant ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-              
-              {engraveWant && (
-                <div className="mt-6 flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div>
-                    <h3 className="text-xs uppercase tracking-widest font-semibold mb-2 flex justify-between">
-                      <span>Engraving Text</span>
-                      <span className="opacity-50">{customText.length}/10</span>
-                    </h3>
-                    <input
-                      type="text"
-                      value={customText}
-                      onChange={(e) => setCustomText(e.target.value.slice(0, 10))}
-                      className="w-full p-3 bg-white border border-black/10 focus:outline-none focus:border-[var(--color-ink)] uppercase tracking-widest text-sm"
-                      placeholder="Enter Text..."
-                    />
-                  </div>
-                  
-                  {textSizeControl}
-
-                  <div>
-                    <h3 className="text-xs uppercase tracking-widest font-semibold mb-2">Font Style</h3>
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      {availableFontKeys.map((key) => (
-                        <button
-                          key={key}
-                          onClick={() => setFontStyle(key)}
-                          className={`py-2 px-3 text-[10px] tracking-widest transition-colors border flex items-center gap-2 ${
-                            fontStyle === key ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'
-                          }`}
-                        >
-                          <Type className="w-3 h-3 opacity-50" />
-                          {FONTS[key].name}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setFontBold(!fontBold)}
-                        className={`flex-1 py-2 text-[10px] font-bold tracking-widest border transition-colors ${fontBold ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
-                      >
-                        B Bold
-                      </button>
-                      <button
-                        onClick={() => setFontItalic(!fontItalic)}
-                        className={`flex-1 py-2 text-[10px] italic tracking-widest border transition-colors ${fontItalic ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
-                      >
-                        I Italic
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
+          {/* Ring engraving removed — section intentionally empty for rings.
+              Pendant keeps its own text/shape/size/font controls below. */}
+          {modelType === 'pendant' && (
             <>
               {/* Pendant Properties */}
               <div className="mb-6 lg:mb-10">
@@ -894,7 +829,7 @@ export default function Configurator() {
                  <span>{formatEstimate(price.breakdown.stone)}</span>
               </div>
             )}
-            {((modelType === 'ring' && engraveWant) || modelType === 'pendant') && (
+            {modelType === 'pendant' && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-2 border-b border-black/5 pb-1">
                  <span>Engraving:</span>
                  <span>{formatEstimate(price.breakdown.engraving)}</span>

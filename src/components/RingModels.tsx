@@ -1,13 +1,8 @@
-import { useRef, useMemo, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import { useRef, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Float, Decal } from '@react-three/drei';
+import { Float } from '@react-three/drei';
 import * as THREE from 'three';
 import { useLoadedModel } from '../utils/modelLoader';
-import { makeEngravingBump, engravingFontFamily } from '../lib/engravingBump';
-
-// Bump depth for the engraving decal. Cut-in letters. If they read raised instead of
-// recessed on device, flip this negative. TUNABLE — primary knob for emboss depth.
-const ENGRAVE_BUMP_SCALE = 1.4;
 
 class ModelErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
@@ -42,11 +37,6 @@ type GemFit = {
   extraGems?: Array<Omit<GemFit, 'extraGems'>>;
 };
 
-type EngraveFit = {
-  yNorm: number;
-  radiusNorm: number;
-};
-
 // Manual overrides — only entries that need a non-default cut shape or precisely
 // hand-tuned placement that auto-detection cannot infer from geometry alone.
 // Ring3 must stay here: its square bezel needs the princess-cut two-cone profile.
@@ -69,9 +59,8 @@ const GEM_FIT_OVERRIDES: Record<string, GemFit> = {
 };
 
 const DEFAULT_GEM_FIT: GemFit = { cut: 'round', centerX: 0, centerZ: 0, yNorm: 0.75, sizeNorm: 0.28 };
-const DEFAULT_ENGRAVE_FIT: EngraveFit = { yNorm: -0.55, radiusNorm: 0.85 };
 
-function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, noSpin = false, fileUrl, textSizeMult = 1 }: any) {
+function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, noSpin = false, fileUrl }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { scene, boundingRadius, boundingCenter } = useLoadedModel(fileUrl);
 
@@ -191,67 +180,6 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
     return detected;
   }, [scene, boundingRadius, fileUrl]);
 
-  // Runtime engraving-fit detection — samples the bottom 18% of the band mesh by
-  // world-space Y (inner band region) near the central X=0 plane, then returns
-  // normalised Y and radial distance so the text can be placed flush on the inner surface.
-  const autoDetectedEngraveFit = useMemo<EngraveFit>(() => {
-    if (!scene || boundingRadius <= 0) return DEFAULT_ENGRAVE_FIT;
-
-    let largestMesh: THREE.Mesh | null = null;
-    let maxVol = -1;
-    scene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        mesh.geometry.computeBoundingBox();
-        const bb = mesh.geometry.boundingBox;
-        if (bb) {
-          const vol = (bb.max.x - bb.min.x) * (bb.max.y - bb.min.y) * (bb.max.z - bb.min.z);
-          if (vol > maxVol) { maxVol = vol; largestMesh = mesh; }
-        }
-      }
-    });
-    if (!largestMesh) return DEFAULT_ENGRAVE_FIT;
-
-    const mesh = largestMesh as THREE.Mesh;
-    const posAttr = mesh.geometry.attributes.position;
-    if (!posAttr) return DEFAULT_ENGRAVE_FIT;
-
-    const worldBB = new THREE.Box3().setFromObject(mesh);
-    if (worldBB.isEmpty()) return DEFAULT_ENGRAVE_FIT;
-    const yWorldRange = worldBB.max.y - worldBB.min.y;
-    const bottomThreshold = worldBB.min.y + yWorldRange * 0.18;
-    const xFullRange = worldBB.max.x - worldBB.min.x;
-
-    // First pass: find minimum |X| among bottom-region vertices (inner-facing surface)
-    let minAbsX = Infinity;
-    const v = new THREE.Vector3();
-    for (let i = 0; i < posAttr.count; i++) {
-      v.fromBufferAttribute(posAttr as THREE.BufferAttribute, i).applyMatrix4(mesh.matrixWorld);
-      if (v.y <= bottomThreshold && Math.abs(v.x) < minAbsX) minAbsX = Math.abs(v.x);
-    }
-
-    // Second pass: collect vertices near X=0 to represent the front inner-band surface
-    const xTolerance = minAbsX + xFullRange * 0.15;
-    let sumY = 0, sumR = 0, engraveCount = 0;
-    for (let i = 0; i < posAttr.count; i++) {
-      v.fromBufferAttribute(posAttr as THREE.BufferAttribute, i).applyMatrix4(mesh.matrixWorld);
-      if (v.y <= bottomThreshold && Math.abs(v.x) <= xTolerance) {
-        sumY += v.y;
-        sumR += Math.sqrt(v.x * v.x + v.z * v.z);
-        engraveCount++;
-      }
-    }
-
-    if (engraveCount === 0) return DEFAULT_ENGRAVE_FIT;
-
-    const fit: EngraveFit = {
-      yNorm: (sumY / engraveCount) / boundingRadius,
-      radiusNorm: (sumR / engraveCount) / boundingRadius,
-    };
-
-    return fit;
-  }, [scene, boundingRadius, fileUrl]);
-
   const gemFit = GEM_FIT_OVERRIDES[fileUrl] ?? autoDetectedGemFit;
 
   // Auto-scale: normalize ring to radius=1 so the Configurator's outer scale={1.5}
@@ -268,59 +196,6 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
     -cy + gemFit.yNorm   * boundingRadius,
     -cz + gemFit.centerZ * boundingRadius,
   ];
-
-  // Engraving projector position — same normalisation pattern as gemPos, expressed in the
-  // band-centred space the decal host mesh lives in (band centre at origin). Front-lower arc.
-  const engravePos: [number, number, number] = [
-    -cx,
-    -cy + autoDetectedEngraveFit.yNorm     * boundingRadius,
-    -cz + autoDetectedEngraveFit.radiusNorm * boundingRadius,
-  ];
-  // Decal projector box (band-centred units). 4:1 W:H matches the bump canvas aspect so
-  // glyphs aren't stretched; depth spans the band wall so the projection captures the surface.
-  const engraveDecalScale: [number, number, number] = [
-    boundingRadius * 0.60,
-    boundingRadius * 0.15,
-    boundingRadius * 0.50,
-  ];
-
-  // Band mesh geometry, baked to band-centred space (matches the primitive's rendered band),
-  // used purely as the projection surface for the engraving Decal. Independent of the model's
-  // own UVs — 4/5 ring GLBs ship without any — because Decal projects along surface normals.
-  const engraveBandGeom = useMemo<THREE.BufferGeometry | null>(() => {
-    if (!scene || boundingRadius <= 0) return null;
-    let largestMesh: THREE.Mesh | null = null;
-    let maxVol = -1;
-    scene.traverse((child) => {
-      const m = child as THREE.Mesh;
-      if (m.isMesh) {
-        m.geometry.computeBoundingBox();
-        const bb = m.geometry.boundingBox;
-        if (bb) {
-          const vol = (bb.max.x - bb.min.x) * (bb.max.y - bb.min.y) * (bb.max.z - bb.min.z);
-          if (vol > maxVol) { maxVol = vol; largestMesh = m; }
-        }
-      }
-    });
-    if (!largestMesh) return null;
-    const band = largestMesh as THREE.Mesh;
-    band.updateWorldMatrix(true, false);
-    const geo = band.geometry.clone();
-    geo.applyMatrix4(band.matrixWorld);                                         // → loaded-scene space (matches fit maths)
-    geo.applyMatrix4(new THREE.Matrix4().makeTranslation(-cx, -cy, -cz));       // → band-centred (band centre at origin)
-    if (!geo.attributes.normal) geo.computeVertexNormals();                     // Decal auto-orient needs normals
-    return geo;
-  }, [scene, boundingRadius, cx, cy, cz]);
-
-  // Height-map texture from the engraving string, regenerated on text / size / font change.
-  const engraveBump = useMemo(
-    () => makeEngravingBump(text, { sizeMul: textSizeMult, fontFamily: engravingFontFamily(fontStyle) }),
-    [text, textSizeMult, fontStyle]
-  );
-  useEffect(() => () => { engraveBump?.dispose(); }, [engraveBump]);
-  useEffect(() => () => { engraveBandGeom?.dispose(); }, [engraveBandGeom]);
-
-  const hasEngraving = !!engraveBump && !!engraveBandGeom;
 
   useFrame((state) => {
     if (groupRef.current && !noSpin) {
@@ -410,37 +285,13 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
               </mesh>
             </group>
           )}
-
-          {/*
-            Engraving — a bump-map Decal projected onto the band's own surface, so the
-            letters are the GOLD band lit as recessed grooves (not a separate grey text
-            mesh floating on top, which is what made the old text read grey AND backwards).
-            The host mesh is an invisible geometry carrier (colour/depth off): it exists
-            only so <Decal> has a Mesh parent whose geometry it can project onto. rotation={0}
-            makes Decal auto-orient to the nearest surface normal, wrapping the curved shank.
-          */}
-          {hasEngraving && (
-            <mesh geometry={engraveBandGeom!}>
-              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-              <Decal position={engravePos} rotation={0} scale={engraveDecalScale} depthTest>
-                <meshPhysicalMaterial
-                  {...metalMaterial}
-                  envMapIntensity={3}
-                  bumpMap={engraveBump!}
-                  bumpScale={ENGRAVE_BUMP_SCALE}
-                  polygonOffset
-                  polygonOffsetFactor={-10}
-                />
-              </Decal>
-            </mesh>
-          )}
         </group>
       </Float>
     </group>
   );
 }
 
-export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, noSpin = false, fileUrl = '/glb-models/rings/ring1.glb', textSizeMult = 1 }: any) {
+export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, noSpin = false, fileUrl = '/glb-models/rings/ring1.glb' }: any) {
   const safeFileUrl = fileUrl || '/glb-models/rings/ring1.glb';
 
   return (
@@ -451,9 +302,6 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticSton
           metalMaterial={metalMaterial}
           stoneMaterial={stoneMaterial}
           syntheticStone={syntheticStone}
-          text={text}
-          fontStyle={fontStyle}
-          textSizeMult={textSizeMult}
           noSpin={noSpin}
           fileUrl="/glb-models/rings/ring1.glb"
         />
@@ -463,9 +311,6 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticSton
         metalMaterial={metalMaterial}
         stoneMaterial={stoneMaterial}
         syntheticStone={syntheticStone}
-        text={text}
-        fontStyle={fontStyle}
-        textSizeMult={textSizeMult}
         noSpin={noSpin}
         fileUrl={safeFileUrl}
       />
