@@ -61,6 +61,20 @@ const DEFAULT_RING_STYLES = [
   { id: 'ring-style-5', name: 'Ring Style 5', fileUrl: '/glb-models/rings/ring5.glb', basePrice: 25000, hasRealStone: false },
 ];
 
+// The models endpoint returns Mongo's natural order, which reshuffles whenever a document
+// is edited — so "Ring Style 4" can arrive first and the selector reads 4,1,2,3. There is no
+// order field on the document, so the number in the name is the stable key. Numeric compare,
+// not alphabetical: "Ring Style 10" has to follow 9, not land between 1 and 2.
+const styleNumber = (s: { name?: string }) => {
+  const m = /(\d+)\s*$/.exec(s.name ?? '');
+  return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; // unnumbered names sink to the end
+};
+
+// Sorts a copy — the caller's array (and the cached API payload it came from) is left alone.
+function byStyleNumber<T extends { name?: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => styleNumber(a) - styleNumber(b));
+}
+
 export default function Configurator() {
   const navigate = useNavigate();
   const [modelType, setModelType] = useState<'ring' | 'pendant'>(() => (localStorage.getItem('cfg_modelType') as 'ring' | 'pendant') || 'ring');
@@ -210,7 +224,10 @@ export default function Configurator() {
       }));
       const dbRingModels = dbModels.filter(m => m.category === 'ring');
       // DB is authoritative: use DB ring models if available, else fall back to local defaults
-      const newStyles = dbRingModels.length > 0 ? dbRingModels : DEFAULT_RING_STYLES;
+      // Sorted here rather than at render so the selector AND the default-selection below
+      // read from the same ordering — newStyles[0] is then the lowest-numbered style, not
+      // whichever document Mongo happened to return first.
+      const newStyles = byStyleNumber(dbRingModels.length > 0 ? dbRingModels : DEFAULT_RING_STYLES);
       setDynamicStyles(newStyles);
       // Auto-select first style if saved ring style no longer exists in new list
       setRingStyle(prev => newStyles.find(s => s.id === prev) ? prev : (newStyles[0]?.id ?? prev));
