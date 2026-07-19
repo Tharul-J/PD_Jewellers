@@ -1,11 +1,11 @@
-import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
+import { Suspense, useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Html, Environment, OrbitControls, ContactShadows, Float, Text3D, Center } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Html, Environment, OrbitControls, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAuth } from '../context/AuthContext';
 import { usePricing } from '../context/PricingContext';
-import { Check, Glasses, Box, Type, Save } from 'lucide-react';
+import { Check, Glasses, Type, Save } from 'lucide-react';
 import ARTryOnModal, { warmARRuntime } from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';

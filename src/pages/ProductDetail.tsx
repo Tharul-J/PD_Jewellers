@@ -3,10 +3,9 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { Canvas } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows } from '@react-three/drei';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Heart, ShoppingBag, ArrowLeft, Check, Sparkles, 
-  ShieldCheck, Truck, RotateCcw, Share2, Facebook, 
-  Twitter, Copy, Star, Key, Type, Info, HelpCircle
+import {
+  Heart, ShoppingBag, ArrowLeft, Check, Sparkles,
+  ShieldCheck, RotateCcw, Share2, Star, Type, Info
 } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
