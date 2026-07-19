@@ -1,9 +1,13 @@
-import { useRef, useMemo, Component, ErrorInfo, ReactNode } from 'react';
+import { useRef, useMemo, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Float, Text3D, Center } from '@react-three/drei';
+import { Float, Decal } from '@react-three/drei';
 import * as THREE from 'three';
-import { FONTS } from '../constants';
 import { useLoadedModel } from '../utils/modelLoader';
+import { makeEngravingBump, engravingFontFamily } from '../lib/engravingBump';
+
+// Bump depth for the engraving decal. Cut-in letters. If they read raised instead of
+// recessed on device, flip this negative. TUNABLE — primary knob for emboss depth.
+const ENGRAVE_BUMP_SCALE = 1.4;
 
 class ModelErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
@@ -67,7 +71,7 @@ const GEM_FIT_OVERRIDES: Record<string, GemFit> = {
 const DEFAULT_GEM_FIT: GemFit = { cut: 'round', centerX: 0, centerZ: 0, yNorm: 0.75, sizeNorm: 0.28 };
 const DEFAULT_ENGRAVE_FIT: EngraveFit = { yNorm: -0.55, radiusNorm: 0.85 };
 
-function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl, textSizeMult = 1 }: any) {
+function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, noSpin = false, fileUrl, textSizeMult = 1 }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { scene, boundingRadius, boundingCenter } = useLoadedModel(fileUrl);
 
@@ -265,26 +269,64 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
     -cz + gemFit.centerZ * boundingRadius,
   ];
 
-  // Engraving position in model space — same normalisation pattern as gemPos so
-  // autoScale correctly maps it to world units regardless of each ring's size.
+  // Engraving projector position — same normalisation pattern as gemPos, expressed in the
+  // band-centred space the decal host mesh lives in (band centre at origin). Front-lower arc.
   const engravePos: [number, number, number] = [
     -cx,
     -cy + autoDetectedEngraveFit.yNorm     * boundingRadius,
     -cz + autoDetectedEngraveFit.radiusNorm * boundingRadius,
   ];
-  // Text dimensions scaled to boundingRadius so glyphs are the same apparent
-  // size across all rings after autoScale brings them to a uniform world radius.
-  const textSize   = 0.10  * boundingRadius * textSizeMult;
-  const textHeight = 0.008 * boundingRadius;
+  // Decal projector box (band-centred units). 4:1 W:H matches the bump canvas aspect so
+  // glyphs aren't stretched; depth spans the band wall so the projection captures the surface.
+  const engraveDecalScale: [number, number, number] = [
+    boundingRadius * 0.60,
+    boundingRadius * 0.15,
+    boundingRadius * 0.50,
+  ];
+
+  // Band mesh geometry, baked to band-centred space (matches the primitive's rendered band),
+  // used purely as the projection surface for the engraving Decal. Independent of the model's
+  // own UVs — 4/5 ring GLBs ship without any — because Decal projects along surface normals.
+  const engraveBandGeom = useMemo<THREE.BufferGeometry | null>(() => {
+    if (!scene || boundingRadius <= 0) return null;
+    let largestMesh: THREE.Mesh | null = null;
+    let maxVol = -1;
+    scene.traverse((child) => {
+      const m = child as THREE.Mesh;
+      if (m.isMesh) {
+        m.geometry.computeBoundingBox();
+        const bb = m.geometry.boundingBox;
+        if (bb) {
+          const vol = (bb.max.x - bb.min.x) * (bb.max.y - bb.min.y) * (bb.max.z - bb.min.z);
+          if (vol > maxVol) { maxVol = vol; largestMesh = m; }
+        }
+      }
+    });
+    if (!largestMesh) return null;
+    const band = largestMesh as THREE.Mesh;
+    band.updateWorldMatrix(true, false);
+    const geo = band.geometry.clone();
+    geo.applyMatrix4(band.matrixWorld);                                         // → loaded-scene space (matches fit maths)
+    geo.applyMatrix4(new THREE.Matrix4().makeTranslation(-cx, -cy, -cz));       // → band-centred (band centre at origin)
+    if (!geo.attributes.normal) geo.computeVertexNormals();                     // Decal auto-orient needs normals
+    return geo;
+  }, [scene, boundingRadius, cx, cy, cz]);
+
+  // Height-map texture from the engraving string, regenerated on text / size / font change.
+  const engraveBump = useMemo(
+    () => makeEngravingBump(text, { sizeMul: textSizeMult, fontFamily: engravingFontFamily(fontStyle) }),
+    [text, textSizeMult, fontStyle]
+  );
+  useEffect(() => () => { engraveBump?.dispose(); }, [engraveBump]);
+  useEffect(() => () => { engraveBandGeom?.dispose(); }, [engraveBandGeom]);
+
+  const hasEngraving = !!engraveBump && !!engraveBandGeom;
 
   useFrame((state) => {
     if (groupRef.current && !noSpin) {
       groupRef.current.rotation.y = state.clock.elapsedTime * 0.2;
     }
   });
-
-  const fontDef = FONTS[fontStyle as keyof typeof FONTS] ?? FONTS.helvetiker;
-  const fontUrl = fontBold ? fontDef.boldUrl : fontDef.url;
 
   // envMapIntensity=6: smooth sphere surfaces show environment specular more
   // prominently than faceted shapes — bump intensity so the gem reads as glossy.
@@ -370,30 +412,27 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
           )}
 
           {/*
-            Inner-band engraving — lives inside autoScale so engravePos (in model
-            space) is correctly normalised to world units, matching how gemPos works.
-            Y rotation +PI flips the text so it reads left-to-right from the viewer's
-            perspective when looking at the front inner-band surface.
+            Engraving — a bump-map Decal projected onto the band's own surface, so the
+            letters are the GOLD band lit as recessed grooves (not a separate grey text
+            mesh floating on top, which is what made the old text read grey AND backwards).
+            The host mesh is an invisible geometry carrier (colour/depth off): it exists
+            only so <Decal> has a Mesh parent whose geometry it can project onto. rotation={0}
+            makes Decal auto-orient to the nearest surface normal, wrapping the curved shank.
           */}
-          {text && text.trim().length > 0 && (
-            <group position={engravePos} rotation={[-Math.PI / 2, Math.PI, fontItalic ? -0.5 : 0]}>
-              <Center>
-                <Text3D
-                  font={fontUrl}
-                  size={textSize}
-                  height={textHeight}
-                  curveSegments={12}
-                  bevelEnabled
-                  bevelThickness={0.005 * boundingRadius}
-                  bevelSize={0.005 * boundingRadius}
-                  bevelOffset={0}
-                  bevelSegments={2}
-                >
-                  {text}
-                  <meshPhysicalMaterial {...metalMaterial} envMapIntensity={2} color="#888" roughness={0.3} metalness={1} />
-                </Text3D>
-              </Center>
-            </group>
+          {hasEngraving && (
+            <mesh geometry={engraveBandGeom!}>
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+              <Decal position={engravePos} rotation={0} scale={engraveDecalScale} depthTest>
+                <meshPhysicalMaterial
+                  {...metalMaterial}
+                  envMapIntensity={3}
+                  bumpMap={engraveBump!}
+                  bumpScale={ENGRAVE_BUMP_SCALE}
+                  polygonOffset
+                  polygonOffsetFactor={-10}
+                />
+              </Decal>
+            </mesh>
           )}
         </group>
       </Float>
@@ -401,7 +440,7 @@ function ActualGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = fal
   );
 }
 
-export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, fontBold = false, fontItalic = false, noSpin = false, fileUrl = '/glb-models/rings/ring1.glb', textSizeMult = 1 }: any) {
+export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticStone = false, text, fontStyle, noSpin = false, fileUrl = '/glb-models/rings/ring1.glb', textSizeMult = 1 }: any) {
   const safeFileUrl = fileUrl || '/glb-models/rings/ring1.glb';
 
   return (
@@ -414,8 +453,6 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticSton
           syntheticStone={syntheticStone}
           text={text}
           fontStyle={fontStyle}
-          fontBold={fontBold}
-          fontItalic={fontItalic}
           textSizeMult={textSizeMult}
           noSpin={noSpin}
           fileUrl="/glb-models/rings/ring1.glb"
@@ -428,8 +465,7 @@ export function CustomGLBRingModel({ metalMaterial, stoneMaterial, syntheticSton
         syntheticStone={syntheticStone}
         text={text}
         fontStyle={fontStyle}
-        fontBold={fontBold}
-        fontItalic={fontItalic}
+        textSizeMult={textSizeMult}
         noSpin={noSpin}
         fileUrl={safeFileUrl}
       />
