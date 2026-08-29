@@ -1,8 +1,14 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
+import User from '../models/User.js';
 import { mockOrders, getDefaultOrders } from './userController.js';
 import { notifyAdmins, notifyUser } from '../utils/notify.js';
+import {
+  sendAvailabilityConfirmedEmail,
+  sendInquiryDeclinedEmail,
+  sendOrderReadyEmail,
+} from '../utils/email.js';
 
 // @desc    Create new inquiry/order request
 // @route   POST /api/orders
@@ -194,6 +200,32 @@ const STATUS_LABELS: Record<string, string> = {
   declined: 'Declined',
 };
 
+/**
+ * Sends the lifecycle email matching an inquiry's new status, if any.
+ * Delivery method is encoded in shippingAddress.country ('In-Store Pickup' | 'Home Delivery').
+ */
+const sendStatusEmail = async (order: any): Promise<void> => {
+  if (!['availability_confirmed', 'declined', 'completed'].includes(order.status)) return;
+
+  const user = await User.findById(order.user).select('name email');
+  if (!user?.email) return;
+
+  if (order.status === 'availability_confirmed') {
+    await sendAvailabilityConfirmedEmail(
+      user.email,
+      user.name,
+      order.inquiryRef,
+      order.orderItems,
+      order.totalPrice
+    );
+  } else if (order.status === 'declined') {
+    await sendInquiryDeclinedEmail(user.email, user.name, order.inquiryRef);
+  } else {
+    const isPickup = /pickup/i.test(order.shippingAddress?.country || '');
+    await sendOrderReadyEmail(user.email, user.name, order.inquiryRef, isPickup);
+  }
+};
+
 // @desc    Update inquiry status
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
@@ -214,6 +246,11 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
         'inquiry_status',
         `Your inquiry ${updatedOrder.inquiryRef} is now: ${STATUS_LABELS[updatedOrder.status] ?? updatedOrder.status}`,
         '/profile?tab=orders'
+      );
+
+      // Fire-and-forget: email must never block or fail the status transition.
+      void sendStatusEmail(updatedOrder).catch(err =>
+        console.error('[email] status transition email failed:', err)
       );
 
       res.json(updatedOrder);

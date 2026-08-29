@@ -2,8 +2,10 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import Purchase from '../models/Purchase.js';
+import User from '../models/User.js';
 import { getDefaultOrders } from './userController.js';
 import { notifyAdmins } from '../utils/notify.js';
+import { sendPaymentReceiptEmail } from '../utils/email.js';
 
 const mockPurchases: Record<string, any[]> = {};
 
@@ -80,6 +82,20 @@ export const createPurchase = async (req: Request, res: Response): Promise<void>
       `Order placed for inquiry ${order.inquiryRef} — LKR ${Number(purchase.totalAmount).toLocaleString()}`,
       '/admin?tab=sold'
     );
+
+    // Fire-and-forget: a failed receipt must never fail a completed payment.
+    void (async () => {
+      const user = await User.findById(purchase.user).select('name email');
+      if (!user?.email) return;
+      await sendPaymentReceiptEmail(
+        user.email,
+        user.name,
+        purchase.inquiryRef,
+        purchase.items,
+        purchase.totalAmount,
+        purchase.payment?.paidAt ?? new Date()
+      );
+    })().catch(err => console.error('[email] payment receipt failed:', err));
 
     res.status(201).json(purchase);
   } catch (error) {
