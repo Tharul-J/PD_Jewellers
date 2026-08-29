@@ -103,22 +103,6 @@ Technology can map out the lines, but it takes a true human touch to bring a pie
   },
 ];
 
-const GALLERY_ITEMS = [
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/RI0002319-C.jpg?v=1593000004', category: 'Rings', title: 'Classic Gold Band' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/NE0000974A.jpg?v=1593000004', category: 'Necklaces', title: 'Diamond Necklace' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/07DR19-18K195C.jpg?v=1593000004', category: 'Bracelets', title: '18K Gold Bracelet' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/NE007A.jpg', category: 'Necklaces', title: 'Gold Chain Necklace' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/RI004A.jpg', category: 'Rings', title: 'Stone-Set Ring' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/BR009A.jpg', category: 'Bracelets', title: 'Bangle Bracelet' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/ES009A.jpg', category: 'Earrings', title: 'Drop Earrings' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/RI015A.jpg', category: 'Rings', title: 'Engagement Ring' },
-  { url: 'https://www.swarnamahal.lk/cdn/shop/products/NE001A.jpg', category: 'Necklaces', title: 'Pendant Chain' },
-  { url: 'https://www.bluelankatours.com/wp-content/uploads/2019/02/Gem-1100x732.jpg', category: 'Gemstones', title: 'Ceylon Sapphires' },
-  { url: 'https://dropinblog.net/34252283/files/featured/Jewellery_Layering.jpg', category: 'Styling', title: 'Layering Guide' },
-  { url: 'https://sanajewellers.com/cdn/shop/articles/sana_jewellers_8_1024x1024.jpg?v=1750878499', category: 'Craftsmanship', title: 'Master Artisans' },
-];
-
-const GALLERY_CATEGORIES = ['All', 'Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Gemstones'];
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Styling Tips': 'bg-rose-50 text-rose-700 border-rose-200',
@@ -130,6 +114,31 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Mens': 'bg-slate-50 text-slate-700 border-slate-200',
   'General': 'bg-gray-50 text-gray-600 border-gray-200',
 };
+
+const HERO_GRADIENTS = [
+  'from-[#2b2118] via-[#4a3728] to-[#1a140f]',
+  'from-[#1f2937] via-[#374151] to-[#111827]',
+  'from-[#3b2a1a] via-[#5c4326] to-[#241a10]',
+  'from-[#1e2a24] via-[#2f4a3c] to-[#131d18]',
+  'from-[#2a1e2e] via-[#4a2f52] to-[#180f1c]',
+];
+
+function getCategoryGradient(category: string): string {
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) hash = category.charCodeAt(i) + ((hash << 5) - hash);
+  return HERO_GRADIENTS[Math.abs(hash) % HERO_GRADIENTS.length];
+}
+
+function CoverImageFallback({ category, title, className = '' }: { category: string; title: string; className?: string }) {
+  return (
+    <div className={`bg-gradient-to-br ${getCategoryGradient(category)} flex items-center justify-center text-center p-6 ${className}`}>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--color-gold)] mb-2">{category}</p>
+        <p className="text-white/90 font-serif text-base leading-snug line-clamp-3">{title}</p>
+      </div>
+    </div>
+  );
+}
 
 function renderContent(content: string) {
   const lines = content.split('\n');
@@ -167,6 +176,7 @@ function renderContent(content: string) {
 function ArticleCard({ post, onRead }: { post: BlogPost; onRead: () => void }) {
   const badgeClass = CATEGORY_COLORS[post.category] ?? CATEGORY_COLORS['General'];
   const date = new Date(post.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <motion.div
@@ -176,12 +186,16 @@ function ArticleCard({ post, onRead }: { post: BlogPost; onRead: () => void }) {
       onClick={onRead}
     >
       <div className="aspect-[4/3] overflow-hidden bg-gray-50">
-        <img
-          src={post.coverImage}
-          alt={post.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=PD+Jewellers'; }}
-        />
+        {post.coverImage && !imgFailed ? (
+          <img
+            src={post.coverImage}
+            alt={post.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <CoverImageFallback category={post.category} title={post.title} className="w-full h-full" />
+        )}
       </div>
       <div className="p-6">
         <div className="flex items-center gap-3 mb-3">
@@ -275,13 +289,16 @@ function ArticleModal({ post, onClose }: { post: BlogPost; onClose: () => void }
   );
 }
 
-function GallerySection() {
+function GallerySection({ posts, onOpenPost }: { posts: BlogPost[]; onOpenPost: (post: BlogPost) => void }) {
   const [activeCategory, setActiveCategory] = useState('All');
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [failedImgs, setFailedImgs] = useState<Set<string>>(new Set());
+
+  const categories = ['All', ...Array.from(new Set(posts.map((p) => p.category)))];
 
   const filtered = activeCategory === 'All'
-    ? GALLERY_ITEMS
-    : GALLERY_ITEMS.filter((g) => g.category === activeCategory);
+    ? posts
+    : posts.filter((p) => p.category === activeCategory);
 
   const total = filtered.length;
 
@@ -292,7 +309,7 @@ function GallerySection() {
     setGalleryIndex(0);
   }, [activeCategory]);
 
-  const getCard = (offset: number) => filtered[(galleryIndex + offset + total) % total];
+  const getCard = (offset: number) => (total > 0 ? filtered[(galleryIndex + offset + total) % total] : undefined);
 
   const CARD_CONFIG = [
     { offset: -2, x: '-170%', rotate: '-18deg', scale: 0.68, opacity: 0.35, zIndex: 1 },
@@ -303,7 +320,7 @@ function GallerySection() {
   ];
 
   return (
-    <section className="py-24 text-white overflow-hidden" style={{ backgroundImage: 'url(https://files.123freevectors.com/wp-content/original/150776-abstract-dark-brown-diagonal-shiny-lines-background.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <section className="py-24 text-white overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a0a00 0%, #3d1a00 30%, #6b2d00 60%, #3d1a00 80%, #1a0a00 100%)' }}>
       <div className="max-w-5xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
@@ -311,12 +328,12 @@ function GallerySection() {
             Visual Showcase
           </p>
           <h2 className="text-4xl font-serif text-white mb-3">The Jewellery Gallery</h2>
-          <p className="text-sm text-white/50">Explore our finest pieces across every category</p>
+          <p className="text-sm text-white/50">Explore our stories across every category</p>
         </div>
 
         {/* Category Filter Tabs */}
         <div className="flex flex-wrap items-center justify-center gap-2 mb-16">
-          {GALLERY_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -331,83 +348,104 @@ function GallerySection() {
           ))}
         </div>
 
-        {/* Fan Card Display */}
-        <div className="relative h-[340px] md:h-[420px] flex items-center justify-center mb-12">
-          {CARD_CONFIG.map(({ offset, x, rotate, scale, opacity, zIndex }) => {
-            const item = getCard(offset);
-            return (
-              <motion.div
-                key={`${activeCategory}-${(galleryIndex + offset + total) % total}`}
-                animate={{ x, rotate, scale, opacity }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                style={{ zIndex, position: 'absolute' }}
-                className="w-[200px] md:w-[260px]"
-                onClick={offset === 0 ? undefined : (offset < 0 ? prev : next)}
-              >
-                <div className="rounded-2xl overflow-hidden shadow-2xl bg-gray-800 aspect-[3/4] cursor-pointer">
-                  <img
-                    src={item.url}
-                    alt={item.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://via.placeholder.com/260x350?text=PD+Jewellers'; }}
-                  />
-                  {offset === 0 && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-2xl">
-                      <p className="text-white text-xs font-bold">{item.title}</p>
-                      <p className="text-white/60 text-[10px] uppercase tracking-wider mt-0.5">{item.category}</p>
+        {total === 0 ? (
+          <p className="text-center text-white/40 py-16 text-sm">No articles in this category yet.</p>
+        ) : (
+          <>
+            {/* Fan Card Display */}
+            <div className="relative h-[340px] md:h-[420px] flex items-center justify-center mb-12">
+              {CARD_CONFIG.map(({ offset, x, rotate, scale, opacity, zIndex }) => {
+                const post = getCard(offset);
+                if (!post) return null;
+                const hasImage = Boolean(post.coverImage) && !failedImgs.has(post._id);
+                return (
+                  <motion.div
+                    key={`${activeCategory}-${(galleryIndex + offset + total) % total}`}
+                    animate={{ x, rotate, scale, opacity }}
+                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ zIndex, position: 'absolute' }}
+                    className="w-[200px] md:w-[260px]"
+                    onClick={offset === 0 ? () => onOpenPost(post) : (offset < 0 ? prev : next)}
+                  >
+                    <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gray-800 aspect-[3/4] cursor-pointer">
+                      {hasImage ? (
+                        <img
+                          src={post.coverImage}
+                          alt={post.title}
+                          className="w-full h-full object-cover"
+                          onError={() => setFailedImgs((prev) => new Set(prev).add(post._id))}
+                        />
+                      ) : (
+                        <CoverImageFallback category={post.category} title={post.title} className="w-full h-full" />
+                      )}
+                      {offset === 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-2xl">
+                          <p className="text-white text-xs font-bold line-clamp-2">{post.title}</p>
+                          <p className="text-white/60 text-[10px] uppercase tracking-wider mt-0.5">{post.category}</p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                  </motion.div>
+                );
+              })}
+            </div>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-center gap-6">
-          <button
-            onClick={prev}
-            className="w-11 h-11 rounded-full border border-white/30 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/60 transition-all"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <div className="flex gap-2">
-            {filtered.map((_, i) => (
+            {/* Navigation */}
+            <div className="flex items-center justify-center gap-6">
               <button
-                key={i}
-                onClick={() => setGalleryIndex(i)}
-                className={`rounded-full transition-all duration-300 ${
-                  i === galleryIndex
-                    ? 'w-6 h-2 bg-[var(--color-gold)]'
-                    : 'w-2 h-2 bg-white/30 hover:bg-white/60'
-                }`}
-              />
-            ))}
-          </div>
-          <button
-            onClick={next}
-            className="w-11 h-11 rounded-full border border-white/30 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/60 transition-all"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
+                onClick={prev}
+                className="w-11 h-11 rounded-full border border-white/30 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/60 transition-all"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <div className="flex gap-2">
+                {filtered.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setGalleryIndex(i)}
+                    className={`rounded-full transition-all duration-300 ${
+                      i === galleryIndex
+                        ? 'w-6 h-2 bg-[var(--color-gold)]'
+                        : 'w-2 h-2 bg-white/30 hover:bg-white/60'
+                    }`}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={next}
+                className="w-11 h-11 rounded-full border border-white/30 flex items-center justify-center text-white hover:bg-white/10 hover:border-white/60 transition-all"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );
 }
 
-const HERO_IMAGES = GALLERY_ITEMS.map(g => g.url);
+const MAX_HERO_SLIDES = 8;
 
 export default function Blog() {
   const [posts, setPosts] = useState<BlogPost[]>(SEED_POSTS);
   const [activeCategory, setActiveCategory] = useState('All');
   const [openPost, setOpenPost] = useState<BlogPost | null>(null);
-  const [heroIdx, setHeroIdx] = useState(2);
+  const [heroIdx, setHeroIdx] = useState(0);
+  const [failedHeroImgs, setFailedHeroImgs] = useState<Set<string>>(new Set());
+
+  const heroSlides = posts.slice(0, MAX_HERO_SLIDES);
+  const currentSlide = heroSlides[heroIdx % Math.max(heroSlides.length, 1)];
 
   useEffect(() => {
-    const t = setInterval(() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length), 3000);
+    if (heroIdx >= heroSlides.length) setHeroIdx(0);
+  }, [heroSlides.length, heroIdx]);
+
+  useEffect(() => {
+    if (heroSlides.length < 2) return;
+    const t = setInterval(() => setHeroIdx(i => (i + 1) % heroSlides.length), 4000);
     return () => clearInterval(t);
-  }, []);
+  }, [heroSlides.length]);
 
   useEffect(() => {
     fetch('/api/blog')
@@ -422,66 +460,87 @@ export default function Blog() {
   return (
     <div className="min-h-screen bg-[var(--color-paper)]">
       {/* Hero Image Slider */}
-      <section className="relative overflow-hidden" style={{ height: '68vh', minHeight: '420px' }}>
-        <AnimatePresence mode="popLayout">
-          <motion.img
-            key={heroIdx}
-            src={HERO_IMAGES[heroIdx]}
-            initial={{ opacity: 0, scale: 1.04 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.0, ease: 'easeInOut' }}
-            className="absolute inset-0 w-full h-full object-cover"
-            alt="PD Jewellers gallery"
-          />
-        </AnimatePresence>
-
-        {/* Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/90 via-stone-900/40 to-stone-900/20 pointer-events-none" />
-        <div className="absolute inset-0 bg-[var(--color-ink)]/20 pointer-events-none" />
-
-        {/* Gold corner frames */}
-        <div className="absolute top-5 left-5 w-10 h-10 border-t-2 border-l-2 border-[#D4AF37]/60 pointer-events-none" />
-        <div className="absolute top-5 right-5 w-10 h-10 border-t-2 border-r-2 border-[#D4AF37]/60 pointer-events-none" />
-        <div className="absolute bottom-16 left-5 w-10 h-10 border-b-2 border-l-2 border-[#D4AF37]/60 pointer-events-none" />
-        <div className="absolute bottom-16 right-5 w-10 h-10 border-b-2 border-r-2 border-[#D4AF37]/60 pointer-events-none" />
-
-        {/* Prev / Next */}
-        <button
-          onClick={() => setHeroIdx(i => (i - 1 + HERO_IMAGES.length) % HERO_IMAGES.length)}
-          className="absolute left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <button
-          onClick={() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length)}
-          className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
-        >
-          <ChevronRight size={20} />
-        </button>
-
-        {/* Text + dots */}
-        <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 px-4 text-center text-white">
-          <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-[var(--color-gold)] mb-3 flex items-center justify-center gap-2">
-            <BookOpen size={13} /> The Journal
-          </p>
-          <h1 className="text-5xl md:text-6xl font-serif text-white mb-3 leading-tight drop-shadow-lg">
-            The Jewellery Blog
-          </h1>
-          <p className="text-white/65 text-sm max-w-xl mx-auto leading-relaxed mb-6">
-            Stories, guides, and expertise from Sri Lanka's leading fine jewellery artisans.
-          </p>
-          <div className="flex gap-2">
-            {HERO_IMAGES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setHeroIdx(i)}
-                className={`rounded-full transition-all duration-500 ${i === heroIdx ? 'bg-[#D4AF37] w-5 h-2' : 'w-2 h-2 bg-white/35 hover:bg-white/65'}`}
+      {currentSlide && (
+        <section className="relative overflow-hidden" style={{ height: '68vh', minHeight: '420px' }}>
+          <AnimatePresence mode="popLayout">
+            {currentSlide.coverImage && !failedHeroImgs.has(currentSlide._id) ? (
+              <motion.img
+                key={currentSlide._id}
+                src={currentSlide.coverImage}
+                initial={{ opacity: 0, scale: 1.04 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0, ease: 'easeInOut' }}
+                className="absolute inset-0 w-full h-full object-cover"
+                alt={currentSlide.title}
+                onError={() => setFailedHeroImgs(prev => new Set(prev).add(currentSlide._id))}
               />
-            ))}
+            ) : (
+              <motion.div
+                key={currentSlide._id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0, ease: 'easeInOut' }}
+              >
+                <CoverImageFallback category={currentSlide.category} title={currentSlide.title} className="absolute inset-0" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Overlays */}
+          <div className="absolute inset-0 bg-gradient-to-t from-stone-900/90 via-stone-900/40 to-stone-900/20 pointer-events-none" />
+          <div className="absolute inset-0 bg-[var(--color-ink)]/20 pointer-events-none" />
+
+          {/* Gold corner frames */}
+          <div className="absolute top-5 left-5 w-10 h-10 border-t-2 border-l-2 border-[#D4AF37]/60 pointer-events-none" />
+          <div className="absolute top-5 right-5 w-10 h-10 border-t-2 border-r-2 border-[#D4AF37]/60 pointer-events-none" />
+          <div className="absolute bottom-16 left-5 w-10 h-10 border-b-2 border-l-2 border-[#D4AF37]/60 pointer-events-none" />
+          <div className="absolute bottom-16 right-5 w-10 h-10 border-b-2 border-r-2 border-[#D4AF37]/60 pointer-events-none" />
+
+          {/* Prev / Next */}
+          {heroSlides.length > 1 && (
+            <>
+              <button
+                onClick={() => setHeroIdx(i => (i - 1 + heroSlides.length) % heroSlides.length)}
+                className="absolute left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                onClick={() => setHeroIdx(i => (i + 1) % heroSlides.length)}
+                className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center text-white hover:bg-black/45 transition-all"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </>
+          )}
+
+          {/* Text + dots */}
+          <div className="absolute inset-0 flex flex-col items-center justify-end pb-10 px-4 text-center text-white">
+            <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-[var(--color-gold)] mb-3 flex items-center justify-center gap-2">
+              <BookOpen size={13} /> The Journal
+            </p>
+            <h1 className="text-3xl md:text-5xl font-serif text-white mb-3 leading-tight drop-shadow-lg max-w-3xl mx-auto">
+              {currentSlide.title}
+            </h1>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-white/60 font-bold mb-6">
+              {currentSlide.category}
+            </p>
+            {heroSlides.length > 1 && (
+              <div className="flex gap-2">
+                {heroSlides.map((slide, i) => (
+                  <button
+                    key={slide._id}
+                    onClick={() => setHeroIdx(i)}
+                    className={`rounded-full transition-all duration-500 ${i === heroIdx ? 'bg-[#D4AF37] w-5 h-2' : 'w-2 h-2 bg-white/35 hover:bg-white/65'}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Category Filter */}
       <div className="sticky top-[112px] md:top-[128px] z-30 bg-[var(--color-paper)]/95 backdrop-blur border-b border-gray-100">
@@ -516,7 +575,7 @@ export default function Blog() {
       </section>
 
       {/* Gallery */}
-      <GallerySection />
+      <GallerySection posts={posts} onOpenPost={setOpenPost} />
 
       {/* Article Modal */}
       <AnimatePresence>

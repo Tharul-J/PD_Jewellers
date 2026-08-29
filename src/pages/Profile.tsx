@@ -4,23 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, Check, X, ChevronDown, Wand2, Gem, Package, Star, CheckCircle } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, X, ChevronDown, Wand2, Gem, Package, Star, CheckCircle } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
+import InitialsAvatar from '../components/InitialsAvatar';
+import ProfilePictureUpload from '../components/ProfilePictureUpload';
 import { METALS, STONES, FONTS } from '../constants';
 import { formatPrice, formatExact } from '../lib/price';
-
-const PRESET_AVATARS = [
-  { name: 'Emerald Monarch', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200' },
-  { name: 'Golden Aura', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200' },
-  { name: 'Pearl Elegance', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
-  { name: 'Royal Ruby', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200' },
-  { name: 'Sapphire Breeze', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200' },
-  { name: 'Onyx Classic', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200' },
-];
 
 const STATUS_LABELS: Record<string, string> = {
   pending:                'Pending Review',
@@ -79,7 +72,6 @@ export default function Profile() {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [editAvatar, setEditAvatar] = useState('');
   const [editAddress, setEditAddress] = useState({
     street: '',
     city: '',
@@ -102,7 +94,6 @@ export default function Profile() {
       setEditName(profileData.name || '');
       setEditEmail(profileData.email || '');
       setEditPhone(profileData.phone || '');
-      setEditAvatar(profileData.avatar || '');
       setEditAddress({
         street: profileData.address?.street || '',
         city: profileData.address?.city || '',
@@ -132,7 +123,6 @@ export default function Profile() {
           name: editName,
           email: editEmail,
           phone: editPhone,
-          avatar: editAvatar,
           address: editAddress
         })
       });
@@ -144,6 +134,7 @@ export default function Profile() {
           name: data.name,
           email: data.email,
           role: data.role,
+          profilePicture: data.profilePicture || user.profilePicture || '',
           token: data.token || user.token
         });
         setSuccessMsg('Profile updated successfully!');
@@ -156,6 +147,13 @@ export default function Profile() {
       setErrorMsg('Network error occurred.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleProfilePictureChange = (url: string) => {
+    setProfileData((prev: any) => (prev ? { ...prev, profilePicture: url } : prev));
+    if (user) {
+      syncAuthContext({ ...user, profilePicture: url });
     }
   };
 
@@ -491,16 +489,18 @@ export default function Profile() {
             {/* Sidebar */}
             <div className="w-full md:w-1/3 lg:w-1/4">
               <div className="mb-8 flex flex-col items-center md:items-start text-center md:text-left">
-                {profileData?.avatar ? (
-                  <img 
-                    src={profileData.avatar} 
-                    alt={profileData.name} 
+                {profileData?.profilePicture ? (
+                  <img
+                    src={profileData.profilePicture}
+                    alt={profileData.name}
                     className="w-24 h-24 rounded-full object-cover border-2 border-[var(--color-gold)] mb-4 shadow-sm"
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[var(--color-ink)] to-gray-700 flex items-center justify-center text-white text-3xl font-serif border-2 border-[var(--color-gold)] mb-4 shadow-sm">
-                    {(profileData?.name || user?.name || '?').charAt(0).toUpperCase()}
-                  </div>
+                  <InitialsAvatar
+                    name={profileData?.name || user?.name || '?'}
+                    size={96}
+                    className="border-2 border-[var(--color-gold)] mb-4 shadow-sm"
+                  />
                 )}
                 <h1 className="text-2xl font-serif text-[var(--color-ink)] break-words w-full">{profileData?.name || user?.name}</h1>
                 <p className="text-gray-500 mt-2 text-sm break-all w-full">{profileData?.email || user?.email}</p>
@@ -641,40 +641,16 @@ export default function Profile() {
                       </div>
                     )}
 
-                    {/* Avatar Selection */}
-                    <div className="mb-8">
-                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">Select Profile Icon</label>
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
-                        {PRESET_AVATARS.map((p) => {
-                          const isSelected = editAvatar === p.url;
-                          return (
-                            <button
-                              key={p.name}
-                              type="button"
-                              onClick={() => setEditAvatar(p.url)}
-                              className={`relative rounded-full aspect-square overflow-hidden border-2 transition-all p-0.5 ${isSelected ? 'border-[var(--color-gold)] scale-105 shadow-md' : 'border-transparent opacity-75 hover:opacity-100'}`}
-                              title={p.name}
-                            >
-                              <img src={p.url} alt={p.name} className="w-full h-full rounded-full object-cover" />
-                              {isSelected && (
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
-                                  <Check size={14} />
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-3">
-                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Or Avatar Image URL</label>
-                        <input 
-                          type="text" 
-                          value={editAvatar}
-                          onChange={(e) => setEditAvatar(e.target.value)}
-                          placeholder="https://example.com/your-image.jpg"
-                          className="w-full border border-gray-200 p-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:border-[var(--color-ink)] transition-colors"
+                    {/* Profile Picture */}
+                    <div className="mb-8 flex justify-center">
+                      {user && (
+                        <ProfilePictureUpload
+                          name={profileData?.name || user.name}
+                          profilePicture={profileData?.profilePicture || ''}
+                          token={user.token}
+                          onChange={handleProfilePictureChange}
                         />
-                      </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
@@ -704,7 +680,7 @@ export default function Profile() {
                           type="text" 
                           value={editPhone}
                           onChange={(e) => setEditPhone(e.target.value)}
-                          placeholder="e.g. +1 (555) 019-9234"
+                          placeholder="e.g. +94 77 123 4567"
                           className="w-full border border-gray-100 p-2 text-sm focus:outline-none focus:border-[var(--color-ink)]"
                         />
                       </div>

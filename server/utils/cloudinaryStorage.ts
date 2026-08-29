@@ -47,3 +47,38 @@ export const deleteGlbFromCloudinary = async (publicId: string): Promise<boolean
     return false;
   }
 };
+
+export const uploadImageToCloudinary = (fileBuffer: Buffer, publicId: string): Promise<string | null> => {
+  configure();
+  return new Promise((resolve) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'image',
+        folder:        'pd-jewellers/avatars',
+        public_id:     publicId,
+        overwrite:     true,
+        transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }],
+      },
+      (error, result) => {
+        if (error || !result || !result.secure_url) {
+          console.error('Cloudinary image upload error:', error);
+          resolve(null);
+          return;
+        }
+        resolve(result.secure_url);
+      }
+    );
+    uploadStream.end(fileBuffer);
+  });
+};
+
+export const deleteImageFromCloudinary = async (publicId: string): Promise<boolean> => {
+  configure();
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+    return result.result === 'ok';
+  } catch (error) {
+    console.error('Cloudinary image delete error:', error);
+    return false;
+  }
+};

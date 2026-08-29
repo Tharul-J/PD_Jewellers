@@ -128,7 +128,7 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
             {
               name: '22K Gold Classic Kara Bangle (BA002)',
               price: 365000,
-              image: 'https://www.swarnamahal.lk/cdn/shop/files/BA0001099A.jpg?v=1692019488',
+              image: 'https://www.swarnamahal.lk/cdn/shop/products/BR0000032B.jpg?v=1615533910',
               category: 'Bangles'
             }
           ],

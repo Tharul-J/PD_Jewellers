@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { sendPasswordResetEmail } from '../utils/email.js';
 import { notifyAdmins } from '../utils/notify.js';
+import { uploadImageToCloudinary, deleteImageFromCloudinary } from '../utils/cloudinaryStorage.js';
 
 const mockProfileUpdates: Record<string, any> = {};
 export const mockWishlists: Record<string, any[]> = {};
@@ -141,6 +142,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         name,
         email,
         role: 'customer',
+        profilePicture: '',
         token: generateToken('mock-new-user-id', 'customer', email),
       });
       return;
@@ -166,6 +168,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: (user as any).profilePicture || '',
         token: generateToken(user._id.toString(), user.role, user.email),
       });
     } else {
@@ -191,6 +194,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
           name: 'Admin User',
           email: 'admin@pdjewellers.com',
           role: 'administrator',
+          profilePicture: mockProfileUpdates['mock-admin-id']?.profilePicture || '',
           token: generateToken('mock-admin-id', 'administrator', 'admin@pdjewellers.com'),
         });
         return;
@@ -202,6 +206,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
           name: isTharul ? 'Tharul Senanayake' : 'Pathum Bandara',
           email: isTharul ? 'tharul2002@gmail.com' : 'pathum2@gmail.com',
           role: 'customer',
+          profilePicture: mockProfileUpdates['mock-customer-id']?.profilePicture || '',
           token: generateToken('mock-customer-id', 'customer', email),
         });
         return;
@@ -219,6 +224,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture || '',
         token: generateToken(user._id.toString(), user.role, user.email),
       });
     } else {
@@ -240,9 +246,6 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
       const defaultName = req.user.role === 'administrator' ? 'Admin User' : (req.user.email === 'tharul2002@gmail.com' ? 'Tharul Senanayake' : 'Pathum Bandara');
       const defaultEmail = req.user.role === 'administrator' ? 'admin@pdjewellers.com' : (req.user.email === 'tharul2002@gmail.com' ? 'tharul2002@gmail.com' : 'pathum2@gmail.com');
       const defaultPhone = req.user.role === 'administrator' ? '+94 11 234 5678' : '+94 77 289 1045';
-      const defaultAvatar = req.user.role === 'administrator' 
-        ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' 
-        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'; // Golden Aura style
       const defaultAddress = {
         street: 'No. 42, Galle Road',
         city: 'Colombo 03',
@@ -257,7 +260,7 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         email: cached.email || defaultEmail,
         role: req.user.role,
         phone: cached.phone !== undefined ? cached.phone : defaultPhone,
-        avatar: cached.avatar !== undefined ? cached.avatar : defaultAvatar,
+        profilePicture: cached.profilePicture || '',
         address: cached.address || defaultAddress,
         wishlist: getDefaultWishlist(req.user._id),
         savedConfigurations: getDefaultConfigurations(req.user._id),
@@ -274,7 +277,7 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         email: user.email,
         role: user.role,
         phone: (user as any).phone || '',
-        avatar: (user as any).avatar || '',
+        profilePicture: (user as any).profilePicture || '',
         address: (user as any).address || { street: '', city: '', state: '', zip: '', country: '' },
         wishlist: user.wishlist || [],
         savedConfigurations: user.savedConfigurations || [],
@@ -293,16 +296,17 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
 // @access  Private
 export const updateUserProfile = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, phone, avatar, address, password } = req.body;
+    const { name, email, phone, address, password } = req.body;
 
     if (mongoose.connection.readyState !== 1) {
       const mockId = req.user._id;
       const isTharul = req.user.email === 'tharul2002@gmail.com';
       mockProfileUpdates[mockId] = {
+        ...mockProfileUpdates[mockId],
         name: name || (mockProfileUpdates[mockId]?.name || (req.user.role === 'administrator' ? 'Admin User' : (isTharul ? 'Tharul Senanayake' : 'Pathum Bandara'))),
         email: email || (mockProfileUpdates[mockId]?.email || (req.user.role === 'administrator' ? 'admin@pdjewellers.com' : (isTharul ? 'tharul2002@gmail.com' : 'pathum2@gmail.com'))),
         phone: phone !== undefined ? phone : (mockProfileUpdates[mockId]?.phone || (req.user.role === 'administrator' ? '+94 11 234 5678' : '+94 77 289 1045')),
-        avatar: avatar !== undefined ? avatar : (mockProfileUpdates[mockId]?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'),
+        profilePicture: mockProfileUpdates[mockId]?.profilePicture || '',
         address: address || (mockProfileUpdates[mockId]?.address || { street: 'No. 42, Galle Road', city: 'Colombo 03', state: 'Western Province', zip: '00300', country: 'Sri Lanka' }),
       };
       res.json({
@@ -323,7 +327,6 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
       user.email = email || user.email;
       
       if (phone !== undefined) user.phone = phone;
-      if (avatar !== undefined) user.avatar = avatar;
       if (address !== undefined) {
         user.address = {
           street: address.street !== undefined ? address.street : (user.address?.street || ''),
@@ -346,7 +349,7 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
         email: updatedUser.email,
         role: updatedUser.role,
         phone: updatedUser.phone || '',
-        avatar: updatedUser.avatar || '',
+        profilePicture: updatedUser.profilePicture || '',
         address: updatedUser.address || { street: '', city: '', state: '', zip: '', country: '' },
         wishlist: updatedUser.wishlist || [],
         savedConfigurations: updatedUser.savedConfigurations || [],
@@ -356,6 +359,70 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
     } else {
       res.status(404).json({ message: 'User not found' });
     }
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Upload profile picture
+// @route   PUT /api/users/profile-picture
+// @access  Private
+export const uploadProfilePicture = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ message: 'No image uploaded' });
+      return;
+    }
+
+    const userId = req.user._id.toString();
+    const url = await uploadImageToCloudinary(req.file.buffer, userId);
+
+    if (!url) {
+      res.status(500).json({ message: 'Image upload failed. Please try again.' });
+      return;
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      mockProfileUpdates[userId] = { ...mockProfileUpdates[userId], profilePicture: url };
+      res.json({ profilePicture: url });
+      return;
+    }
+
+    const user: any = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    user.profilePicture = url;
+    await user.save();
+    res.json({ profilePicture: url });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Remove profile picture
+// @route   DELETE /api/users/profile-picture
+// @access  Private
+export const deleteProfilePicture = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user._id.toString();
+    await deleteImageFromCloudinary(`pd-jewellers/avatars/${userId}`);
+
+    if (mongoose.connection.readyState !== 1) {
+      mockProfileUpdates[userId] = { ...mockProfileUpdates[userId], profilePicture: '' };
+      res.json({ profilePicture: '' });
+      return;
+    }
+
+    const user: any = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    user.profilePicture = '';
+    await user.save();
+    res.json({ profilePicture: '' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }

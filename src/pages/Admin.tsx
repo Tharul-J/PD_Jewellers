@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, UserX, Banknote, Star } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
@@ -73,6 +73,7 @@ export default function Admin() {
   const [productFile, setProductFile] = useState<File | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   // Categories state
   const [availableCategories, setAvailableCategories] = useState<string[]>(() => {
@@ -690,9 +691,13 @@ export default function Admin() {
     .slice(0, 6);
 
   // Catalog filtered list
-  const filteredProducts = catalogFilter === 'all'
-    ? productsList
-    : productsList.filter(p => p.category === catalogFilter);
+  const catalogSearchQuery = catalogSearch.trim().toLowerCase();
+  const filteredProducts = productsList
+    .filter(p => catalogFilter === 'all' || p.category === catalogFilter)
+    .filter(p => !catalogSearchQuery ||
+      p.name?.toLowerCase().includes(catalogSearchQuery) ||
+      p.id?.toLowerCase().includes(catalogSearchQuery)
+    );
 
   if (!user || user.role !== 'administrator') return null;
 
@@ -798,7 +803,7 @@ export default function Admin() {
               {/* Stat Cards — gold theme */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
                 {[
-                  { label: 'Catalog Products', value: productsList.length, icon: LayoutList, sub: 'In collection', gradient: 'from-amber-500 via-yellow-400 to-amber-300', shadow: 'shadow-amber-200/60' },
+                  { label: 'Catalog Products', value: productsList.length, icon: LayoutList, sub: 'In collection', gradient: 'from-amber-600 via-yellow-500 to-amber-500', shadow: 'shadow-amber-400/50' },
                   { label: 'Customers', value: customerCount, icon: Users, sub: 'Registered', gradient: 'from-amber-900 via-yellow-800 to-amber-700', shadow: 'shadow-amber-800/30' },
                   { label: 'Inquiries', value: ordersList.length, icon: ShoppingCart, sub: 'Total received', gradient: 'from-amber-700 via-amber-600 to-yellow-500', shadow: 'shadow-amber-300/50' },
                   { label: '3D Models', value: modelsList.length, icon: Package, sub: 'Uploaded', gradient: 'from-yellow-600 via-amber-500 to-yellow-400', shadow: 'shadow-yellow-300/50' },
@@ -827,12 +832,12 @@ export default function Admin() {
                         <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm transition-transform duration-300 group-hover:scale-110 group-hover:bg-white/30">
                           <stat.icon size={20} className="text-white" />
                         </div>
-                        <span className="text-white/60 text-[9px] font-bold uppercase tracking-widest text-right leading-tight">{stat.sub}</span>
+                        <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest text-right leading-tight">{stat.sub}</span>
                       </div>
-                      <h3 className="text-4xl font-serif font-bold text-white mb-1">
+                      <h3 className="text-5xl font-serif font-bold text-white mb-1">
                         {loading ? <span className="text-white/50">—</span> : stat.value}
                       </h3>
-                      <p className="text-white/75 text-[10px] font-semibold uppercase tracking-widest">{stat.label}</p>
+                      <p className="text-white/75 text-xs font-semibold uppercase tracking-widest">{stat.label}</p>
                     </div>
                   </motion.div>
                 ))}
@@ -1051,7 +1056,7 @@ export default function Admin() {
                                   title={isSelf ? 'Cannot delete yourself' : 'Delete user'}
                                   className={`p-1.5 border border-red-100 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors ${isSelf ? 'opacity-30 cursor-not-allowed' : ''}`}
                                 >
-                                  <UserX size={13} />
+                                  <Trash2 size={13} />
                                 </button>
                               )}
                             </td>
@@ -1465,9 +1470,30 @@ export default function Admin() {
               <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                   <h2 className="text-base font-serif text-[var(--color-ink)]">
-                    All Products <span className="text-sm text-gray-400 font-sans font-normal ml-1">({filteredProducts.length}{catalogFilter !== 'all' ? ` of ${productsList.length}` : ''})</span>
+                    All Products <span className="text-sm text-gray-400 font-sans font-normal ml-1">({filteredProducts.length}{(catalogFilter !== 'all' || catalogSearchQuery) ? ` of ${productsList.length}` : ''})</span>
                   </h2>
                   <div className="flex items-center gap-3">
+                    {/* Search */}
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                      <input
+                        type="text"
+                        value={catalogSearch}
+                        onChange={e => setCatalogSearch(e.target.value)}
+                        placeholder="Search by name or SKU..."
+                        className="pl-8 pr-7 py-2 border border-gray-200 text-xs bg-white rounded focus:outline-none focus:border-amber-400 text-gray-600 w-52"
+                      />
+                      {catalogSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setCatalogSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                          title="Clear search"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
                     {/* Category filter */}
                     <select
                       value={catalogFilter}
@@ -1550,7 +1576,9 @@ export default function Admin() {
                     </table>
                     {filteredProducts.length === 0 && !catalogLoading && (
                       <div className="text-center py-12 text-gray-500 text-sm">
-                        {catalogFilter !== 'all' ? `No products in "${catalogFilter}"` : 'No products found.'}
+                        {catalogSearchQuery
+                          ? `No products match "${catalogSearch}"${catalogFilter !== 'all' ? ` in "${catalogFilter}"` : ''}`
+                          : catalogFilter !== 'all' ? `No products in "${catalogFilter}"` : 'No products found.'}
                       </div>
                     )}
                   </div>

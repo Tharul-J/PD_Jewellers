@@ -282,7 +282,7 @@ export default function ProductDetail() {
           </button>
           
           <div className="text-[10px] tracking-widest uppercase text-stone-400">
-            Colombo Elite &bull; Authentic Certificates
+            Gampaha Elite &bull; Authentic Certificates
           </div>
         </div>
 
@@ -717,7 +717,7 @@ export default function ProductDetail() {
                     <div className="text-stone-400">Accent stones:</div>
                     <div className="text-stone-800 font-medium">{isCustomProduct ? STONES[selectedStone].name : (displayHasStones ? 'Genuine Fine Gemstones' : 'None')}</div>
                     <div className="text-stone-400">Country of birth:</div>
-                    <div className="text-stone-800 font-medium">Sri Lanka (Colombo House)</div>
+                    <div className="text-stone-800 font-medium">Sri Lanka (Gampaha House)</div>
                   </div>
                 )}
               </div>

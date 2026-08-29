@@ -33,6 +33,29 @@ export default function Inquiry() {
     }
   }, [user, navigate]);
 
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    fetch('/api/users/profile', {
+      headers: { Authorization: `Bearer ${user.token}` }
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!data || cancelled) return;
+        setFormData(prev => ({
+          ...prev,
+          phone: prev.phone || data.phone || '',
+          address: prev.address || data.address?.street || '',
+          city: prev.city || data.address?.city || '',
+          postalCode: prev.postalCode || data.address?.zip || '',
+        }));
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [user]);
+
   const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -54,7 +77,7 @@ export default function Inquiry() {
       const shippingAddress = {
         fullName: formData.fullName,
         address: formData.address || 'Pickup Selected',
-        city: formData.city || 'Colombo',
+        city: formData.city || 'Gampaha',
         postalCode: formData.postalCode || '00000',
         country: formData.collectionType === 'pickup' ? 'In-Store Pickup' : 'Home Delivery',
       };
@@ -229,7 +252,7 @@ export default function Inquiry() {
                     <Landmark size={18} className={formData.collectionType === 'pickup' ? 'text-amber-600' : 'text-stone-400'} />
                   </div>
                   <p className="text-[10px] text-stone-500 leading-relaxed">
-                    Collect directly from our Atelier showroom in Colombo after availability verification review.
+                    Collect directly from our Atelier showroom in Gampaha after availability verification review.
                   </p>
                 </button>
 
