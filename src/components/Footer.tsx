@@ -3,38 +3,38 @@ import { Facebook, Instagram, Twitter, Youtube } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="text-[#E5CCAB] py-24 px-6 mt-0" style={{ backgroundImage: 'url(https://files.123freevectors.com/wp-content/original/150776-abstract-dark-brown-diagonal-shiny-lines-background.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <footer className="text-[#E5CCAB] py-24 px-6 mt-0" style={{ backgroundImage: "url('/footer-background.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-16 md:gap-12">
         <div className="md:col-span-4">
           <Link to="/" className="inline-block mb-6">
-            <div className="bg-white/95 rounded-2xl p-4 inline-block shadow-md shadow-black/20">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 inline-block shadow-md shadow-black/20">
               <img
                 src="/logo.png"
                 alt="P Dedigamuwa Jewellers"
-                className="h-24 w-auto object-contain"
+                className="h-56 w-auto object-contain"
               />
             </div>
           </Link>
           <p className="opacity-60 max-w-sm text-xs leading-loose mb-8 font-serif italic text-white/50">
             Over 110 years of unparalleled craftsmanship and timeless elegance.
           </p>
-          <div className="flex gap-5 text-[#D4AF37]/60">
+          <div className="flex gap-6 text-[#D4AF37]/60">
             <a href="https://www.instagram.com/pdedigamuwajewellers/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors" title="Instagram">
-              <Instagram size={18} strokeWidth={1.5} />
+              <Instagram size={34} strokeWidth={1.5} />
             </a>
             <a href="https://www.facebook.com/dedigamuwajewellers/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors" title="Facebook">
-              <Facebook size={18} strokeWidth={1.5} />
+              <Facebook size={34} strokeWidth={1.5} />
             </a>
             <a href="https://www.tiktok.com/@p_dedigamuwa_jewellers" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors" title="TikTok">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="1.5" 
-                strokeLinecap="round" 
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
                 strokeLinejoin="round"
               >
                 <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/>
