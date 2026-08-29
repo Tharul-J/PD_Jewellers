@@ -1,8 +1,24 @@
-import { Resend } from 'resend';
+import nodemailer, { Transporter } from 'nodemailer';
 
-// Resolved per-send, not at module load: server.ts calls dotenv.config() *after*
-// its route imports, so reading process.env in the module body would always miss .env.
-const emailFrom = () => process.env.EMAIL_FROM || 'PD Jewellers <onboarding@resend.dev>';
+// Built lazily on first send, never at module load: server.ts calls dotenv.config()
+// *after* its route imports, so reading process.env in the module body would see
+// undefined credentials and permanently bind a broken transporter.
+let transporter: Transporter | null = null;
+
+const getTransporter = (): Transporter => {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+  }
+  return transporter;
+};
+
+const emailFrom = () => `PD Jewellers <${process.env.GMAIL_USER}>`;
 
 // Hosted on Cloudinary — email clients cannot resolve the app's local /logo.png.
 const LOGO_URL =
@@ -95,13 +111,12 @@ const send = async (to: string, subject: string, html: string, tag: string): Pro
     console.error(`[email:${tag}] no recipient address, skipped`);
     return false;
   }
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.error(`[email:${tag}] GMAIL_USER / GMAIL_APP_PASSWORD not configured, skipped`);
+    return false;
+  }
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send({ from: emailFrom(), to, subject, html });
-    if (error) {
-      console.error(`[email:${tag}] Resend error:`, error);
-      return false;
-    }
+    await getTransporter().sendMail({ from: emailFrom(), to, subject, html });
     return true;
   } catch (err) {
     console.error(`[email:${tag}] failed to send:`, err);
