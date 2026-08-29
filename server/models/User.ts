@@ -55,6 +55,14 @@ const userSchema = new mongoose.Schema({
     thumbnail: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }
   }],
+  // Simulated card-on-file. Never holds a CVV or a full PAN — storing either
+  // post-authorisation is forbidden by PCI-DSS, demo environment or not.
+  savedCard: {
+    cardHolderName: { type: String, default: '' },
+    lastFour: { type: String, default: '' },
+    maskedNumber: { type: String, default: '' },
+    expiryDate: { type: String, default: '' }
+  },
   resetPasswordToken: { type: String, default: null },
   resetPasswordExpires: { type: Date, default: null }
 }, { timestamps: true });

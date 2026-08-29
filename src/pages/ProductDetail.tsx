@@ -19,6 +19,7 @@ import { CustomGLBRingModel } from '../components/RingModels';
 import { PendantModel } from '../components/PendantModel';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import ARTryOnModal from '../components/ARTryOnModal';
+import ProductReviews from '../components/ProductReviews';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
@@ -27,7 +28,7 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { addToCart, setIsCartOpen } = useCart();
+  const { addToCart } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { pricing } = usePricing();
   const { user } = useAuth();
@@ -203,6 +204,7 @@ export default function ProductDetail() {
 
     addToCart({
       id: itemToAddId,
+      sku: isCustomProduct ? undefined : id,
       name: productName,
       price: computedPrice,
       image: mainImage,
@@ -214,8 +216,8 @@ export default function ProductDetail() {
       },
       quantity: quantity
     });
-    setIsCartOpen(false);
-    navigate('/inquiry');
+    // addToCart opens the inquiry drawer. Adding is not submitting — the user
+    // reviews and adjusts the list there, then submits from the drawer.
   };
 
   const handleToggleWishlist = () => {
@@ -725,6 +727,12 @@ export default function ProductDetail() {
 
           </div>
         </div>
+
+        {/* Customer Reviews — catalog pieces only; a bespoke configuration has
+            no Product record to attach a review to. */}
+        {!isCustomProduct && id && product && (
+          <ProductReviews productId={id} productName={product.name} />
+        )}
 
         {/* Similar Masterworks Recommendations Section */}
         <div className="mt-24 border-t border-stone-200/60 pt-16">

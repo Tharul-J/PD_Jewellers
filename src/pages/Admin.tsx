@@ -1894,6 +1894,10 @@ export default function Admin() {
                               </div>
                             </td>
                             <td className="py-4 px-4 text-gray-600 max-w-sm">
+                              <p className="text-[10px] uppercase tracking-widest font-bold text-[var(--color-gold-dark)] mb-0.5">
+                                {review.product?.name || 'Shop Review'}
+                              </p>
+                              {review.title && <p className="font-medium text-[var(--color-ink)]">{review.title}</p>}
                               <p className="line-clamp-2">{review.text}</p>
                             </td>
                             <td className="py-4 px-4 text-gray-500 text-xs">{new Date(review.createdAt).toLocaleDateString()}</td>

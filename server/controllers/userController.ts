@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { sendPasswordResetEmail } from '../utils/email.js';
 import { notifyAdmins } from '../utils/notify.js';
 import { uploadImageToCloudinary, deleteImageFromCloudinary } from '../utils/cloudinaryStorage.js';
+import { newestFirst } from '../utils/sort.js';
 
 const mockProfileUpdates: Record<string, any> = {};
 export const mockWishlists: Record<string, any[]> = {};
@@ -122,6 +123,29 @@ export const getDefaultOrders = (userId: string) => {
   return mockOrders[userId];
 };
 
+export const EMPTY_SAVED_CARD = { cardHolderName: '', lastFour: '', maskedNumber: '', expiryDate: '' };
+
+// Normalise a raw card entry into the only shape we are willing to persist:
+// holder, expiry, last four digits and a masked display number. The full PAN
+// and the CVV are deliberately dropped on the floor here and never stored.
+const toSavedCard = (cardHolderName: string, cardNumber: string, expiryDate: string) => {
+  const digits = String(cardNumber || '').replace(/\D/g, '');
+  const lastFour = digits.slice(-4);
+  return {
+    cardHolderName: String(cardHolderName || '').trim(),
+    lastFour,
+    maskedNumber: `**** **** **** ${lastFour}`,
+    expiryDate: String(expiryDate || '').trim(),
+  };
+};
+
+const readSavedCard = (card: any) => ({
+  cardHolderName: card?.cardHolderName || '',
+  lastFour: card?.lastFour || '',
+  maskedNumber: card?.maskedNumber || '',
+  expiryDate: card?.expiryDate || '',
+});
+
 const generateToken = (id: string, role: string, email: string = '') => {
   return jwt.sign({ id, role, email }, process.env.JWT_SECRET || 'secret', {
     expiresIn: '30d',
@@ -143,6 +167,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         email,
         role: 'customer',
         profilePicture: '',
+        savedCard: { ...EMPTY_SAVED_CARD },
         token: generateToken('mock-new-user-id', 'customer', email),
       });
       return;
@@ -169,6 +194,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         email: user.email,
         role: user.role,
         profilePicture: (user as any).profilePicture || '',
+        savedCard: readSavedCard((user as any).savedCard),
         token: generateToken(user._id.toString(), user.role, user.email),
       });
     } else {
@@ -195,6 +221,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
           email: 'admin@pdjewellers.com',
           role: 'administrator',
           profilePicture: mockProfileUpdates['mock-admin-id']?.profilePicture || '',
+          savedCard: readSavedCard(mockProfileUpdates['mock-admin-id']?.savedCard),
           token: generateToken('mock-admin-id', 'administrator', 'admin@pdjewellers.com'),
         });
         return;
@@ -207,6 +234,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
           email: isTharul ? 'tharul2002@gmail.com' : 'pathum2@gmail.com',
           role: 'customer',
           profilePicture: mockProfileUpdates['mock-customer-id']?.profilePicture || '',
+          savedCard: readSavedCard(mockProfileUpdates['mock-customer-id']?.savedCard),
           token: generateToken('mock-customer-id', 'customer', email),
         });
         return;
@@ -225,6 +253,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
         email: user.email,
         role: user.role,
         profilePicture: user.profilePicture || '',
+        savedCard: readSavedCard(user.savedCard),
         token: generateToken(user._id.toString(), user.role, user.email),
       });
     } else {
@@ -262,6 +291,7 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         phone: cached.phone !== undefined ? cached.phone : defaultPhone,
         profilePicture: cached.profilePicture || '',
         address: cached.address || defaultAddress,
+        savedCard: readSavedCard(cached.savedCard),
         wishlist: getDefaultWishlist(req.user._id),
         savedConfigurations: getDefaultConfigurations(req.user._id),
         createdAt: '2023-09-18T00:00:00.000Z',
@@ -279,6 +309,7 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         phone: (user as any).phone || '',
         profilePicture: (user as any).profilePicture || '',
         address: (user as any).address || { street: '', city: '', state: '', zip: '', country: '' },
+        savedCard: readSavedCard((user as any).savedCard),
         wishlist: user.wishlist || [],
         savedConfigurations: user.savedConfigurations || [],
         createdAt: (user as any).createdAt,
@@ -351,6 +382,7 @@ export const updateUserProfile = async (req: Request, res: Response): Promise<vo
         phone: updatedUser.phone || '',
         profilePicture: updatedUser.profilePicture || '',
         address: updatedUser.address || { street: '', city: '', state: '', zip: '', country: '' },
+        savedCard: readSavedCard(updatedUser.savedCard),
         wishlist: updatedUser.wishlist || [],
         savedConfigurations: updatedUser.savedConfigurations || [],
         createdAt: updatedUser.createdAt,
@@ -558,23 +590,83 @@ export const deleteConfiguration = async (req: Request, res: Response): Promise<
   }
 };
 
+// @desc    Save (or replace) the user's card-on-file
+// @route   PUT /api/users/saved-card
+// @access  Private
+export const updateSavedCard = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { cardHolderName, cardNumber, expiryDate } = req.body;
+
+    const digits = String(cardNumber || '').replace(/\D/g, '');
+    if (!cardHolderName || !expiryDate || digits.length < 4) {
+      res.status(400).json({ message: 'Card holder name, card number and expiry date are required' });
+      return;
+    }
+
+    const savedCard = toSavedCard(cardHolderName, cardNumber, expiryDate);
+
+    if (mongoose.connection.readyState !== 1) {
+      const userId = req.user._id;
+      mockProfileUpdates[userId] = { ...mockProfileUpdates[userId], savedCard };
+      res.json(savedCard);
+      return;
+    }
+
+    const user: any = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    user.savedCard = savedCard;
+    await user.save();
+    res.json(readSavedCard(user.savedCard));
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Remove the user's card-on-file
+// @route   DELETE /api/users/saved-card
+// @access  Private
+export const deleteSavedCard = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      const userId = req.user._id;
+      mockProfileUpdates[userId] = { ...mockProfileUpdates[userId], savedCard: { ...EMPTY_SAVED_CARD } };
+      res.json({ ...EMPTY_SAVED_CARD });
+      return;
+    }
+
+    const user: any = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    user.savedCard = { ...EMPTY_SAVED_CARD };
+    await user.save();
+    res.json({ ...EMPTY_SAVED_CARD });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private/Admin
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json([
+      res.json(newestFirst([
         { _id: 'mock-customer-id', name: 'Tharul Senanayake', email: 'tharul2002@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
         { _id: 'mock-id-2', name: 'Pathum Bandara', email: 'john@example.com', role: 'customer', createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString() },
         { _id: 'mock-id-3', name: 'Dilini Perera', email: 'dilini@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() },
         { _id: 'mock-id-4', name: 'Kusal Fernando', email: 'kusal@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
         { _id: 'mock-id-5', name: 'Amara Wickramasinghe', email: 'amara@gmail.com', role: 'customer', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
         { _id: 'mock-admin-id', name: 'Admin User', email: 'admin@pdjewellers.com', role: 'administrator', createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString() }
-      ]);
+      ]));
       return;
     }
-    const users = await User.find({}).select('-password');
+    const users = await User.find({}).select('-password -savedCard').sort({ createdAt: -1 });
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });

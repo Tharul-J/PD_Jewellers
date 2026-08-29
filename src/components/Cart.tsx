@@ -1,39 +1,54 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Minus, Plus, ShoppingBag, ChevronRight, User } from 'lucide-react';
+import { X, Minus, Plus, ShoppingBag, Trash2, ChevronRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
 
+const RECENT_LIMIT = 3;
+
+// The drawer is the working inquiry list: add, adjust, remove, submit. Below it
+// sits a short receipt of already-submitted requests, so a submission doesn't
+// just vanish — full status tracking still lives in the profile.
 export function Cart() {
-  const { isCartOpen, setIsCartOpen, items, updateQuantity, removeFromCart, cartTotal } = useCart();
+  const { isCartOpen, setIsCartOpen, items, updateQuantity, removeFromCart, cartTotal, lastSubmittedAt } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [myInquiries, setMyInquiries] = useState<any[]>([]);
-  const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
+
+  const [submitted, setSubmitted] = useState<any[]>([]);
 
   useEffect(() => {
-    if (isCartOpen && user) {
-      const fetchInquiries = async () => {
-        setIsLoadingInquiries(true);
-        try {
-          const res = await fetch('/api/orders/myorders', {
-            headers: { Authorization: `Bearer ${user.token}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setMyInquiries(data);
-          }
-        } catch (error) {
-          console.error("Error fetching my inquiries in sidebar:", error);
-        } finally {
-          setIsLoadingInquiries(false);
-        }
-      };
-      fetchInquiries();
+    if (!isCartOpen || !user) {
+      setSubmitted([]);
+      return;
     }
-  }, [isCartOpen, user]);
+    let cancelled = false;
+
+    fetch('/api/orders/myorders', { headers: { Authorization: `Bearer ${user.token}` } })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (cancelled || !Array.isArray(data)) return;
+        // The endpoint sorts newest-first; re-sorting here is belt-and-braces so
+        // the "recent" slice below can never show the oldest requests.
+        setSubmitted(
+          [...data].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+        );
+      })
+      .catch(() => {
+        // offline — the section simply stays hidden
+      });
+
+    return () => { cancelled = true; };
+    // lastSubmittedAt refreshes the list when a submit happens behind an open drawer
+  }, [isCartOpen, user, lastSubmittedAt]);
+
+  const goTo = (path: string) => {
+    setIsCartOpen(false);
+    navigate(path);
+  };
 
   return (
     <AnimatePresence>
@@ -55,7 +70,7 @@ export function Cart() {
           >
             <div className="flex items-center justify-between p-6 border-b border-[rgba(26,26,26,0.1)]">
               <h2 className="text-2xl font-serif">Inquiry List</h2>
-              <button 
+              <button
                 onClick={() => setIsCartOpen(false)}
                 className="p-2 hover:bg-black/5 rounded-full transition-colors"
                 id="close-cart-btn"
@@ -64,17 +79,34 @@ export function Cart() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
-              {/* Draft / Unsubmitted Inquiry Items */}
-              {items.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-widest text-[#cca150] font-bold">New Submissions ({items.length})</span>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-widest text-[#cca150] font-bold">
+                    New Submissions ({items.length})
+                  </span>
+                  {items.length > 0 && (
                     <span className="text-[9px] text-gray-400 font-medium uppercase tracking-wider">Unsaved Draft</span>
+                  )}
+                </div>
+
+                {items.length === 0 ? (
+                  <div className="py-12 text-center border border-dashed border-stone-200 rounded-xl bg-white/30">
+                    <ShoppingBag size={26} strokeWidth={1} className="mx-auto mb-3 text-stone-300" />
+                    <p className="text-sm text-stone-600 font-serif">Your inquiry list is empty</p>
+                    <p className="text-[10px] text-stone-400 mt-1 mb-5">Add a piece to start a new inquiry.</p>
+                    <button
+                      onClick={() => goTo('/collections')}
+                      className="btn-richbrown text-white px-5 py-2.5 uppercase tracking-widest text-[9px] font-bold transition-colors rounded-xl shadow-md"
+                      id="sidebar-explore-btn"
+                    >
+                      Explore Showroom
+                    </button>
                   </div>
+                ) : (
                   <div className="space-y-4">
                     {items.map(item => (
-                      <div key={item.id} className="flex gap-4 p-3 bg-white/40 border border-stone-100 rounded-xl relative group" id={`cart-item-${item.id}`}>
+                      <div key={item.id} className="flex gap-4 p-3 pr-9 bg-white/40 border border-stone-100 rounded-xl relative group" id={`cart-item-${item.id}`}>
                         <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-stone-100">
                           <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover mix-blend-multiply" />
                         </div>
@@ -90,155 +122,69 @@ export function Cart() {
                               <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-0.5 opacity-60 hover:opacity-100" id={`qty-dec-${item.id}`}>
                                 <Minus size={11} />
                               </button>
-                              <span className="px-2 text-xs font-semibold">{item.quantity}</span>
+                              <span className="px-2 text-xs font-semibold" id={`qty-value-${item.id}`}>{item.quantity}</span>
                               <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-0.5 opacity-60 hover:opacity-100" id={`qty-inc-${item.id}`}>
                                 <Plus size={11} />
                               </button>
                             </div>
-                            <span className="font-serif text-sm font-semibold text-stone-900">{formatEstimate(item.price)}</span>
+                            <span className="font-serif text-sm font-semibold text-stone-900">{formatEstimate(item.price * item.quantity)}</span>
                           </div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => removeFromCart(item.id)}
-                          className="text-[10px] uppercase tracking-wider absolute top-3 right-3 opacity-0 group-hover:opacity-60 hover:opacity-100 hover:text-red-700 transition-all font-bold"
+                          className="absolute top-2 right-2 p-1.5 rounded-full text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                           id={`remove-${item.id}`}
+                          title={`Remove ${item.name} from inquiry list`}
+                          aria-label={`Remove ${item.name} from inquiry list`}
                         >
-                          Remove
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Submitted Active Inquiries & Real-time Status */}
-              <div className="pt-4 border-t border-dashed border-stone-200/80">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Inquiry Tracking Status</span>
-                  {user && myInquiries.length > 0 && (
-                    <button 
-                      onClick={() => {
-                        setIsCartOpen(false);
-                        navigate('/profile');
-                      }}
-                      className="text-[9px] text-[#cca150] uppercase tracking-wider font-extrabold hover:underline flex items-center gap-0.5"
-                      id="track-history-btn"
-                    >
-                      History <ChevronRight size={10} />
-                    </button>
-                  )}
-                </div>
-
-                {!user ? (
-                  <div className="bg-stone-50 border border-stone-100 p-5 rounded-2xl text-center space-y-3">
-                    <p className="text-xs text-stone-500 leading-relaxed font-sans">
-                      Log in to check the status of your existing workshop slots and customized inquiries.
-                    </p>
+              {/* Short receipt of submitted requests — reference, size and date
+                  only. Status, timelines and cancellation live in the profile. */}
+              {user && submitted.length > 0 && (
+                <div className="mt-8 pt-5 border-t border-dashed border-stone-200/80">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+                      Submitted Requests ({submitted.length})
+                    </span>
                     <button
-                      onClick={() => {
-                        setIsCartOpen(false);
-                        navigate('/login');
-                      }}
-                      className="inline-flex items-center justify-center gap-1 bg-stone-900 text-white px-4 py-2 uppercase tracking-widest text-[9px] font-bold hover:bg-stone-800 transition-colors rounded-lg w-full"
-                      id="sidebar-login-btn"
+                      onClick={() => goTo('/profile?tab=orders')}
+                      className="text-[9px] text-[#cca150] uppercase tracking-wider font-extrabold hover:underline flex items-center gap-0.5"
+                      id="view-all-inquiries-btn"
                     >
-                      <User size={10} /> Log In To Track
+                      View All <ChevronRight size={10} />
                     </button>
                   </div>
-                ) : isLoadingInquiries ? (
-                  <div className="py-6 text-center space-y-2">
-                    <div className="w-5 h-5 border-2 border-stone-900 border-t-transparent rounded-full animate-spin mx-auto" />
-                    <span className="text-[10px] text-stone-400 uppercase tracking-widest font-mono">Fetching Atelier Status...</span>
-                  </div>
-                ) : myInquiries.length === 0 ? (
-                  items.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                      <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center border border-stone-100">
-                        <ShoppingBag size={32} strokeWidth={1} className="text-stone-300" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-serif text-lg text-stone-800">No active inquiries</p>
-                        <p className="text-xs text-stone-500 max-w-xs leading-relaxed">
-                          Your draft list is empty and no previous inquiries were found under your profile. Customize a design to start.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setIsCartOpen(false);
-                          navigate('/collections');
-                        }}
-                        className="btn-richbrown text-white px-5 py-2.5 uppercase tracking-widest text-[9px] font-bold transition-colors rounded-xl shadow-md"
-                        id="sidebar-explore-btn"
-                      >
-                        Explore Showroom
-                      </button>
-                    </div>
-                  )
-                ) : (
-                  <div className="space-y-3">
-                    {myInquiries.slice(0, 3).map((inquiry) => {
-                      const latestItem = inquiry.orderItems?.[0];
-                      const statusStyles: Record<string, { bg: string, text: string, label: string }> = {
-                        pending: { bg: 'bg-orange-50 text-orange-700 border-orange-200/50', text: 'text-orange-700', label: 'Pending Review' },
-                        availability_confirmed: { bg: 'bg-blue-50 text-blue-700 border-blue-200/50', text: 'text-blue-700', label: 'Confirmed' },
-                        crafting: { bg: 'bg-amber-50 text-amber-800 border-amber-200/50', text: 'text-amber-800', label: 'In Crafting' },
-                        completed: { bg: 'bg-green-50 text-green-700 border-green-200/50', text: 'text-green-700', label: 'Completed' },
-                        declined: { bg: 'bg-red-50 text-red-700 border-red-200/50', text: 'text-red-700', label: 'Declined' },
-                      };
-                      const statusInfo = statusStyles[inquiry.status] || { bg: 'bg-stone-100 text-stone-700 border-stone-200', text: 'text-stone-700', label: inquiry.status };
 
+                  <div className="space-y-2">
+                    {submitted.slice(0, RECENT_LIMIT).map(inquiry => {
+                      const count = inquiry.orderItems?.length ?? 0;
                       return (
-                        <div 
-                          key={inquiry._id} 
-                          onClick={() => {
-                            setIsCartOpen(false);
-                            navigate('/profile');
-                          }}
-                          className="p-4 bg-white/60 hover:bg-white border border-stone-150/85 hover:border-stone-300 rounded-2xl transition-all cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.01)] flex flex-col gap-3 group"
-                          id={`inquiry-track-${inquiry._id}`}
+                        <button
+                          key={inquiry._id}
+                          onClick={() => goTo('/profile?tab=orders')}
+                          className="w-full flex items-center justify-between gap-3 px-3 py-2.5 bg-white/50 hover:bg-white border border-stone-100 hover:border-stone-300 rounded-lg text-left transition-colors"
+                          id={`submitted-inquiry-${inquiry._id}`}
                         >
-                          <div className="flex justify-between items-center select-none">
-                            <div className="flex flex-col">
-                              <span className="text-[10px] font-mono font-bold text-amber-700">{inquiry.inquiryRef || 'INQ-PENDING'}</span>
-                              <span className="text-[9px] text-stone-400">{new Date(inquiry.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                            </div>
-                            <span className={`px-2 py-0.5 text-[8px] uppercase tracking-widest rounded-md font-bold border ${statusInfo.bg}`}>
-                              {statusInfo.label}
-                            </span>
-                          </div>
-
-                          {latestItem && (
-                            <div className="flex gap-2 items-center bg-stone-50/50 p-2 rounded-xl">
-                              <img src={latestItem.image} alt={latestItem.name} className="w-8 h-8 rounded object-cover border border-stone-100" />
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-[10px] uppercase font-bold text-stone-700 truncate">{latestItem.name}</h4>
-                                <p className="text-[8px] tracking-wider text-stone-400 capitalize truncate">{latestItem.options?.material || 'Handcrafted Custom model'}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Simplified Timeline Progress Strip */}
-                          {inquiry.status !== 'declined' && (
-                            <div className="relative mt-1">
-                              <div className="w-full h-1 bg-stone-100 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-300"
-                                  style={{
-                                    width: 
-                                      inquiry.status === 'pending' ? '25%' :
-                                      inquiry.status === 'availability_confirmed' ? '50%' :
-                                      inquiry.status === 'crafting' ? '75%' : '100%'
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                          <span className="font-mono text-[11px] font-bold text-amber-700">
+                            {inquiry.inquiryRef || 'INQ-PENDING'}
+                          </span>
+                          <span className="text-[10px] text-stone-400 shrink-0">
+                            {count} item{count === 1 ? '' : 's'}
+                            {inquiry.createdAt && ` · ${new Date(inquiry.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                          </span>
+                        </button>
                       );
                     })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Submit Action Block */}
@@ -248,15 +194,12 @@ export function Cart() {
                   <span>Total Est. Value</span>
                   <div className="text-right">
                     <span className="block text-[9px] text-stone-400 font-sans tracking-widest uppercase mb-0.5">Starting from</span>
-                    <span className="font-bold">{formatPrice(cartTotal)}</span>
+                    <span className="font-bold" id="cart-total">{formatPrice(cartTotal)}</span>
                     <span className="block text-[10px] text-stone-500 font-sans tracking-normal font-normal mt-0.5">{INDICATIVE_NOTE}</span>
                   </div>
                 </div>
-                <button 
-                  onClick={() => {
-                    setIsCartOpen(false);
-                    navigate('/inquiry');
-                  }}
+                <button
+                  onClick={() => goTo('/inquiry')}
                   className="w-full py-4 btn-richbrown text-white uppercase tracking-[0.2em] text-xs font-bold transition-colors rounded-xl shadow-lg shadow-stone-850/10"
                   id="submit-inquiry-btn"
                 >

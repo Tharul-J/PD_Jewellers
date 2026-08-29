@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// Card-on-file. Masked details only — a CVV is never stored or transmitted here.
+export interface SavedCard {
+  cardHolderName: string;
+  lastFour: string;
+  maskedNumber: string;
+  expiryDate: string;
+}
+
 // Define user type
 export interface User {
   _id: string;
@@ -7,6 +15,7 @@ export interface User {
   email: string;
   role: 'customer' | 'administrator';
   profilePicture?: string;
+  savedCard?: SavedCard;
   token: string;
 }
 
@@ -14,6 +23,7 @@ interface AuthContextType {
   user: User | null;
   login: (userData: User) => void;
   logout: () => void;
+  updateUser: (patch: Partial<User>) => void;
   isLoading: boolean;
 }
 
@@ -60,8 +70,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('userInfo');
   };
 
+  // Merge server-side changes (e.g. a newly saved card) into the cached session
+  // so they survive a reload without forcing the user to sign in again.
+  const updateUser = (patch: Partial<User>) => {
+    setUser(prev => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      localStorage.setItem('userInfo', JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

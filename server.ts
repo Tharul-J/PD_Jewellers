@@ -56,14 +56,21 @@ async function startServer() {
         try {
           await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000 });
           await seedBlogPosts();
-          // Reviews used to be unique-per-inquiry; that index is now stale
-          // (inquiry is optional, one-review-per-user instead) and Mongoose
-          // won't drop it on its own since it's no longer in the schema.
-          try {
-            await Review.collection.dropIndex('inquiry_1');
-          } catch (err: any) {
-            if (err.codeName !== 'IndexNotFound') {
+          // Stale review indexes Mongoose won't drop on its own. `inquiry_1`
+          // predates inquiry becoming optional. `user_1` enforced one review
+          // per user site-wide — with product reviews that has to go, or a
+          // user's second review of any kind fails as a duplicate key.
+          for (const staleIndex of ['inquiry_1', 'user_1']) {
+            try {
+              await Review.collection.dropIndex(staleIndex);
+            } catch (err: any) {
+              if (err.codeName !== 'IndexNotFound') {
+              }
             }
+          }
+          try {
+            await Review.syncIndexes();
+          } catch (err: any) {
           }
           connected = true;
           break;

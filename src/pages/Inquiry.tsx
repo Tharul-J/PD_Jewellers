@@ -3,13 +3,13 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { FileText, ClipboardCheck, ArrowLeft, Phone, Calendar, Truck, Landmark, Mail, User } from 'lucide-react';
+import { FileText, ClipboardCheck, ArrowLeft, Phone, Calendar, Truck, Landmark, Mail, User, Trash2 } from 'lucide-react';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import { formatPrice, formatEstimate } from '../lib/price';
 
 export default function Inquiry() {
-  const { items, cartTotal, clearCart } = useCart();
+  const { items, cartTotal, clearCart, removeFromCart, markInquirySubmitted } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { guard, showWarning, dismiss } = useAdminGuard();
@@ -66,7 +66,9 @@ export default function Inquiry() {
 
     try {
       const orderItems = items.map(item => ({
-        productId: item.id.toString(),
+        // The catalog SKU, not the variant key — this is what product pages and
+        // reviews resolve against.
+        productId: item.sku || item.id.toString(),
         name: item.name,
         price: item.price,
         image: item.image,
@@ -99,6 +101,7 @@ export default function Inquiry() {
         const createdData = await response.json();
         setInquiryCreated(createdData);
         clearCart();
+        markInquirySubmitted();
       } else {
         const errorData = await response.json();
         alert(`Inquiry failed: ${errorData.message}`);
@@ -357,7 +360,19 @@ export default function Inquiry() {
                     <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover mix-blend-multiply" />
                   </div>
                   <div className="flex-1 text-sm">
-                    <h3 className="font-bold uppercase tracking-wider text-[10px] text-stone-800 mb-1">{item.name}</h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold uppercase tracking-wider text-[10px] text-stone-800 mb-1">{item.name}</h3>
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.id)}
+                        className="shrink-0 -mt-1 p-1 rounded-full text-stone-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title={`Remove ${item.name} from this inquiry`}
+                        aria-label={`Remove ${item.name} from this inquiry`}
+                        id={`inquiry-remove-${item.id}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                     <p className="text-[9px] text-stone-400 uppercase tracking-widest font-mono">
                       {item.options?.material} {item.options?.stone && `· Stone: ${item.options.stone}`} {item.options?.size && `· Size: ${item.options.size}`}
                     </p>

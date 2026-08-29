@@ -17,7 +17,9 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
       res.json(MOCK_PRODUCTS);
       return;
     }
-    const products = await Product.find({}).sort({ dateAdded: -1 });
+    // dateAdded is a 'YYYY-MM-DD' string that defaults to '' on legacy rows, so
+    // createdAt breaks ties and keeps undated products in a stable newest-first order.
+    const products = await Product.find({}).sort({ dateAdded: -1, createdAt: -1 });
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });

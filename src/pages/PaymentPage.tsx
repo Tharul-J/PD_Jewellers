@@ -1,20 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, type SavedCard } from '../context/AuthContext';
 import { CreditCard, Lock, CheckCircle, ShieldAlert } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import { formatExact } from '../lib/price';
 
-declare global {
-  interface Window { PasswordCredential: any; }
-}
-
 export default function PaymentPage() {
   const { inquiryId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
 
   const [inquiry, setInquiry] = useState<any>(null);
@@ -23,9 +19,13 @@ export default function PaymentPage() {
 
   const [form, setForm] = useState({ cardNumber: '', expiry: '', cvv: '', cardHolder: '' });
   const [saveCard, setSaveCard] = useState(false);
+  const [savedCard, setSavedCard] = useState<SavedCard | null>(null);
+  const [usingSavedCard, setUsingSavedCard] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  const hasSavedCard = (card?: SavedCard | null): card is SavedCard => !!card?.maskedNumber;
 
   useEffect(() => {
     if (!user || !inquiryId) return;
@@ -49,6 +49,75 @@ export default function PaymentPage() {
     };
     fetchInquiry();
   }, [user, inquiryId]);
+
+  // Pre-fill from the card on file. The session copy paints instantly; the
+  // profile fetch is authoritative for sessions cached before saved cards existed.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    const applySavedCard = (card?: SavedCard | null) => {
+      if (cancelled || !hasSavedCard(card)) return;
+      setSavedCard(card);
+      setUsingSavedCard(true);
+      setSaveCard(true);
+      setForm({
+        cardHolder: card.cardHolderName,
+        cardNumber: card.maskedNumber,
+        expiry: card.expiryDate,
+        cvv: '', // never restored — the CVV is re-entered on every payment
+      });
+    };
+
+    applySavedCard(user.savedCard);
+
+    (async () => {
+      try {
+        const res = await fetch('/api/users/profile', {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        applySavedCard(data.savedCard);
+      } catch {
+        // offline — the cached session copy is good enough to pre-fill with
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [user?.token]);
+
+  const handleRemoveSavedCard = async () => {
+    try {
+      const res = await fetch('/api/users/saved-card', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (!res.ok) throw new Error('Could not remove the saved card');
+      setSavedCard(null);
+      setUsingSavedCard(false);
+      setSaveCard(false);
+      setForm({ cardNumber: '', expiry: '', cvv: '', cardHolder: '' });
+      updateUser({ savedCard: undefined });
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // The saved card only ever yields a masked number, so the field is swapped for
+  // a blank one the moment the user starts typing a replacement — and restored
+  // if they leave without entering anything.
+  const handleCardNumberFocus = () => {
+    if (!usingSavedCard) return;
+    setUsingSavedCard(false);
+    setForm(prev => ({ ...prev, cardNumber: '' }));
+  };
+
+  const handleCardNumberBlur = () => {
+    if (usingSavedCard || form.cardNumber || !hasSavedCard(savedCard)) return;
+    setUsingSavedCard(true);
+    setForm(prev => ({ ...prev, cardNumber: savedCard.maskedNumber }));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let { name, value } = e.target;
@@ -76,18 +145,23 @@ export default function PaymentPage() {
       setSuccess(true);
 
       // Never persist the CVV — it's the one field PCI-DSS forbids storing
-      // post-authorization. Only the card number/name go into the browser's
-      // native save prompt, and only if the user opted in.
-      if (saveCard && 'credentials' in navigator && window.PasswordCredential) {
+      // post-authorization. Only the holder, expiry and last four digits are
+      // sent, and only if the user opted in. An unchecked box leaves any
+      // existing card alone; removing it is an explicit action.
+      if (saveCard) {
         try {
-          const cred = new window.PasswordCredential({
-            id: form.cardNumber.replace(/\s/g, ''),
-            password: '',
-            name: form.cardHolder,
+          const cardRes = await fetch('/api/users/saved-card', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+            body: JSON.stringify({
+              cardHolderName: form.cardHolder,
+              cardNumber: form.cardNumber,
+              expiryDate: form.expiry,
+            }),
           });
-          await navigator.credentials.store(cred);
+          if (cardRes.ok) updateUser({ savedCard: await cardRes.json() });
         } catch {
-          // silent — credential API not supported or user dismissed
+          // silent — a failed save must never undo a completed payment
         }
       }
 
@@ -168,6 +242,23 @@ export default function PaymentPage() {
           </div>
         </div>
 
+        {hasSavedCard(savedCard) && (
+          <div className="mb-5 flex items-center justify-between gap-3 border border-amber-200 bg-amber-50 rounded px-4 py-2.5">
+            <span className="text-xs text-amber-800">
+              {usingSavedCard
+                ? `Using saved card ending ${savedCard.lastFour} — enter your CVV to confirm`
+                : `Entering a new card — your saved card ending ${savedCard.lastFour} stays on file`}
+            </span>
+            <button
+              type="button"
+              onClick={handleRemoveSavedCard}
+              className="shrink-0 text-[10px] uppercase tracking-widest text-amber-700 hover:text-amber-900 underline"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+
         {[
           { label: 'Card Holder Name', name: 'cardHolder', placeholder: 'As on card', autoComplete: 'cc-name' },
           { label: 'Card Number', name: 'cardNumber', placeholder: '1234 5678 9012 3456', autoComplete: 'cc-number' },
@@ -180,6 +271,8 @@ export default function PaymentPage() {
               name={f.name}
               value={form[f.name as keyof typeof form]}
               onChange={handleChange}
+              onFocus={f.name === 'cardNumber' ? handleCardNumberFocus : undefined}
+              onBlur={f.name === 'cardNumber' ? handleCardNumberBlur : undefined}
               placeholder={f.placeholder}
               type={f.name === 'cvv' ? 'password' : 'text'}
               autoComplete={f.autoComplete}
@@ -195,7 +288,9 @@ export default function PaymentPage() {
             onChange={e => setSaveCard(e.target.checked)}
             className="w-4 h-4 accent-amber-600"
           />
-          <span className="text-xs text-gray-500">Save card details for future payments</span>
+          <span className="text-xs text-gray-500">
+            {hasSavedCard(savedCard) ? 'Keep these card details for future payments' : 'Save card details for future payments'}
+          </span>
         </label>
 
         {error && <p className="text-rose-600 text-xs mb-4">{error}</p>}

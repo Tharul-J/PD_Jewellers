@@ -4,6 +4,7 @@ import Order from '../models/Order.js';
 import User from '../models/User.js';
 import { mockOrders, getDefaultOrders } from './userController.js';
 import { notifyAdmins, notifyUser } from '../utils/notify.js';
+import { newestFirst } from '../utils/sort.js';
 import {
   sendAvailabilityConfirmedEmail,
   sendInquiryDeclinedEmail,
@@ -77,7 +78,7 @@ export const addOrderItems = async (req: Request, res: Response): Promise<void> 
 export const getOrders = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json([
+      res.json(newestFirst([
         {
           _id: 'ORD-2026-9041',
           inquiryRef: 'INQ-904183',
@@ -142,10 +143,10 @@ export const getOrders = async (req: Request, res: Response): Promise<void> => {
           createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
           status: 'pending'
         }
-      ]);
+      ]));
       return;
     }
-    const orders = await Order.find({}).populate('user', 'id name email');
+    const orders = await Order.find({}).populate('user', 'id name email').sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -181,10 +182,10 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
 export const getMyOrders = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json(getDefaultOrders(req.user._id));
+      res.json(newestFirst(getDefaultOrders(req.user._id)));
       return;
     }
-    const orders = await Order.find({ user: req.user._id });
+    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });

@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface CartItem {
+  // `id` is the variant key — it encodes the selected options so two
+  // configurations of the same piece stay separate lines. `sku` is the catalog
+  // product id, which is what orders and reviews need to reference.
   id: string;
+  sku?: string;
   name: string;
   price: number;
   quantity: number;
@@ -18,6 +22,9 @@ interface CartContextType {
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
   cartTotal: number;
+  /** Bumped when an inquiry is submitted, so open views can refresh their list. */
+  lastSubmittedAt: number | null;
+  markInquirySubmitted: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -59,6 +66,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => setItems([]);
 
+  // Submitting happens on the checkout page, but the drawer may be open behind
+  // it — this lets it refresh its submitted-requests list without polling.
+  const [lastSubmittedAt, setLastSubmittedAt] = useState<number | null>(null);
+  const markInquirySubmitted = () => setLastSubmittedAt(Date.now());
+
   const cartTotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
 
   return (
@@ -71,7 +83,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearCart,
         isCartOpen,
         setIsCartOpen,
-        cartTotal
+        cartTotal,
+        lastSubmittedAt,
+        markInquirySubmitted
       }}
     >
       {children}

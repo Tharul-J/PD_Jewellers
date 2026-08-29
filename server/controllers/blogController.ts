@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import BlogPost from '../models/BlogPost.js';
+import { newestFirst } from '../utils/sort.js';
 
 const SEED_POSTS = [
   {
@@ -94,7 +95,7 @@ Technology can map out the lines, but it takes a true human touch to bring a pie
 export const getBlogPosts = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json(SEED_POSTS.map((p, i) => ({ ...p, _id: `seed-${i}`, createdAt: p.publishedAt })));
+      res.json(newestFirst(SEED_POSTS.map((p, i) => ({ ...p, _id: `seed-${i}`, createdAt: p.publishedAt }))));
       return;
     }
     const posts = await BlogPost.find({}).sort({ publishedAt: -1 });

@@ -14,6 +14,7 @@ import InitialsAvatar from '../components/InitialsAvatar';
 import ProfilePictureUpload from '../components/ProfilePictureUpload';
 import { METALS, STONES, FONTS } from '../constants';
 import { formatPrice, formatExact } from '../lib/price';
+import { skuOf } from '../lib/sku';
 
 const STATUS_LABELS: Record<string, string> = {
   pending:                'Pending Review',
@@ -27,7 +28,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function Profile() {
   const { user, logout } = useAuth();
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
-  const { addToCart, setIsCartOpen } = useCart();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
   const { unreadByType, markReadByType } = useNotifications();
   const { guard, showWarning, dismiss } = useAdminGuard();
@@ -56,11 +57,12 @@ export default function Profile() {
 
   const [myReviews, setMyReviews] = useState<any[]>([]);
   const [reviewRating, setReviewRating] = useState(0);
+  const [reviewTitle, setReviewTitle] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
-  const [editReviewForm, setEditReviewForm] = useState({ rating: 0, text: '' });
+  const [editReviewForm, setEditReviewForm] = useState({ rating: 0, title: '', text: '' });
   const [editReviewSaving, setEditReviewSaving] = useState(false);
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
 
@@ -287,6 +289,11 @@ export default function Profile() {
     }
   }, [activeTab]);
 
+  // Site reviews carry no product; product reviews are written against a
+  // purchased piece and populate their product on the way back.
+  const siteReview = myReviews.find(r => !r.product);
+  const reviewForProduct = (sku: string) => myReviews.find(r => r.product?.id === sku);
+
   const handleSubmitReview = async () => {
     if (!reviewRating || !reviewText.trim() || !user) return;
     setReviewSubmitting(true);
@@ -294,13 +301,14 @@ export default function Profile() {
       const res = await fetch('/api/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify({ rating: reviewRating, text: reviewText }),
+        body: JSON.stringify({ rating: reviewRating, title: reviewTitle, text: reviewText, reviewType: 'site' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit review');
       setReviewSubmitted(true);
-      setMyReviews(prev => [...prev, data.review ?? { rating: reviewRating, text: reviewText }]);
+      setMyReviews(prev => [...prev, data.review ?? { rating: reviewRating, title: reviewTitle, text: reviewText }]);
       setReviewRating(0);
+      setReviewTitle('');
       setReviewText('');
     } catch (err: any) {
       alert(err.message || 'Failed to submit review');
@@ -311,7 +319,7 @@ export default function Profile() {
 
   const handleEditReview = (review: any) => {
     setEditingReviewId(review._id);
-    setEditReviewForm({ rating: review.rating, text: review.text });
+    setEditReviewForm({ rating: review.rating, title: review.title || '', text: review.text });
   };
 
   const handleEditReviewSave = async (id: string) => {
@@ -385,9 +393,9 @@ export default function Profile() {
   };
 
   const handleAddToInquiry = (item: any) => {
+    // addToCart opens the inquiry drawer so the item can be reviewed and
+    // adjusted there; submitting is a separate, deliberate step.
     addToCart({ id: item.productId, name: item.name, price: Number(item.price), image: item.image });
-    setIsCartOpen(false);
-    navigate('/inquiry');
   };
 
   const CONFIG_PLACEHOLDER_IMAGE: Record<'ring' | 'pendant', string> = {
@@ -1104,20 +1112,38 @@ export default function Profile() {
                                   {' · '}Track crafting progress under{' '}
                                   <button onClick={() => setActiveTab('orders')} className="text-amber-700 hover:underline font-semibold">My Inquiries</button>.
                                 </p>
-                                {(purchase.items || []).map((item: any, idx: number) => (
-                                  <div key={idx} className="flex gap-4 items-center">
-                                    <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded">
-                                      <img src={item.image} alt={item.name} className="w-full h-full object-cover mix-blend-multiply" />
+                                {(purchase.items || []).map((item: any, idx: number) => {
+                                  // Bespoke configurations have no catalog record to hang a
+                                  // review on, so they get no review control. Older records
+                                  // hold a `SKU-variant` key, so normalise before linking.
+                                  const sku = skuOf(item.productId);
+                                  const isReviewable = !!sku && !item.isCustom;
+                                  const existingReview = isReviewable ? reviewForProduct(sku) : null;
+
+                                  return (
+                                    <div key={item.productId || idx} className="flex gap-4 items-center">
+                                      <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded">
+                                        <img src={item.image} alt={item.name} className="w-full h-full object-cover mix-blend-multiply" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="text-sm font-serif">{item.name}</p>
+                                        <p className="text-xs text-gray-500 capitalize">{item.category}</p>
+                                        {isReviewable && (
+                                          <Link
+                                            to={`/product/${sku}`}
+                                            className="mt-1.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-amber-700 hover:text-amber-900 transition-colors"
+                                          >
+                                            <Star size={11} fill={existingReview ? 'currentColor' : 'none'} />
+                                            {existingReview ? 'Edit Review' : 'Write a Review'}
+                                          </Link>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-semibold">{formatExact(item.price)}</p>
+                                      </div>
                                     </div>
-                                    <div className="flex-1">
-                                      <p className="text-sm font-serif">{item.name}</p>
-                                      <p className="text-xs text-gray-500 capitalize">{item.category}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-semibold">{formatExact(item.price)}</p>
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -1140,10 +1166,15 @@ export default function Profile() {
                       </div>
                     )}
 
-                    {/* Write a review — one per account; hidden once the user has one */}
-                    {myReviews.length === 0 && (
+                    {/* Shop review — one per account. Product reviews are written
+                        from the piece's own page and listed alongside it below. */}
+                    {!siteReview && (
                       <div className="mb-8 max-w-lg">
-                        <h3 className="text-[10px] tracking-widest uppercase text-gray-500 font-bold mb-4">Share Your Experience</h3>
+                        <h3 className="text-[10px] tracking-widest uppercase text-gray-500 font-bold mb-1">Share Your Experience</h3>
+                        <p className="text-xs text-gray-400 mb-4">
+                          An overall review of PD Jewellers. To review a specific piece you own, open it from{' '}
+                          <button onClick={() => setActiveTab('purchases')} className="text-amber-700 hover:underline font-semibold">Purchased Items</button>.
+                        </p>
 
                         <div className="mb-4">
                           <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-2">Rating</label>
@@ -1158,6 +1189,17 @@ export default function Profile() {
                               </button>
                             ))}
                           </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <label className="text-[10px] tracking-widest uppercase text-gray-400 block mb-1">Title</label>
+                          <input
+                            value={reviewTitle}
+                            onChange={e => setReviewTitle(e.target.value)}
+                            maxLength={120}
+                            placeholder="Sum it up in a few words (optional)"
+                            className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-400"
+                          />
                         </div>
 
                         <div className="mb-4">
@@ -1190,6 +1232,33 @@ export default function Profile() {
                         <div className="space-y-4">
                         {myReviews.map((review) => (
                           <div key={review._id} className="border border-gray-100 rounded-lg p-5">
+                            {/* What the review is about — a purchased piece, or the shop itself */}
+                            <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100">
+                              {review.product ? (
+                                <>
+                                  <div className="w-10 h-10 bg-gray-50 border border-gray-100 rounded overflow-hidden shrink-0">
+                                    <img src={review.product.image} alt={review.product.name} className="w-full h-full object-cover mix-blend-multiply" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[9px] uppercase tracking-widest text-[var(--color-gold-dark)] font-bold">Product Review</p>
+                                    <Link to={`/product/${review.product.id}`} className="text-sm font-serif text-[var(--color-ink)] hover:underline line-clamp-1">
+                                      {review.product.name}
+                                    </Link>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded flex items-center justify-center shrink-0">
+                                    <Gem size={16} className="text-amber-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] uppercase tracking-widest text-[var(--color-gold-dark)] font-bold">Shop Review</p>
+                                    <p className="text-sm font-serif text-[var(--color-ink)]">PD Jewellers</p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
                             {editingReviewId === review._id ? (
                               <div>
                                 <div className="flex gap-1 mb-3">
@@ -1203,6 +1272,13 @@ export default function Profile() {
                                     </button>
                                   ))}
                                 </div>
+                                <input
+                                  value={editReviewForm.title}
+                                  onChange={e => setEditReviewForm(p => ({ ...p, title: e.target.value }))}
+                                  maxLength={120}
+                                  placeholder="Title (optional)"
+                                  className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-400 mb-2"
+                                />
                                 <textarea
                                   value={editReviewForm.text}
                                   onChange={e => setEditReviewForm(p => ({ ...p, text: e.target.value }))}
@@ -1253,6 +1329,9 @@ export default function Profile() {
                                     </button>
                                   </div>
                                 </div>
+                                {review.title && (
+                                  <p className="text-sm font-serif text-[var(--color-ink)] mb-1">{review.title}</p>
+                                )}
                                 <p className="text-sm text-gray-700 italic mb-3">"{review.text}"</p>
                                 <div className="flex items-center justify-between">
                                   <p className="text-xs text-gray-400">

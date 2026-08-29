@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { authUser, registerUser, getUserProfile, updateUserProfile, uploadProfilePicture, deleteProfilePicture, toggleWishlistItem, saveConfiguration, deleteConfiguration, getUsers, updateUserRole, deleteUser, forgotPassword, resetPassword } from '../controllers/userController.js';
+import { authUser, registerUser, getUserProfile, updateUserProfile, uploadProfilePicture, deleteProfilePicture, updateSavedCard, deleteSavedCard, toggleWishlistItem, saveConfiguration, deleteConfiguration, getUsers, updateUserRole, deleteUser, forgotPassword, resetPassword } from '../controllers/userController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -29,6 +29,9 @@ router.route('/profile')
 router.route('/profile-picture')
   .put(protect, uploadImage.single('image'), uploadProfilePicture)
   .delete(protect, deleteProfilePicture);
+router.route('/saved-card')
+  .put(protect, updateSavedCard)
+  .delete(protect, deleteSavedCard);
 router.post('/wishlist', protect, toggleWishlistItem);
 router.post('/configurations', protect, saveConfiguration);
 router.delete('/configurations/:id', protect, deleteConfiguration);

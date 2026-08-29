@@ -30,7 +30,7 @@ export const getModels = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    let models = await ConfigurableModel.find({});
+    let models = await ConfigurableModel.find({}).sort({ createdAt: -1 });
 
     // One-time migration: seed local ring files if none of the new local URLs are in DB yet.
     // This clears stale entries from old sessions (RI*.glb or old /uploads/) and seeds fresh.
@@ -39,7 +39,7 @@ export const getModels = async (req: Request, res: Response): Promise<void> => {
     if (!alreadySeeded) {
       await ConfigurableModel.deleteMany({ category: 'ring' });
       await ConfigurableModel.insertMany(LOCAL_RING_SEEDS);
-      models = await ConfigurableModel.find({});
+      models = await ConfigurableModel.find({}).sort({ createdAt: -1 });
     }
 
     res.json(models);

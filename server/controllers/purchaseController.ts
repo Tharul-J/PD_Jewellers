@@ -6,6 +6,7 @@ import User from '../models/User.js';
 import { getDefaultOrders } from './userController.js';
 import { notifyAdmins } from '../utils/notify.js';
 import { sendPaymentReceiptEmail } from '../utils/email.js';
+import { newestFirst } from '../utils/sort.js';
 
 const mockPurchases: Record<string, any[]> = {};
 
@@ -109,7 +110,7 @@ export const createPurchase = async (req: Request, res: Response): Promise<void>
 export const getMyPurchases = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json(mockPurchases[req.user._id] || []);
+      res.json(newestFirst(mockPurchases[req.user._id] || []));
       return;
     }
     const purchases = await Purchase.find({ user: req.user._id }).sort({ createdAt: -1 });
@@ -129,7 +130,7 @@ export const getAllPurchases = async (req: Request, res: Response): Promise<void
         ...p,
         user: { _id: p.user, name: 'Demo User', email: '' },
       }));
-      res.json(all);
+      res.json(newestFirst(all));
       return;
     }
     const purchases = await Purchase.find({}).populate('user', 'name email').sort({ createdAt: -1 });
