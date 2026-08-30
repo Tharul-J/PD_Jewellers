@@ -11,11 +11,20 @@ export interface IStoneEntry {
   key: string;
   displayName: string;
   price: number;
+  color?: string;
+}
+
+export interface IUpgradeEntry {
+  key: string;
+  name: string;
+  price: number;
 }
 
 export interface IPricing {
   metals: IMetalEntry[];
   stones: IStoneEntry[];
+  upgrades: IUpgradeEntry[];
+  /** Kept in sync with the "Engraving" upgrade — read by the configurator. */
   engravingPrice: number;
 }
 
@@ -35,35 +44,54 @@ const defaultPricing: IPricing = {
     { key: 'platinum',   displayName: 'Platinum (Pt950)',             multiplier: METALS.platinum.priceMultiplier  },
   ],
   stones: [
-    { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: STONES.aquamarine.price     },
-    { key: 'diamond',        displayName: 'White Ceylon Sapphire',           price: STONES.diamond.price        },
-    { key: 'ruby',           displayName: 'Crimson Ceylon Ruby',             price: STONES.ruby.price           },
-    { key: 'emerald',        displayName: 'Vibrant Emerald',                 price: STONES.emerald.price        },
-    { key: 'sapphire',       displayName: 'Royal Blue Ceylon Sapphire',      price: STONES.sapphire.price       },
-    { key: 'padparadscha',   displayName: 'Ceylon Padparadscha Sapphire',    price: STONES.padparadscha.price   },
-    { key: 'moonstone',      displayName: 'Premium Blue-Sheen Moonstone',    price: STONES.moonstone.price      },
-    { key: 'yellowsapphire', displayName: 'Yellow Ceylon Sapphire',          price: STONES.yellowsapphire.price },
-    { key: 'tourmaline',  displayName: 'Ceylon Violet Tourmaline',  price: STONES.tourmaline.price  },
-    { key: 'amethyst',    displayName: 'Purple Amethyst',            price: STONES.amethyst.price    },
-    { key: 'spinel',      displayName: 'Rose Spinel',                price: STONES.spinel.price      },
-    { key: 'alexandrite', displayName: 'Alexandrite',                price: STONES.alexandrite.price },
-    { key: 'catseye',     displayName: "Chrysoberyl Cat's Eye",      price: STONES.catseye.price     },
-    { key: 'zircon',      displayName: 'Blue Zircon',                price: STONES.zircon.price      },
+    { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: STONES.aquamarine.price,     color: STONES.aquamarine.color     },
+    { key: 'diamond',        displayName: 'White Ceylon Sapphire',           price: STONES.diamond.price,        color: STONES.diamond.color        },
+    { key: 'ruby',           displayName: 'Crimson Ceylon Ruby',             price: STONES.ruby.price,           color: STONES.ruby.color           },
+    { key: 'emerald',        displayName: 'Vibrant Emerald',                 price: STONES.emerald.price,        color: STONES.emerald.color        },
+    { key: 'sapphire',       displayName: 'Royal Blue Ceylon Sapphire',      price: STONES.sapphire.price,       color: STONES.sapphire.color       },
+    { key: 'padparadscha',   displayName: 'Ceylon Padparadscha Sapphire',    price: STONES.padparadscha.price,   color: STONES.padparadscha.color   },
+    { key: 'moonstone',      displayName: 'Premium Blue-Sheen Moonstone',    price: STONES.moonstone.price,      color: STONES.moonstone.color      },
+    { key: 'yellowsapphire', displayName: 'Yellow Ceylon Sapphire',          price: STONES.yellowsapphire.price, color: STONES.yellowsapphire.color },
+    { key: 'tourmaline',  displayName: 'Ceylon Violet Tourmaline',  price: STONES.tourmaline.price,  color: STONES.tourmaline.color  },
+    { key: 'amethyst',    displayName: 'Purple Amethyst',            price: STONES.amethyst.price,    color: STONES.amethyst.color    },
+    { key: 'spinel',      displayName: 'Rose Spinel',                price: STONES.spinel.price,      color: STONES.spinel.color      },
+    { key: 'alexandrite', displayName: 'Alexandrite',                price: STONES.alexandrite.price, color: STONES.alexandrite.color },
+    { key: 'catseye',     displayName: "Chrysoberyl Cat's Eye",      price: STONES.catseye.price,     color: STONES.catseye.color     },
+    { key: 'zircon',      displayName: 'Blue Zircon',                price: STONES.zircon.price,      color: STONES.zircon.color      },
   ],
+  upgrades: [{ key: 'engraving', name: 'Engraving', price: 5000 }],
   engravingPrice: 5000,
 };
 
+const FALLBACK_STONE_COLOR = '#cccccc';
+
+/** Stone entries saved before colours existed get one from the STONES map by key. */
+function withStoneColors(stones: IStoneEntry[]): IStoneEntry[] {
+  return stones.map(s => ({
+    ...s,
+    color: s.color || (STONES as Record<string, { color: string }>)[s.key]?.color || FALLBACK_STONE_COLOR,
+  }));
+}
+
 function normalisePricing(data: any): IPricing {
+  const engravingPrice = typeof data.engravingPrice === 'number'
+    ? data.engravingPrice
+    : defaultPricing.engravingPrice;
+
   return {
     metals: Array.isArray(data.metals) && data.metals.length > 0
       ? data.metals
       : defaultPricing.metals,
-    stones: Array.isArray(data.stones) && data.stones.length > 0
-      ? data.stones
-      : defaultPricing.stones,
-    engravingPrice: typeof data.engravingPrice === 'number'
-      ? data.engravingPrice
-      : defaultPricing.engravingPrice,
+    stones: withStoneColors(
+      Array.isArray(data.stones) && data.stones.length > 0
+        ? data.stones
+        : defaultPricing.stones
+    ),
+    // Pre-upgrades documents seed the array from the legacy flat engraving price.
+    upgrades: Array.isArray(data.upgrades) && data.upgrades.length > 0
+      ? data.upgrades
+      : [{ key: 'engraving', name: 'Engraving', price: engravingPrice }],
+    engravingPrice,
   };
 }
 

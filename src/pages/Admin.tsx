@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { usePricing, IMetalEntry, IStoneEntry } from '../context/PricingContext';
+import { usePricing, IMetalEntry, IStoneEntry, IUpgradeEntry } from '../context/PricingContext';
 import { motion } from 'motion/react';
 import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -235,9 +235,9 @@ export default function Admin() {
   // Pricing CRUD state
   const [metalsList,          setMetalsList]          = useState<IMetalEntry[]>([]);
   const [stonesList,          setStonesList]          = useState<IStoneEntry[]>([]);
-  const [engravingPriceLocal, setEngravingPriceLocal] = useState(5000);
+  const [upgradesList,        setUpgradesList]        = useState<IUpgradeEntry[]>([]);
   const [newMetal,            setNewMetal]            = useState({ displayName: '', multiplier: 1 });
-  const [newStone,            setNewStone]            = useState({ displayName: '', price: 0 });
+  const [newStone,            setNewStone]            = useState({ displayName: '', price: 0, color: '#cccccc' });
   const [showAddMetal,        setShowAddMetal]        = useState(false);
   const [showAddStone,        setShowAddStone]        = useState(false);
 
@@ -245,7 +245,11 @@ export default function Admin() {
     if (pricing) {
       setMetalsList([...(pricing.metals ?? [])]);
       setStonesList([...(pricing.stones ?? [])]);
-      setEngravingPriceLocal(pricing.engravingPrice ?? 5000);
+      setUpgradesList(
+        (pricing.upgrades ?? []).length > 0
+          ? [...pricing.upgrades]
+          : [{ key: 'engraving', name: 'Engraving', price: pricing.engravingPrice ?? 5000 }]
+      );
     }
   }, [pricing]);
 
@@ -2344,6 +2348,17 @@ export default function Admin() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
                   {stonesList.map((s, i) => (
                     <div key={s.key} className="flex items-center gap-2 bg-gray-50 rounded-md px-3 py-2">
+                      <input
+                        type="color"
+                        value={s.color || '#cccccc'}
+                        onChange={e => {
+                          const updated = [...stonesList];
+                          updated[i] = { ...s, color: e.target.value };
+                          setStonesList(updated);
+                        }}
+                        className="w-7 h-7 rounded cursor-pointer border border-gray-200 bg-white p-0.5 shrink-0"
+                        title={`Stone colour — ${s.displayName}`}
+                      />
                       <span className="flex-1 text-xs text-gray-700 font-medium truncate min-w-0">{s.displayName}</span>
                       <span className="text-xs text-gray-400 shrink-0">LKR</span>
                       <input
@@ -2375,6 +2390,13 @@ export default function Admin() {
                 {showAddStone ? (
                   <div className="flex items-center gap-2 bg-blue-50 rounded-md p-3 border border-blue-200 flex-wrap">
                     <input
+                      type="color"
+                      value={newStone.color}
+                      onChange={e => setNewStone({ ...newStone, color: e.target.value })}
+                      className="w-10 h-10 rounded cursor-pointer border border-blue-200 bg-white p-0.5 shrink-0"
+                      title="Stone colour"
+                    />
+                    <input
                       type="text" placeholder="Display name (e.g. Pink Ceylon Sapphire)"
                       value={newStone.displayName}
                       onChange={e => setNewStone({ ...newStone, displayName: e.target.value })}
@@ -2391,13 +2413,13 @@ export default function Admin() {
                       type="button"
                       onClick={() => {
                         if (!newStone.displayName.trim()) return;
-                        setStonesList([...stonesList, { key: genKey(newStone.displayName), displayName: newStone.displayName.trim(), price: newStone.price || 0 }]);
-                        setNewStone({ displayName: '', price: 0 });
+                        setStonesList([...stonesList, { key: genKey(newStone.displayName), displayName: newStone.displayName.trim(), price: newStone.price || 0, color: newStone.color }]);
+                        setNewStone({ displayName: '', price: 0, color: '#cccccc' });
                         setShowAddStone(false);
                       }}
                       className="px-3 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors shrink-0"
                     >Add</button>
-                    <button type="button" onClick={() => { setShowAddStone(false); setNewStone({ displayName: '', price: 0 }); }}
+                    <button type="button" onClick={() => { setShowAddStone(false); setNewStone({ displayName: '', price: 0, color: '#cccccc' }); }}
                       className="p-1.5 text-gray-400 hover:text-gray-600 rounded text-sm">✕</button>
                   </div>
                 ) : (
@@ -2412,18 +2434,59 @@ export default function Admin() {
               <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
                 <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
                   <div className="w-2 h-5 bg-green-400 rounded-full" />
-                  <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Other Upgrades</h3>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Optional add-ons in LKR — added on top of the piece price</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 bg-gray-50 rounded-md p-3 max-w-xs">
-                  <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 shrink-0">Engraving</label>
-                  <span className="text-xs text-gray-400 shrink-0 ml-auto">LKR</span>
-                  <input
-                    type="number" min="0"
-                    value={engravingPriceLocal}
-                    onChange={e => setEngravingPriceLocal(Number(e.target.value))}
-                    className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-green-400"
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+                  {upgradesList.map((u, i) => (
+                    <div key={u.key || i} className="flex items-center gap-2 bg-gray-50 rounded-md px-3 py-2">
+                      <input
+                        type="text" placeholder="Upgrade name"
+                        value={u.name}
+                        onChange={e => {
+                          const updated = [...upgradesList];
+                          updated[i] = { ...u, name: e.target.value };
+                          setUpgradesList(updated);
+                        }}
+                        className="flex-1 min-w-0 p-2 border border-gray-200 text-xs rounded bg-white focus:outline-none focus:border-green-400"
+                      />
+                      <span className="text-xs text-gray-400 shrink-0">LKR</span>
+                      <input
+                        type="number" min="0"
+                        value={u.price}
+                        onChange={e => {
+                          const updated = [...upgradesList];
+                          updated[i] = { ...u, price: Number(e.target.value) };
+                          setUpgradesList(updated);
+                        }}
+                        className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-green-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete "${u.name || 'this upgrade'}"? This will remove it from pricing.`)) {
+                            setUpgradesList(upgradesList.filter((_, idx) => idx !== i));
+                          }
+                        }}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0"
+                        title="Delete upgrade"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setUpgradesList([...upgradesList, { key: `upgrade_${Date.now()}_${upgradesList.length}`, name: '', price: 0 }])}
+                  className="text-xs text-green-600 hover:text-green-700 font-semibold flex items-center gap-1 mt-1"
+                >
+                  + Add New Upgrade
+                </button>
               </div>
 
               {/* Save bar */}
@@ -2442,8 +2505,22 @@ export default function Admin() {
                     if (!user) return;
                     setSavingPricing(true);
                     setPricingSaveStatus('idle');
+                    // Drop blank rows, and keep the flat engravingPrice (used by the
+                    // configurator) in step with the Engraving upgrade.
+                    const cleanUpgrades = upgradesList
+                      .filter(u => u.name.trim())
+                      .map(u => ({ ...u, name: u.name.trim() }));
+                    const engraving = cleanUpgrades.find(
+                      u => u.key === 'engraving' || /engrav/i.test(u.name)
+                    );
+
                     const success = await updatePricing(
-                      { metals: metalsList, stones: stonesList, engravingPrice: engravingPriceLocal },
+                      {
+                        metals: metalsList,
+                        stones: stonesList,
+                        upgrades: cleanUpgrades,
+                        engravingPrice: engraving?.price ?? pricing?.engravingPrice ?? 5000,
+                      },
                       user.token
                     );
                     setPricingSaveStatus(success ? 'success' : 'error');

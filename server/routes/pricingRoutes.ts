@@ -15,17 +15,54 @@ export const DEFAULT_METALS = [
 ];
 
 export const DEFAULT_STONES = [
-  { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: 65000  },
-  { key: 'diamond',        displayName: 'White Ceylon Sapphire',           price: 95000  },
-  { key: 'ruby',           displayName: 'Crimson Ceylon Ruby',             price: 145000 },
-  { key: 'emerald',        displayName: 'Vibrant Emerald',                 price: 120000 },
-  { key: 'sapphire',       displayName: 'Royal Blue Ceylon Sapphire',      price: 185000 },
-  { key: 'padparadscha',   displayName: 'Ceylon Padparadscha Sapphire',    price: 480000 },
-  { key: 'moonstone',      displayName: 'Premium Blue-Sheen Moonstone',    price: 45000  },
-  { key: 'yellowsapphire', displayName: 'Yellow Ceylon Sapphire',          price: 75000  },
+  { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: 65000,  color: '#6BA3C8' },
+  { key: 'diamond',        displayName: 'White Ceylon Sapphire',           price: 95000,  color: '#f0f0f0' },
+  { key: 'ruby',           displayName: 'Crimson Ceylon Ruby',             price: 145000, color: '#c41230' },
+  { key: 'emerald',        displayName: 'Vibrant Emerald',                 price: 120000, color: '#0a8a3c' },
+  { key: 'sapphire',       displayName: 'Royal Blue Ceylon Sapphire',      price: 185000, color: '#0a3d8f' },
+  { key: 'padparadscha',   displayName: 'Ceylon Padparadscha Sapphire',    price: 480000, color: '#FF7F50' },
+  { key: 'moonstone',      displayName: 'Premium Blue-Sheen Moonstone',    price: 45000,  color: '#B0C4DE' },
+  { key: 'yellowsapphire', displayName: 'Yellow Ceylon Sapphire',          price: 75000,  color: '#FFD166' },
 ];
 
+// Fallback swatches for stone keys that aren't in DEFAULT_STONES (mirrors src/constants.ts STONES)
+const STONE_COLOR_BY_KEY: Record<string, string> = {
+  ...Object.fromEntries(DEFAULT_STONES.map(s => [s.key, s.color])),
+  tourmaline:  '#5D2E8C',
+  amethyst:    '#9B59B6',
+  spinel:      '#E0306A',
+  alexandrite: '#2E7D55',
+  catseye:     '#C8901A',
+  zircon:      '#0098C9',
+};
+
+const FALLBACK_STONE_COLOR = '#cccccc';
+
 const DEFAULT_ENGRAVING = 5000;
+
+export const DEFAULT_UPGRADES = [
+  { key: 'engraving', name: 'Engraving', price: DEFAULT_ENGRAVING },
+];
+
+/** Adds a `color` to any stone entry missing one, using the known key map. */
+function withStoneColors(stones: any[]): any[] {
+  return (stones ?? []).map(s => ({
+    ...s,
+    color: s?.color || STONE_COLOR_BY_KEY[s?.key] || FALLBACK_STONE_COLOR,
+  }));
+}
+
+/** Seeds the upgrades array from the legacy flat engravingPrice when it's empty. */
+function withUpgrades(upgrades: any[] | undefined, engravingPrice: number): any[] {
+  if (Array.isArray(upgrades) && upgrades.length > 0) return upgrades;
+  return [{ key: 'engraving', name: 'Engraving', price: engravingPrice ?? DEFAULT_ENGRAVING }];
+}
+
+/** The configurator still reads the flat engravingPrice — derive it from the upgrades list. */
+function engravingFromUpgrades(upgrades: any[], fallback: number): number {
+  const found = (upgrades ?? []).find(u => /engrav/i.test(u?.name ?? '') || u?.key === 'engraving');
+  return typeof found?.price === 'number' ? found.price : fallback;
+}
 
 // Migrates an old flat-field document to the new array format.
 // Preserves any admin-edited values that are valid, corrects known stale values.
@@ -51,21 +88,26 @@ function migrateFromFlatFields(old: Record<string, any>) {
     if (s.key === 'moonstone'      && price > 100000)  price = s.price;  // e.g. 245 000 → 45 000
     if (s.key === 'yellowsapphire' && price > 100000)  price = s.price;  // e.g. 175 000 → 75 000
 
-    return { key: s.key, displayName: s.displayName, price };
+    return { key: s.key, displayName: s.displayName, price, color: s.color };
   });
 
   // Stale engraving price (old system used LKR 45 000; Phase 2 canonical is LKR 5 000)
   const rawEngraving = typeof old.engravingPrice === 'number' ? old.engravingPrice : DEFAULT_ENGRAVING;
   const engravingPrice = rawEngraving > 20000 ? DEFAULT_ENGRAVING : rawEngraving;
 
-  return { metals, stones, engravingPrice };
+  return { metals, stones, engravingPrice, upgrades: withUpgrades(undefined, engravingPrice) };
 }
 
 // ── GET /api/pricing ──────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      return res.json({ metals: DEFAULT_METALS, stones: DEFAULT_STONES, engravingPrice: DEFAULT_ENGRAVING });
+      return res.json({
+        metals: DEFAULT_METALS,
+        stones: DEFAULT_STONES,
+        upgrades: DEFAULT_UPGRADES,
+        engravingPrice: DEFAULT_ENGRAVING,
+      });
     }
 
     // Use lean() so we can read old flat fields even if they're not in the current schema
@@ -75,6 +117,7 @@ router.get('/', async (req, res) => {
       const created = await Pricing.create({
         metals: DEFAULT_METALS,
         stones: DEFAULT_STONES,
+        upgrades: DEFAULT_UPGRADES,
         engravingPrice: DEFAULT_ENGRAVING,
       });
       return res.json(created);
@@ -114,8 +157,20 @@ router.get('/', async (req, res) => {
       return res.json(migrated);
     }
 
-    // Already new format — return as-is
-    return res.json(raw);
+    // Already new format — backfill stone colours and the upgrades array if this
+    // document predates them, then persist the backfill so it happens once.
+    const stones   = withStoneColors(raw.stones);
+    const upgrades = withUpgrades(raw.upgrades, raw.engravingPrice);
+
+    const needsBackfill =
+      !Array.isArray(raw.upgrades) || raw.upgrades.length === 0 ||
+      (raw.stones ?? []).some((s: any) => !s?.color);
+
+    if (needsBackfill) {
+      await Pricing.updateOne({ _id: raw._id }, { $set: { stones, upgrades } });
+    }
+
+    return res.json({ ...raw, stones, upgrades });
   } catch (error) {
     console.error('[Pricing GET]', error);
     res.status(500).json({ message: 'Server Error' });
@@ -129,24 +184,31 @@ router.put('/', protect, admin, async (req, res) => {
       return res.status(503).json({ message: 'Database not connected' });
     }
 
-    const { metals, stones, engravingPrice } = req.body as {
+    const { metals, stones, upgrades, engravingPrice } = req.body as {
       metals?: typeof DEFAULT_METALS;
       stones?: typeof DEFAULT_STONES;
+      upgrades?: typeof DEFAULT_UPGRADES;
       engravingPrice?: number;
     };
 
     let pricing = await Pricing.findOne();
 
     if (!pricing) {
+      const nextUpgrades = withUpgrades(upgrades, engravingPrice ?? DEFAULT_ENGRAVING);
       pricing = new Pricing({
-        metals:         metals         ?? DEFAULT_METALS,
-        stones:         stones         ?? DEFAULT_STONES,
-        engravingPrice: engravingPrice ?? DEFAULT_ENGRAVING,
+        metals:         metals ?? DEFAULT_METALS,
+        stones:         withStoneColors(stones ?? DEFAULT_STONES),
+        upgrades:       nextUpgrades,
+        engravingPrice: engravingFromUpgrades(nextUpgrades, engravingPrice ?? DEFAULT_ENGRAVING),
       });
     } else {
       if (metals         != null) pricing.metals         = metals;
-      if (stones         != null) pricing.stones         = stones;
+      if (stones         != null) pricing.stones         = withStoneColors(stones);
       if (engravingPrice != null) pricing.engravingPrice = engravingPrice;
+      if (upgrades       != null) {
+        pricing.upgrades      = upgrades;
+        pricing.engravingPrice = engravingFromUpgrades(upgrades, pricing.engravingPrice);
+      }
     }
 
     const saved = await pricing.save();
