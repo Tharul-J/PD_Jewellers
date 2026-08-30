@@ -16,6 +16,9 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadByType, setUnreadByType] = useState<Record<string, number>>({});
+  // Unread admin→customer messages, counted from the Message collection so the
+  // profile badge stays live without refetching the message list.
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchNotifications = useCallback(async () => {
@@ -31,6 +34,7 @@ export function useNotifications() {
       setNotifications(prev => mergeById(prev, data.notifications ?? []));
       setUnreadCount(data.unreadCount);
       setUnreadByType(data.unreadByType ?? {});
+      setUnreadMessages(data.unreadMessages ?? 0);
     } catch { /* silent */ }
   }, [user]);
 
@@ -77,6 +81,7 @@ export function useNotifications() {
       setNotifications([]);
       setUnreadCount(0);
       setUnreadByType({});
+      setUnreadMessages(0);
       return;
     }
 
@@ -106,5 +111,5 @@ export function useNotifications() {
     };
   }, [user, fetchNotifications, pollNotifications]);
 
-  return { notifications, unreadCount, unreadByType, markReadByType, markAllRead, refetch: fetchNotifications };
+  return { notifications, unreadCount, unreadByType, unreadMessages, setUnreadMessages, markReadByType, markAllRead, refetch: fetchNotifications };
 }

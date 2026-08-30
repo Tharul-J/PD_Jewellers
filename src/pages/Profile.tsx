@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, X, ChevronDown, Wand2, Gem, Package, Star, CheckCircle } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, X, ChevronDown, ChevronRight, Wand2, Gem, Package, Star, CheckCircle, Mail } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
@@ -14,6 +14,7 @@ import InitialsAvatar from '../components/InitialsAvatar';
 import ProfilePictureUpload from '../components/ProfilePictureUpload';
 import { METALS, STONES, FONTS } from '../constants';
 import { formatPrice, formatExact } from '../lib/price';
+import { timeAgo } from '../lib/utils';
 import { skuOf } from '../lib/sku';
 import InquiryMessages from '../components/InquiryMessages';
 
@@ -32,7 +33,7 @@ export default function Profile() {
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
   const { addToCart } = useCart();
   const navigate = useNavigate();
-  const { unreadByType, markReadByType } = useNotifications();
+  const { unreadByType, unreadMessages, setUnreadMessages, markReadByType } = useNotifications();
   const { guard, showWarning, dismiss } = useAdminGuard();
 
   const [profileData, setProfileData] = useState<any>(null);
@@ -44,9 +45,9 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
 
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs' | 'purchases' | 'reviews'>(() => {
+  const [activeTab, setActiveTab] = useState<'account' | 'wishlist' | 'orders' | 'configs' | 'purchases' | 'reviews' | 'messages'>(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'configs' || tab === 'wishlist' || tab === 'orders' || tab === 'purchases' || tab === 'reviews') return tab;
+    if (tab === 'configs' || tab === 'wishlist' || tab === 'orders' || tab === 'purchases' || tab === 'reviews' || tab === 'messages') return tab;
     return 'account';
   });
 
@@ -57,7 +58,7 @@ export default function Profile() {
   const deepLinkId = searchParams.get('id');
 
   useEffect(() => {
-    if (deepLinkTab && ['account', 'wishlist', 'orders', 'configs', 'purchases', 'reviews'].includes(deepLinkTab)) {
+    if (deepLinkTab && ['account', 'wishlist', 'orders', 'configs', 'purchases', 'reviews', 'messages'].includes(deepLinkTab)) {
       setActiveTab(deepLinkTab as typeof activeTab);
     }
     if (deepLinkId) {
@@ -73,6 +74,11 @@ export default function Profile() {
 
   const [purchases, setPurchases] = useState<any[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(false);
+
+  // Messages from the shop
+  const [userMessages, setUserMessages] = useState<any[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(new Set());
 
   const [myReviews, setMyReviews] = useState<any[]>([]);
   const [reviewRating, setReviewRating] = useState(0);
@@ -316,6 +322,64 @@ export default function Profile() {
       markReadByType('inquiry_status');
     }
   }, [activeTab]);
+
+  const fetchUserMessages = async () => {
+    if (!user) return;
+    setMessagesLoading(true);
+    try {
+      const res = await fetch('/api/messages/mine', {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserMessages(data.messages ?? []);
+      }
+    } catch {
+      console.error('Failed to fetch messages');
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'messages' && user) {
+      fetchUserMessages();
+      // The bell entry is a "you have mail" nudge and clears on arrival, the way
+      // inquiries do. Per-message read state is set on expand, below — visiting
+      // the tab must not tell the shop every message was actually read.
+      if ((unreadByType['new_message'] ?? 0) > 0) markReadByType('new_message');
+    }
+  }, [activeTab, user]);
+
+  const markMessageRead = async (messageId: string) => {
+    if (!user) return;
+    // Optimistic: the card's dot clears immediately, and the polled count is
+    // decremented so the sidebar badge doesn't wait for the next 5s tick.
+    setUserMessages(prev => prev.map(m => (m._id === messageId ? { ...m, isRead: true } : m)));
+    setUnreadMessages(prev => Math.max(0, prev - 1));
+    try {
+      await fetch(`/api/messages/${messageId}/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+    } catch {
+      console.error('Failed to mark message read');
+    }
+  };
+
+  const toggleMessage = (msg: any) => {
+    setExpandedMessageIds(prev => {
+      const next = new Set(prev);
+      if (next.has(msg._id)) next.delete(msg._id);
+      else next.add(msg._id);
+      return next;
+    });
+    // Only an explicit open marks it read — never the list rendering.
+    if (!msg.isRead && !expandedMessageIds.has(msg._id)) void markMessageRead(msg._id);
+  };
+
+  // Prefer the polled count (live from any tab); fall back to the fetched list.
+  const unreadMessageCount = unreadMessages || userMessages.filter(m => !m.isRead).length;
 
   // Site reviews carry no product; product reviews are written against a
   // purchased piece and populate their product on the way back.
@@ -606,6 +670,13 @@ export default function Profile() {
                   className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'purchases' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <Package size={16} /> Purchased Items
+                </button>
+                <button
+                  onClick={() => setActiveTab('messages')}
+                  className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'messages' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
+                >
+                  <Mail size={16} /> Messages
+                  <NotificationBadge count={unreadMessageCount} />
                 </button>
                 <button
                   onClick={() => setActiveTab('reviews')}
@@ -1237,6 +1308,81 @@ export default function Profile() {
                       </div>
                     )}
                   </>
+                )}
+
+                {activeTab === 'messages' && (
+                  <div>
+                    <h2 className="text-xl font-serif text-[var(--color-ink)] mb-1">Messages</h2>
+                    <div className="w-10 h-px bg-[var(--color-gold)] mb-6" />
+
+                    {messagesLoading ? (
+                      <div className="py-16 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
+                    ) : userMessages.length === 0 ? (
+                      <div className="text-center py-16">
+                        <Mail size={28} className="mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500 text-sm">No messages yet.</p>
+                        <p className="text-gray-400 text-xs mt-1">Messages from PD Jewellers will appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {userMessages.map(msg => {
+                          const isExpanded = expandedMessageIds.has(msg._id);
+                          return (
+                            <div
+                              key={msg._id}
+                              id={`message-card-${msg._id}`}
+                              className={`border rounded-lg transition-colors ${
+                                msg.isRead ? 'border-gray-100 bg-white' : 'border-amber-200 bg-amber-50/40'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggleMessage(msg)}
+                                className="w-full flex items-start gap-3 p-4 text-left"
+                              >
+                                <span className="pt-1 shrink-0 text-gray-400">
+                                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                </span>
+
+                                {/* Unread marker keeps the row's alignment when hidden */}
+                                <span className="pt-1.5 shrink-0">
+                                  <span className={`block w-2 h-2 rounded-full ${msg.isRead ? 'bg-transparent' : 'bg-blue-500'}`} />
+                                </span>
+
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-sm ${msg.isRead ? 'text-[var(--color-ink)]' : 'font-semibold text-[var(--color-ink)]'}`}>
+                                      {msg.subject}
+                                    </span>
+                                    {msg.type === 'announcement' && (
+                                      <span className="px-2 py-0.5 text-[9px] uppercase tracking-wide rounded-full font-bold bg-amber-100 text-amber-700">
+                                        Announcement
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="block text-xs text-gray-400 mt-0.5">
+                                    From: {msg.sender?.name || 'PD Jewellers'}
+                                  </span>
+                                </span>
+
+                                <span className="text-xs text-gray-400 shrink-0 pt-0.5" title={new Date(msg.createdAt).toLocaleString()}>
+                                  {timeAgo(msg.createdAt)}
+                                </span>
+                              </button>
+
+                              {isExpanded && (
+                                <div className="px-4 pb-4 pl-14">
+                                  <div className="border-t border-gray-100 pt-3">
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.body}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {activeTab === 'reviews' && (
