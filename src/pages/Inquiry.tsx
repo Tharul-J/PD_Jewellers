@@ -7,6 +7,7 @@ import { FileText, ClipboardCheck, ArrowLeft, Phone, Calendar, Truck, Landmark, 
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import { formatPrice, formatEstimate } from '../lib/price';
+import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
 
 export default function Inquiry() {
   const { items, cartTotal, clearCart, removeFromCart, markInquirySubmitted } = useCart();
@@ -356,9 +357,7 @@ export default function Inquiry() {
             <div className="space-y-6 mb-8 overflow-y-auto max-h-[40vh] pr-2">
               {items.map(item => (
                 <div key={item.id} className="flex gap-4">
-                  <div className="w-16 h-16 bg-stone-50 border border-stone-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover mix-blend-multiply" />
-                  </div>
+                  <InquiryItemThumbnail image={item.image} name={item.name} isCustomDesign={item.isCustomDesign} />
                   <div className="flex-1 text-sm">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-bold uppercase tracking-wider text-[10px] text-stone-800 mb-1">{item.name}</h3>

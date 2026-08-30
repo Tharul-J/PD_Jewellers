@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
 import { useOverlayGuard } from '../lib/pollGuard';
+import { InquiryItemThumbnail } from './InquiryItemThumbnail';
 
 const RECENT_LIMIT = 3;
 
@@ -111,9 +112,7 @@ export function Cart() {
                   <div className="space-y-4">
                     {items.map(item => (
                       <div key={item.id} className="flex gap-4 p-3 pr-9 bg-white/40 border border-stone-100 rounded-xl relative group" id={`cart-item-${item.id}`}>
-                        <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-stone-100">
-                          <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover mix-blend-multiply" />
-                        </div>
+                        <InquiryItemThumbnail image={item.image} name={item.name} isCustomDesign={item.isCustomDesign} />
                         <div className="flex-1 flex flex-col justify-between py-0.5">
                           <div>
                             <h3 className="font-bold text-xs tracking-wider uppercase text-stone-800 line-clamp-1">{item.name}</h3>

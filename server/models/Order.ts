@@ -47,7 +47,9 @@ const orderSchema = new Schema(
         productId: { type: String, required: true },
         name: { type: String, required: true },
         price: { type: Number, required: true },
-        image: { type: String, required: true },
+        // Custom/configurator pieces have no catalog photo — the frontend
+        // sends '' for those and renders a label instead of an <img>.
+        image: { type: String, required: false, default: '' },
         category: { type: String, required: true },
         isCustom: { type: Boolean, required: true },
       },

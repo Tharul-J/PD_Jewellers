@@ -386,6 +386,7 @@ export default function Configurator() {
           engravingText: modelType === 'pendant' ? customText : undefined,
           fontStyle,
           pendantShape: modelType === 'pendant' ? pendantShape : undefined,
+          pendantSize: modelType === 'pendant' ? pendantSize : undefined,
           price: calculatePrice().total,
           thumbnail
         })

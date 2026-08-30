@@ -25,12 +25,13 @@ import ProductReviews from '../components/ProductReviews';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
+import DuplicateInquiryWarning from '../components/DuplicateInquiryWarning';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, isDuplicate } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { pricing, configuratorMetals, configuratorStones } = usePricing();
   const { user } = useAuth();
@@ -64,6 +65,7 @@ export default function ProductDetail() {
   // Modals
   const [isAROpen, setIsAROpen] = useState(false);
   const [isSizeOpen, setIsSizeOpen] = useState(false);
+  const [pendingDuplicateItem, setPendingDuplicateItem] = useState<Parameters<typeof addToCart>[0] | null>(null);
 
   // API fallback for products not in MOCK_PRODUCTS (e.g. admin-created catalog items)
   const [apiProduct, setApiProduct] = useState<typeof MOCK_PRODUCTS[0] | null>(null);
@@ -193,14 +195,12 @@ export default function ProductDetail() {
     return product?.name || 'Luxury Jewel';
   }, [isCustomProduct, product, queryType, metalName, engravingText]);
 
+  // Custom pieces have no catalog photo — the cart/inquiry/wishlist thumbnails
+  // render a "Custom Design" label for these instead of a stand-in photo URL.
   const mainImage = useMemo(() => {
-    if (isCustomProduct) {
-      return queryType === 'ring'
-        ? 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80&w=600'
-        : 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80&w=600';
-    }
+    if (isCustomProduct) return '';
     return product?.image || '';
-  }, [isCustomProduct, product, queryType]);
+  }, [isCustomProduct, product]);
 
   const isInWishlistState = useMemo(() => {
     const checkId = isCustomProduct ? `custom-${queryType}-${queryStyle}-${selectedMetal}-${selectedStone}-${selectedFont}-${engravingText}-${selectedSize}` : (id || '');
@@ -226,12 +226,13 @@ export default function ProductDetail() {
       ? `custom-${queryType}-${queryStyle}-${selectedMetal}-${selectedStone}-${selectedFont}-${engravingText}-${selectedSize}`
       : `${id}-${selectedMetal}-${selectedStone}-${selectedSize}-${wantEngraving ? 'engraved' : 'plain'}`;
 
-    addToCart({
+    const itemData = {
       id: itemToAddId,
       sku: isCustomProduct ? undefined : id,
       name: productName,
       price: computedPrice,
       image: mainImage,
+      isCustomDesign: isCustomProduct,
       options: {
         material: metalName,
         size: selectedSize,
@@ -239,7 +240,14 @@ export default function ProductDetail() {
         ...((isCustomProduct || product?.hasStones) && { gemstone: stoneName })
       },
       quantity: quantity
-    });
+    };
+
+    if (isDuplicate(itemData)) {
+      setPendingDuplicateItem(itemData);
+      return;
+    }
+
+    addToCart(itemData);
     // addToCart opens the inquiry drawer. Adding is not submitting — the user
     // reviews and adjusts the list there, then submits from the drawer.
   };
@@ -823,6 +831,16 @@ export default function ProductDetail() {
         onClose={() => setIsSizeOpen(false)}
       />
       {showWarning && <AdminActionWarning onClose={dismiss} />}
+      {pendingDuplicateItem && (
+        <DuplicateInquiryWarning
+          itemName={productName}
+          onCancel={() => setPendingDuplicateItem(null)}
+          onConfirm={() => {
+            addToCart(pendingDuplicateItem);
+            setPendingDuplicateItem(null);
+          }}
+        />
+      )}
     </div>
   );
 }

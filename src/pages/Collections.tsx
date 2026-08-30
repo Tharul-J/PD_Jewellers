@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../data/products';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
+import DuplicateInquiryWarning from '../components/DuplicateInquiryWarning';
 import { formatPrice, formatIndicative } from '../lib/price';
 export { MOCK_PRODUCTS };
 
@@ -133,10 +134,19 @@ export default function Collections() {
     return () => clearTimeout(timer);
   }, [activeCategory, urlFilters, maxPrice, sortBy, karatageFilter, stonesFilter]);
 
-  const { addToCart } = useCart();
+  const { addToCart, isDuplicate } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { user } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
+  const [duplicateProduct, setDuplicateProduct] = useState<typeof MOCK_PRODUCTS[0] | null>(null);
+
+  const handleQuickAdd = (product: typeof MOCK_PRODUCTS[0]) => {
+    if (isDuplicate(product)) {
+      setDuplicateProduct(product);
+      return;
+    }
+    addToCart(product);
+  };
 
   const filteredProducts = useMemo(() => {
     let products =
@@ -582,7 +592,7 @@ export default function Collections() {
                   className="w-full h-full object-cover mix-blend-multiply transition-transform duration-300 ease-out group-hover:scale-[2]"
                 />
                 <button
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); guard(() => addToCart(product)); }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); guard(() => handleQuickAdd(product)); }}
                   className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gold-gradient text-white p-3 rounded-full opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 shadow-xl hover:opacity-90 hover:scale-105 z-10"
                   title="Add to Bag"
                 >
@@ -602,6 +612,16 @@ export default function Collections() {
       </div>
       </div>
       {showWarning && <AdminActionWarning onClose={dismiss} />}
+      {duplicateProduct && (
+        <DuplicateInquiryWarning
+          itemName={duplicateProduct.name}
+          onCancel={() => setDuplicateProduct(null)}
+          onConfirm={() => {
+            addToCart(duplicateProduct);
+            setDuplicateProduct(null);
+          }}
+        />
+      )}
     </div>
   );
 }

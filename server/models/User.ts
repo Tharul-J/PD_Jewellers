@@ -51,6 +51,7 @@ const userSchema = new mongoose.Schema({
     engravingText: String,
     fontStyle: String,
     pendantShape: String,
+    pendantSize: String,
     price: Number,
     thumbnail: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }

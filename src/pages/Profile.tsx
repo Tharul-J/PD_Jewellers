@@ -17,6 +17,8 @@ import { formatPrice, formatExact } from '../lib/price';
 import { timeAgo } from '../lib/utils';
 import { skuOf } from '../lib/sku';
 import InquiryMessages from '../components/InquiryMessages';
+import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
+import DuplicateInquiryWarning from '../components/DuplicateInquiryWarning';
 
 const STATUS_LABELS: Record<string, string> = {
   pending:                'Pending Review',
@@ -31,7 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function Profile() {
   const { user, logout } = useAuth();
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
-  const { addToCart } = useCart();
+  const { addToCart, isDuplicate } = useCart();
   const navigate = useNavigate();
   const { unreadByType, unreadMessages, setUnreadMessages, markReadByType } = useNotifications();
   const { guard, showWarning, dismiss } = useAdminGuard();
@@ -496,19 +498,26 @@ export default function Profile() {
       localStorage.setItem('cfg_engraveWant', 'false');
     }
     localStorage.setItem('cfg_fontStyle', fontKey);
-    if (config.pendantShape) localStorage.setItem('cfg_pendantShape', config.pendantShape);
+    if (config.type === 'pendant') {
+      localStorage.setItem('cfg_pendantShape', config.pendantShape || 'standard');
+      localStorage.setItem('cfg_pendantSize', config.pendantSize || 'medium');
+    }
     navigate('/configurator');
   };
 
+  const [duplicateInquiryItem, setDuplicateInquiryItem] = useState<any | null>(null);
+
   const handleAddToInquiry = (item: any) => {
+    const cartItem = { id: item.productId, sku: item.productId, name: item.name, price: Number(item.price), image: item.image, isCustomDesign: item.isCustomDesign ?? item.isCustom };
+
+    if (isDuplicate(cartItem)) {
+      setDuplicateInquiryItem(item);
+      return;
+    }
+
     // addToCart opens the inquiry drawer so the item can be reviewed and
     // adjusted there; submitting is a separate, deliberate step.
-    addToCart({ id: item.productId, name: item.name, price: Number(item.price), image: item.image });
-  };
-
-  const CONFIG_PLACEHOLDER_IMAGE: Record<'ring' | 'pendant', string> = {
-    ring: 'https://images.unsplash.com/photo-1605100804763-247f67b2548e?auto=format&fit=crop&q=80&w=600',
-    pendant: 'https://images.unsplash.com/photo-1599643478514-4a4802c61e44?auto=format&fit=crop&q=80&w=600',
+    addToCart(cartItem);
   };
 
   const handleAddConfigToInquiry = (config: any) => {
@@ -517,11 +526,14 @@ export default function Profile() {
       ? `${config.metal} ${config.stone} Ring`
       : `${config.metal} ${config.pendantShape || 'Standard'} Pendant`;
 
+    // Configurator pieces have no catalog photo — the thumbnail renders a
+    // "Custom Design" label instead of relying on a stand-in photo URL.
     handleAddToInquiry({
       productId: `custom-config-${config._id}`,
       name,
       price: config.price,
-      image: CONFIG_PLACEHOLDER_IMAGE[type],
+      image: '',
+      isCustomDesign: true,
     });
   };
 
@@ -998,12 +1010,8 @@ export default function Profile() {
                         {wishlist.map((item) => (
                           <div key={item.productId} className="flex flex-col group border border-gray-100 rounded-lg overflow-hidden pb-4">
                             <div className="relative aspect-square bg-gray-50 mb-4 overflow-hidden">
-                              <img 
-                                src={item.image} 
-                                alt={item.name} 
-                                className="w-full h-full object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-105"
-                              />
-                              <button 
+                              <InquiryItemThumbnail image={item.image} name={item.name} isCustomDesign={item.isCustom} className="w-full h-full" />
+                              <button
                                 onClick={() => toggleWishlistItem(item)}
                                 className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-sm text-red-500 hover:bg-red-50 transition-colors"
                                 title="Remove from wishlist"
@@ -1196,9 +1204,7 @@ export default function Profile() {
                             <div className="p-4 space-y-4">
                               {order.orderItems.map((item: any, idx: number) => (
                                 <div key={idx} className="flex gap-4 items-center">
-                                  <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded">
-                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover mix-blend-multiply" />
-                                  </div>
+                                  <InquiryItemThumbnail image={item.image} name={item.name} isCustomDesign={item.isCustom} />
                                   <div className="flex-1">
                                     <p className="text-sm font-serif">{item.name}</p>
                                     <p className="text-xs text-gray-500 capitalize">{item.category}</p>
@@ -1295,9 +1301,7 @@ export default function Profile() {
 
                                   return (
                                     <div key={item.productId || idx} className="flex gap-4 items-center">
-                                      <div className="w-16 h-16 bg-gray-50 border border-gray-100 rounded">
-                                        <img src={item.image} alt={item.name} className="w-full h-full object-cover mix-blend-multiply" />
-                                      </div>
+                                      <InquiryItemThumbnail image={item.image} name={item.name} isCustomDesign={item.isCustom} />
                                       <div className="flex-1">
                                         <p className="text-sm font-serif">{item.name}</p>
                                         <p className="text-xs text-gray-500 capitalize">{item.category}</p>
@@ -1700,6 +1704,17 @@ export default function Profile() {
         </motion.div>
       </div>
       {showWarning && <AdminActionWarning onClose={dismiss} />}
+      {duplicateInquiryItem && (
+        <DuplicateInquiryWarning
+          itemName={duplicateInquiryItem.name}
+          onCancel={() => setDuplicateInquiryItem(null)}
+          onConfirm={() => {
+            const item = duplicateInquiryItem;
+            addToCart({ id: item.productId, sku: item.productId, name: item.name, price: Number(item.price), image: item.image, isCustomDesign: item.isCustomDesign ?? item.isCustom });
+            setDuplicateInquiryItem(null);
+          }}
+        />
+      )}
     </div>
   );
 }
