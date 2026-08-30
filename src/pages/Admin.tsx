@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry } from '../context/PricingContext';
@@ -37,6 +37,88 @@ const STATUS_ACTIONS: Record<string, StatusAction[]> = {
   completed: [],
   declined: [],
 };
+
+interface StatusChangeModalProps {
+  action: StatusAction;
+  targetLabel: string;
+  saving: boolean;
+  error: string;
+  onConfirm: (note: string) => void;
+  onCancel: () => void;
+}
+
+/**
+ * Module-level and named, so its identity never changes between renders.
+ *
+ * The note lives here rather than in the page: typing must not re-render the
+ * inquiry table behind the modal. The component is mounted fresh each time the
+ * modal opens, so the note starts empty without the caller resetting anything.
+ */
+function StatusChangeModal({ action, targetLabel, saving, error, onConfirm, onCancel }: StatusChangeModalProps) {
+  const [note, setNote] = useState('');
+
+  // Escape is handled on the document, so nothing here has to hold focus —
+  // an element that grabs focus on render would fight the textarea.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) onCancel();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [saving, onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={e => { if (e.target === e.currentTarget && !saving) onCancel(); }}
+      role="presentation"
+    >
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6" role="dialog" aria-modal="true">
+        <h3 className="text-base font-semibold text-[var(--color-ink)] mb-1">
+          Confirm: {action.label.replace(/^[✓✗▶]\s*/, '')}
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          This moves the inquiry to <span className="font-semibold">{targetLabel}</span> and notifies the customer.
+        </p>
+
+        <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">
+          Add a note for the customer (optional)
+        </label>
+        <textarea
+          autoFocus
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          rows={3}
+          maxLength={1000}
+          placeholder="e.g. Your ring is polished and ready for collection."
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
+        />
+
+        {error && <p className="text-xs text-rose-600 mt-2">{error}</p>}
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={onCancel}
+            disabled={saving}
+            className="px-4 py-2 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(note)}
+            disabled={saving}
+            className={`px-5 py-2 text-xs font-semibold text-white rounded-lg transition-colors disabled:opacity-40 ${
+              action.intent === 'decline' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
+            id="confirm-status-change"
+          >
+            {saving ? 'Saving...' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Inquiries the shop has to act on, versus ones waiting on the customer or done
 const NEEDS_ACTION = ['pending', 'ordered', 'crafting', 'ready'];
@@ -319,8 +401,9 @@ export default function Admin() {
 
   // Status changes go through a confirmation modal so the admin can attach an
   // optional note, which reaches the customer in both the thread and the email.
+  // The note itself lives inside StatusChangeModal — keeping it here would
+  // re-render the whole inquiry table on every keystroke.
   const [statusPrompt, setStatusPrompt] = useState<{ orderId: string; action: StatusAction } | null>(null);
-  const [statusNote, setStatusNote] = useState('');
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusError, setStatusError] = useState('');
 
@@ -329,11 +412,10 @@ export default function Admin() {
 
   const openStatusPrompt = (orderId: string, action: StatusAction) => {
     setStatusPrompt({ orderId, action });
-    setStatusNote('');
     setStatusError('');
   };
 
-  const handleConfirmStatusChange = async () => {
+  const handleConfirmStatusChange = async (note: string) => {
     if (!statusPrompt) return;
     setStatusSaving(true);
     setStatusError('');
@@ -341,7 +423,7 @@ export default function Admin() {
       const res = await fetch(`/api/orders/${statusPrompt.orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-        body: JSON.stringify({ status: statusPrompt.action.status, note: statusNote }),
+        body: JSON.stringify({ status: statusPrompt.action.status, note }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Could not update status');
@@ -1881,9 +1963,12 @@ export default function Admin() {
                         ].join(' ');
 
                         return (
-                          <>
+                          // The key belongs on the element returned from map().
+                          // On the inner <tr> it does nothing for reconciliation,
+                          // so a reordered list would re-associate rows by index
+                          // and destroy the expanded row's message draft.
+                          <Fragment key={order._id}>
                             <tr
-                              key={order._id}
                               id={`inquiry-row-${order._id}`}
                               className={`transition-colors cursor-pointer ${isPendingDelete ? 'bg-red-50' : isExpanded ? 'bg-amber-50/40' : `${rowAccent} hover:bg-gray-50`} border-b border-gray-100`}
                               onClick={() => !isPendingDelete && handleToggleOrderExpanded(order._id, isExpanded)}
@@ -1956,7 +2041,7 @@ export default function Admin() {
                               </td>
                             </tr>
                             {isExpanded && (
-                              <tr key={`${order._id}-items`} className="bg-amber-50/20 border-b border-gray-100">
+                              <tr className="bg-amber-50/20 border-b border-gray-100">
                                 <td colSpan={7} className="px-8 py-4">
                                   {items.length === 0 ? (
                                     <p className="text-xs text-gray-400 italic">No item details available.</p>
@@ -2001,7 +2086,7 @@ export default function Admin() {
                                 </td>
                               </tr>
                             )}
-                          </>
+                          </Fragment>
                         );
                       })}
                     </tbody>
@@ -2542,70 +2627,16 @@ export default function Admin() {
         </motion.div>
       </main>
 
-      {/* Status change confirmation — the note reaches the customer in both the
-          message thread and, where a template exists, the status email. */}
+      {/* One page-level modal instance, driven by statusPrompt — never one per row. */}
       {statusPrompt && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          // Clicking the overlay itself (never a child) dismisses, as does Escape.
-          onClick={e => { if (e.target === e.currentTarget && !statusSaving) setStatusPrompt(null); }}
-          onKeyDown={e => { if (e.key === 'Escape' && !statusSaving) setStatusPrompt(null); }}
-          role="presentation"
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"
-            role="dialog"
-            aria-modal="true"
-            tabIndex={-1}
-            ref={el => el?.focus()}
-            onKeyDown={e => { if (e.key === 'Escape' && !statusSaving) setStatusPrompt(null); }}
-          >
-            <h3 className="text-base font-semibold text-[var(--color-ink)] mb-1">
-              Confirm: {statusPrompt.action.label.replace(/^[✓✗▶]\s*/, '')}
-            </h3>
-            <p className="text-xs text-gray-500 mb-4">
-              This moves the inquiry to <span className="font-semibold">{STATUS_LABELS[statusPrompt.action.status] ?? statusPrompt.action.status}</span> and notifies the customer.
-            </p>
-
-            <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">
-              Add a note for the customer (optional)
-            </label>
-            <textarea
-              value={statusNote}
-              onChange={e => setStatusNote(e.target.value)}
-              rows={3}
-              maxLength={1000}
-              placeholder="e.g. Your ring is polished and ready for collection."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
-            />
-
-            {statusError && <p className="text-xs text-rose-600 mt-2">{statusError}</p>}
-
-            <div className="flex justify-end gap-2 mt-5">
-              <button
-                onClick={() => setStatusPrompt(null)}
-                disabled={statusSaving}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmStatusChange}
-                disabled={statusSaving}
-                // Confirm carries the weight of the action it commits: red to
-                // decline, green to move the inquiry forward.
-                className={`px-5 py-2 text-xs font-semibold text-white rounded-lg transition-colors disabled:opacity-40 ${
-                  statusPrompt.action.intent === 'decline'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-emerald-600 hover:bg-emerald-700'
-                }`}
-                id="confirm-status-change"
-              >
-                {statusSaving ? 'Saving...' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <StatusChangeModal
+          action={statusPrompt.action}
+          targetLabel={STATUS_LABELS[statusPrompt.action.status] ?? statusPrompt.action.status}
+          saving={statusSaving}
+          error={statusError}
+          onConfirm={handleConfirmStatusChange}
+          onCancel={() => setStatusPrompt(null)}
+        />
       )}
     </div>
   );
