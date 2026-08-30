@@ -224,6 +224,39 @@ export const sendInquiryMessageEmail = async (
   return send(to, `A Message About Your Inquiry ${inquiryRef}`, html, 'inquiry-message');
 };
 
+/**
+ * A direct message an administrator sent from the admin Messages tab.
+ * `isAnnouncement` only changes the wording — an announcement goes to many
+ * recipients at once, so it must not read as a reply to something they sent.
+ */
+export const sendAdminMessageEmail = async (
+  to: string,
+  name: string,
+  subject: string,
+  body: string,
+  isAnnouncement = false
+): Promise<boolean> => {
+  const intro = isAnnouncement
+    ? 'We have an announcement to share with you from PD Jewellers.'
+    : 'Our team has sent you a message.';
+
+  const html = buildEmailHtml(`
+    ${heading(subject)}
+    <p style="margin:0 0 12px 0;">Dear ${esc(name)},</p>
+    <p style="margin:0 0 12px 0;">${intro}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-collapse:collapse;">
+      <tr>
+        <td style="padding:14px 16px;background-color:#faf8f3;border-left:3px solid ${GOLD};">
+          <p style="margin:0;font-size:14px;white-space:pre-line;">${esc(body)}</p>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;">You can view this and all previous messages from your account dashboard under &ldquo;Messages&rdquo;.</p>
+    ${signOff}
+  `);
+  return send(to, `PD Jewellers: ${subject}`, html, 'admin-message');
+};
+
 /** Purchase created (payment received) */
 export const sendPaymentReceiptEmail = async (
   to: string,

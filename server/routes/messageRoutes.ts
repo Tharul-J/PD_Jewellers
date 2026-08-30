@@ -4,6 +4,7 @@ import Message from '../models/Message.js';
 import User from '../models/User.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { notifyUser } from '../utils/notify.js';
+import { sendAdminMessageEmail } from '../utils/email.js';
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ router.post('/', protect, admin, async (req, res) => {
     // De-duplicate, drop malformed ids, then confirm the users actually exist —
     // a stale id from the admin's cached list must not create a dead recipient.
     const uniqueIds = [...new Set(recipientIds)].filter(id => mongoose.isValidObjectId(id));
-    const found = await User.find({ _id: { $in: uniqueIds } }, '_id');
+    const found = await User.find({ _id: { $in: uniqueIds } }, '_id name email');
     if (found.length === 0) {
       return res.status(400).json({ message: 'None of the selected recipients exist' });
     }
@@ -58,6 +59,19 @@ router.post('/', protect, admin, async (req, res) => {
         notifyUser(String(u._id), 'new_message', `New message: ${preview(subject.trim())}`, '/profile?tab=messages')
       )
     );
+
+    // Fire-and-forget. The message is already persisted and visible in the
+    // recipient's inbox, so an SMTP problem must not fail the request or hold it
+    // open while a large announcement goes out one address at a time.
+    for (const u of found) {
+      void sendAdminMessageEmail(
+        (u as any).email,
+        (u as any).name || 'Valued Customer',
+        subject.trim(),
+        body.trim(),
+        type === 'announcement'
+      ).catch(err => console.error(`[Messages] email to ${(u as any).email} failed:`, err));
+    }
 
     const populated = await Message.findById(message._id)
       .populate('sender', 'name email')
