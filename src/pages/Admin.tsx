@@ -9,6 +9,7 @@ import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
 import { formatExact } from '../lib/price';
 import InquiryMessages from '../components/InquiryMessages';
+import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
 import { mergeById, shouldPausePolling, useOverlayGuard, useResumeOnOverlayClose } from '../lib/pollGuard';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
@@ -900,6 +901,23 @@ export default function Admin() {
   const handleToggleOrderExpanded = (orderId: string, isExpanded: boolean) => {
     setExpandedOrderId(isExpanded ? null : orderId);
     if (!isExpanded) void markInquiryRead(orderId);
+  };
+
+  // Configurator reads its initial selections from these same cfg_* localStorage
+  // keys on mount — there's no URL-param path, so a bespoke item's saved options
+  // have to be seeded the same way Profile.tsx does for "Open in Configurator".
+  const handleOpenBespokeDesign = (item: any) => {
+    const opts = item.options || {};
+    localStorage.setItem('cfg_modelType', opts.modelType || 'ring');
+    if (opts.material) localStorage.setItem('cfg_metal', opts.material);
+    if (opts.gemstone) localStorage.setItem('cfg_stone', opts.gemstone);
+    if (opts.style) localStorage.setItem('cfg_ringStyle', opts.style);
+    if (opts.size) {
+      if (opts.modelType === 'pendant') localStorage.setItem('cfg_pendantSize', opts.size);
+      else localStorage.setItem('cfg_ringSize', opts.size);
+    }
+    if (opts.engraving) localStorage.setItem('cfg_customText', opts.engraving);
+    window.open('/configurator', '_blank');
   };
 
   const handleDeleteOrder = async (id: string) => {
@@ -2557,13 +2575,18 @@ export default function Admin() {
                                   : <ChevronRight size={14} />}
                               </td>
                               <td className="py-4 px-4 font-mono text-xs font-bold text-amber-700">
-                                <span className="inline-flex items-center gap-2">
+                                <span className="inline-flex items-center gap-2 flex-wrap">
                                   {order.inquiryRef || 'INQ-PENDING'}
                                   {unread > 0 && (
                                     <span
                                       className="w-2.5 h-2.5 rounded-full bg-[var(--color-gold)] shrink-0"
                                       title={`${unread} unread message${unread === 1 ? '' : 's'} from the customer`}
                                     />
+                                  )}
+                                  {items.some(i => i.isCustom) && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                                      Bespoke
+                                    </span>
                                   )}
                                 </span>
                               </td>
@@ -2629,13 +2652,35 @@ export default function Admin() {
                                       <div className="space-y-2">
                                         {items.map((item: any, idx: number) => (
                                           <div key={idx} className="flex items-start gap-3 bg-white rounded border border-gray-100 p-3">
-                                            {item.image && (
-                                              <img src={item.image} alt={item.name} className="w-10 h-10 object-cover rounded border border-gray-100 flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
-                                            )}
+                                            <InquiryItemThumbnail image={item.image} name={item.name} isCustomDesign={item.isCustom} className="w-10 h-10" />
                                             <div className="flex-1 min-w-0">
-                                              <p className="text-sm font-medium text-[var(--color-ink)] truncate">{item.name}</p>
+                                              <p className="text-sm font-medium text-[var(--color-ink)] truncate flex items-center gap-2">
+                                                {item.isCustom ? (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleOpenBespokeDesign(item)}
+                                                    className="text-purple-700 hover:text-purple-900 hover:underline text-left"
+                                                    title="Open in Configurator"
+                                                  >
+                                                    {item.name} <span className="text-xs">↗</span>
+                                                  </button>
+                                                ) : (
+                                                  <a
+                                                    href={`/product/${item.productId}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-amber-700 hover:text-amber-900 hover:underline"
+                                                  >
+                                                    {item.name}
+                                                  </a>
+                                                )}
+                                                {item.isCustom && (
+                                                  <span className="text-purple-600 text-[10px] font-bold shrink-0">✦ Bespoke</span>
+                                                )}
+                                              </p>
                                               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
                                                 {item.quantity && <span className="text-xs text-gray-500">Qty: <span className="font-medium">{item.quantity}</span></span>}
+                                                {item.options?.style && <span className="text-xs text-gray-500">Style: <span className="font-medium">{item.options.style}</span></span>}
                                                 {item.options?.material && <span className="text-xs text-gray-500">Metal: <span className="font-medium">{item.options.material}</span></span>}
                                                 {item.options?.gemstone && <span className="text-xs text-gray-500">Stone: <span className="font-medium">{item.options.gemstone}</span></span>}
                                                 {item.options?.size && <span className="text-xs text-gray-500">Size: <span className="font-medium">{item.options.size}</span></span>}
@@ -2768,9 +2813,20 @@ export default function Admin() {
                               </div>
                             </td>
                             <td className="py-4 px-4 text-gray-600 max-w-sm">
-                              <p className="text-[10px] uppercase tracking-widest font-bold text-[var(--color-gold-dark)] mb-0.5">
-                                {review.product?.name || 'Shop Review'}
-                              </p>
+                              {review.product ? (
+                                <a
+                                  href={`/product/${review.product.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] uppercase tracking-widest font-bold text-[var(--color-gold-dark)] hover:underline mb-0.5 inline-block"
+                                >
+                                  {review.product.name}
+                                </a>
+                              ) : (
+                                <p className="text-[10px] uppercase tracking-widest font-bold text-[var(--color-gold-dark)] mb-0.5">
+                                  Shop Review
+                                </p>
+                              )}
                               {review.title && <p className="font-medium text-[var(--color-ink)]">{review.title}</p>}
                               <p className="line-clamp-2">{review.text}</p>
                             </td>

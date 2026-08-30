@@ -381,6 +381,7 @@ export default function Configurator() {
         body: JSON.stringify({
           type: modelType,
           ringSize: modelType === 'ring' ? ringSize : undefined,
+          ringStyle: modelType === 'ring' ? ringStyle : undefined,
           metal,
           stone,
           engravingText: modelType === 'pendant' ? customText : undefined,

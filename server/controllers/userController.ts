@@ -507,7 +507,7 @@ export const toggleWishlistItem = async (req: Request, res: Response): Promise<v
 // @access  Private
 export const saveConfiguration = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, pendantSize, price, thumbnail } = req.body;
+    const { type, ringSize, ringStyle, metal, stone, engravingText, fontStyle, pendantShape, pendantSize, price, thumbnail } = req.body;
 
     if (mongoose.connection.readyState !== 1) {
       const userId = req.user._id;
@@ -515,6 +515,7 @@ export const saveConfiguration = async (req: Request, res: Response): Promise<vo
         _id: 'mock-config-' + Date.now(),
         type,
         ringSize,
+        ringStyle,
         metal,
         stone,
         engravingText,
@@ -535,7 +536,7 @@ export const saveConfiguration = async (req: Request, res: Response): Promise<vo
     const user = await User.findById(req.user._id);
 
     if (user) {
-      const newConfig = { type, ringSize, metal, stone, engravingText, fontStyle, pendantShape, pendantSize, price, thumbnail };
+      const newConfig = { type, ringSize, ringStyle, metal, stone, engravingText, fontStyle, pendantShape, pendantSize, price, thumbnail };
       user.savedConfigurations = user.savedConfigurations ? [...user.savedConfigurations, newConfig] : [newConfig] as any;
       await user.save();
       res.json(user.savedConfigurations);

@@ -30,6 +30,36 @@ const STATUS_LABELS: Record<string, string> = {
   declined:               'Declined',
 };
 
+// Resolve a stored value to its internal key; fall back to name-based lookup
+// for any legacy entries that stored display names instead of keys. Fonts
+// remain fully static, so an unresolvable key there would fail to load —
+// snap back to the fallback.
+function resolveKey<T extends Record<string, { name: string }>>(
+  map: T, value: string | undefined, fallback: keyof T
+): string {
+  if (!value) return fallback as string;
+  if (value in map) return value;
+  const found = Object.entries(map).find(
+    ([, v]) => v.name.toLowerCase() === value.toLowerCase()
+  );
+  return found ? found[0] : fallback as string;
+}
+
+// Metals and stones are admin-managed, so a key that constants.ts has never
+// heard of is legitimate — pass it through rather than snapping to the
+// fallback. The configurator reconciles it against the live catalogue and
+// corrects it only if it has genuinely been deleted.
+function resolveCatalogKey<T extends Record<string, { name: string }>>(
+  map: T, value: string | undefined, fallback: keyof T
+): string {
+  if (!value) return fallback as string;
+  if (value in map) return value;
+  const found = Object.entries(map).find(
+    ([, v]) => v.name.toLowerCase() === value.toLowerCase()
+  );
+  return found ? found[0] : value;
+}
+
 export default function Profile() {
   const { user, logout } = useAuth();
   const { wishlist, toggleWishlistItem, isLoading: isWishlistLoading } = useWishlist();
@@ -454,34 +484,6 @@ export default function Profile() {
   };
 
   const handleOpenInConfigurator = (config: any) => {
-    // Resolve stored value to internal key; fall back to name-based lookup
-    // for any legacy entries that stored display names instead of keys.
-    const resolveKey = <T extends Record<string, { name: string }>>(
-      map: T, value: string | undefined, fallback: keyof T
-    ): string => {
-      if (!value) return fallback as string;
-      if (value in map) return value;
-      const found = Object.entries(map).find(
-        ([, v]) => v.name.toLowerCase() === value.toLowerCase()
-      );
-      return found ? found[0] : fallback as string;
-    };
-
-    // Metals and stones are admin-managed now, so a saved key that constants.ts
-    // has never heard of is legitimate — pass it through rather than snapping to
-    // the fallback. The configurator reconciles it against the live catalogue and
-    // corrects it only if it has genuinely been deleted.
-    const resolveCatalogKey = <T extends Record<string, { name: string }>>(
-      map: T, value: string | undefined, fallback: keyof T
-    ): string => {
-      if (!value) return fallback as string;
-      if (value in map) return value;
-      const found = Object.entries(map).find(
-        ([, v]) => v.name.toLowerCase() === value.toLowerCase()
-      );
-      return found ? found[0] : value;
-    };
-
     const metalKey  = resolveCatalogKey(METALS, config.metal, 'silver');
     const stoneKey  = resolveCatalogKey(STONES, config.stone, 'aquamarine');
     // Fonts remain fully static — an unresolvable key there would fail to load.
@@ -489,6 +491,7 @@ export default function Profile() {
 
     localStorage.setItem('cfg_modelType', config.type || 'ring');
     if (config.ringSize) localStorage.setItem('cfg_ringSize', config.ringSize);
+    if (config.type !== 'pendant') localStorage.setItem('cfg_ringStyle', config.ringStyle || 'ring-style-1');
     localStorage.setItem('cfg_metal', metalKey);
     localStorage.setItem('cfg_stone', stoneKey);
     if (config.engravingText) {
@@ -505,10 +508,27 @@ export default function Profile() {
     navigate('/configurator');
   };
 
+  // Configurator reads its initial selections from these same cfg_* localStorage
+  // keys on mount — mirrors handleOpenInConfigurator above, but sourced from an
+  // inquiry item's `options` rather than a saved-design record.
+  const handleOpenBespokeInquiryItem = (item: any) => {
+    const opts = item.options || {};
+    localStorage.setItem('cfg_modelType', opts.modelType || 'ring');
+    if (opts.material) localStorage.setItem('cfg_metal', opts.material);
+    if (opts.gemstone) localStorage.setItem('cfg_stone', opts.gemstone);
+    if (opts.style) localStorage.setItem('cfg_ringStyle', opts.style);
+    if (opts.size) {
+      if (opts.modelType === 'pendant') localStorage.setItem('cfg_pendantSize', opts.size);
+      else localStorage.setItem('cfg_ringSize', opts.size);
+    }
+    if (opts.engraving) localStorage.setItem('cfg_customText', opts.engraving);
+    navigate('/configurator');
+  };
+
   const [duplicateInquiryItem, setDuplicateInquiryItem] = useState<any | null>(null);
 
   const handleAddToInquiry = (item: any) => {
-    const cartItem = { id: item.productId, sku: item.productId, name: item.name, price: Number(item.price), image: item.image, isCustomDesign: item.isCustomDesign ?? item.isCustom };
+    const cartItem = { id: item.productId, sku: item.productId, name: item.name, price: Number(item.price), image: item.image, isCustomDesign: item.isCustomDesign ?? item.isCustom, options: item.options };
 
     if (isDuplicate(cartItem)) {
       setDuplicateInquiryItem(item);
@@ -534,6 +554,19 @@ export default function Profile() {
       price: config.price,
       image: '',
       isCustomDesign: true,
+      // Carried through to the inquiry so a bespoke item can be reopened in
+      // the configurator with its exact saved selections, not a default.
+      // Resolved through the same key/name lookup as "Open in Configurator" —
+      // a legacy record can still hold a display name instead of a key.
+      options: {
+        material: resolveCatalogKey(METALS, config.metal, 'silver'),
+        gemstone: resolveCatalogKey(STONES, config.stone, 'aquamarine'),
+        size: type === 'ring' ? config.ringSize : config.pendantSize,
+        style: config.ringStyle,
+        modelType: type,
+        engraving: config.engravingText,
+        font: resolveKey(FONTS, config.fontStyle, 'helvetiker'),
+      },
     });
   };
 
@@ -1088,6 +1121,11 @@ export default function Profile() {
                                 </p>
                               </div>
                               <div className="flex items-center gap-3 ml-4 shrink-0">
+                                {order.orderItems?.some((i: any) => i.isCustom) && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                                    Custom Design
+                                  </span>
+                                )}
                                 <span className={`px-3 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold
                                   ${order.status === 'pending' ? 'bg-orange-100 text-orange-700' : ''}
                                   ${order.status === 'availability_confirmed' ? 'bg-blue-100 text-blue-700' : ''}
@@ -1206,7 +1244,23 @@ export default function Profile() {
                                 <div key={idx} className="flex gap-4 items-center">
                                   <InquiryItemThumbnail image={item.image} name={item.name} isCustomDesign={item.isCustom} />
                                   <div className="flex-1">
-                                    <p className="text-sm font-serif">{item.name}</p>
+                                    {item.isCustom ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenBespokeInquiryItem(item)}
+                                        className="text-sm font-serif hover:underline inline-flex items-center gap-2 text-left"
+                                      >
+                                        {item.name}
+                                        <span className="text-purple-600 text-[10px] font-bold shrink-0">✦ Bespoke</span>
+                                      </button>
+                                    ) : (
+                                      <Link
+                                        to={`/product/${item.productId}`}
+                                        className="text-sm font-serif hover:underline inline-flex items-center gap-2"
+                                      >
+                                        {item.name}
+                                      </Link>
+                                    )}
                                     <p className="text-xs text-gray-500 capitalize">{item.category}</p>
                                   </div>
                                   <div>

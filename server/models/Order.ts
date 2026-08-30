@@ -10,6 +10,15 @@ export interface IOrder extends Document {
     image: string;
     category: string;
     isCustom: boolean;
+    options?: {
+      material?: string;
+      gemstone?: string;
+      size?: string;
+      style?: string;
+      modelType?: string;
+      engraving?: string;
+      font?: string;
+    };
   }[];
   shippingAddress: {
     fullName: string;
@@ -52,6 +61,17 @@ const orderSchema = new Schema(
         image: { type: String, required: false, default: '' },
         category: { type: String, required: true },
         isCustom: { type: Boolean, required: true },
+        // Configurator selections carried through so a bespoke item can be
+        // reopened later with its exact metal/stone/style, not a default.
+        options: {
+          material: String,
+          gemstone: String,
+          size: String,
+          style: String,
+          modelType: String,
+          engraving: String,
+          font: String,
+        },
       },
     ],
     shippingAddress: {

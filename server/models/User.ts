@@ -46,6 +46,7 @@ const userSchema = new mongoose.Schema({
   savedConfigurations: [{
     type: { type: String, enum: ['ring', 'pendant'] },
     ringSize: String,
+    ringStyle: String,
     metal: String,
     stone: String,
     engravingText: String,

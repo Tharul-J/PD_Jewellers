@@ -74,7 +74,8 @@ export default function Inquiry() {
         price: item.price,
         image: item.image,
         category: 'Inquiry',
-        isCustom: item.id.toString().startsWith('custom')
+        isCustom: item.id.toString().startsWith('custom'),
+        options: item.options
       }));
 
       const shippingAddress = {
