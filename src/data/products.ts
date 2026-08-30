@@ -6,6 +6,8 @@ export interface Product {
   image: string;
   description: string;
   karatage: string;
+  /** Optional so the existing catalog entries below need no backfill. */
+  metalWeight?: string;
   hasStones: boolean;
   dateAdded: string;
   views: number;

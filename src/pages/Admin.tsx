@@ -178,7 +178,7 @@ export default function Admin() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [productForm, setProductForm] = useState({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', hasStones: false });
+  const [productForm, setProductForm] = useState({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', hasStones: false });
   const [productFile, setProductFile] = useState<File | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
@@ -811,7 +811,7 @@ export default function Admin() {
       await fetchCatalog();
       setShowProductForm(false);
       setEditingProduct(null);
-      setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', hasStones: false });
+      setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', hasStones: false });
       setProductFile(null);
     } catch (err: any) {
       alert(err.message);
@@ -847,6 +847,7 @@ export default function Admin() {
       price: String(product.price),
       image: product.image || '',
       karatage: product.karatage || '',
+      metalWeight: product.metalWeight || '',
       hasStones: !!product.hasStones,
     });
     setProductFile(null);
@@ -856,7 +857,7 @@ export default function Admin() {
 
   const handleCancelProductForm = () => {
     setEditingProduct(null);
-    setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', hasStones: false });
+    setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', hasStones: false });
     setProductFile(null);
     setShowProductForm(false);
   };
@@ -1672,6 +1673,16 @@ export default function Admin() {
                           onChange={e => setProductForm({ ...productForm, karatage: e.target.value })}
                           className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
                           placeholder="e.g. 22K Yellow Gold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Metal Weight</label>
+                        <input
+                          type="text"
+                          value={productForm.metalWeight}
+                          onChange={e => setProductForm({ ...productForm, metalWeight: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                          placeholder="e.g. 7.03g or Bespoke (4.50g - 14.50g average)"
                         />
                       </div>
                       <div className="flex items-end">

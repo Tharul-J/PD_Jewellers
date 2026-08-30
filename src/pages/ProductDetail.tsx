@@ -120,6 +120,7 @@ export default function ProductDetail() {
 
   // Stored catalog fields — used verbatim for spec-sheet display, no name-guessing.
   const displayKaratage = product?.karatage || null;
+  const displayMetalWeight = product?.metalWeight || null;
   const displayHasStones = product?.hasStones ?? false;
 
   // Calculate pricing based on options
@@ -710,8 +711,12 @@ export default function ProductDetail() {
                 )}
                 {activeTab === 'specifications' && (
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 border-t border-stone-100 pt-2 text-[11px]">
-                    <div className="text-stone-400">Metal Weight:</div>
-                    <div className="text-stone-800 font-medium">Bespoke (4.50g - 14.50g average)</div>
+                    {displayMetalWeight && (
+                      <>
+                        <div className="text-stone-400">Metal Weight:</div>
+                        <div className="text-stone-800 font-medium">{displayMetalWeight}</div>
+                      </>
+                    )}
                     <div className="text-stone-400">Metal Purity:</div>
                     <div className="text-stone-800 font-medium">{isCustomProduct ? METALS[selectedMetal].name : (displayKaratage || 'Solid Precious Metal')}</div>
                     <div className="text-stone-400">Hallmark Grade:</div>

@@ -8,6 +8,7 @@ export interface IProduct extends Document {
   image: string;
   description: string;
   karatage: string;
+  metalWeight: string;
   hasStones: boolean;
   dateAdded: string;
   views: number;
@@ -22,6 +23,7 @@ const productSchema = new Schema<IProduct>(
     image: { type: String, required: true },
     description: { type: String, default: '' },
     karatage: { type: String, default: '' },
+    metalWeight: { type: String, default: '' },
     hasStones: { type: Boolean, default: false },
     dateAdded: { type: String, default: '' },
     views: { type: Number, default: 0 },
