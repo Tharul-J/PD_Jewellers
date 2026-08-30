@@ -9,7 +9,9 @@ import { Check, Glasses, Type, Save } from 'lucide-react';
 import ARTryOnModal, { warmARRuntime } from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { METALS, STONES, FONTS, visibleFontKeys } from '../constants';
+// Metals and stones now come from the Pricing API via usePricing(); constants.ts
+// still supplies their 3D material properties, merged in PricingContext.
+import { FONTS, visibleFontKeys } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
 import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
@@ -86,11 +88,12 @@ export default function Configurator() {
   const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'tag'>(() => { const s = localStorage.getItem('cfg_pendantShape'); return (s === 'standard' || s === 'heart' || s === 'tag') ? s : 'standard'; });
   const [pendantSize, setPendantSize] = useState<'small'|'medium'|'large'>(() => { const s = localStorage.getItem('cfg_pendantSize'); return (s === 'small' || s === 'medium' || s === 'large') ? s : 'medium'; });
   const prevPendantShapeRef = useRef(pendantShape);
-  const [metal, setMetal] = useState<keyof typeof METALS>(() => {
-    const saved = localStorage.getItem('cfg_metal') as keyof typeof METALS;
-    return (saved && saved in METALS) ? saved : 'gold';
-  });
-  const [stone, setStone] = useState<keyof typeof STONES>(() => (localStorage.getItem('cfg_stone') as keyof typeof STONES) || 'aquamarine');
+  // Metal/stone are addressed by key, which now comes from the Pricing API rather
+  // than from constants.ts. The saved key is trusted on load and only corrected
+  // once the catalogue has actually arrived (see the reconciliation effect below),
+  // so a slow fetch can't silently reset the visitor's choice.
+  const [metal, setMetal] = useState<string>(() => localStorage.getItem('cfg_metal') || 'gold');
+  const [stone, setStone] = useState<string>(() => localStorage.getItem('cfg_stone') || 'aquamarine');
   const [fontStyle, setFontStyle] = useState<keyof typeof FONTS>(() => {
     const saved = localStorage.getItem('cfg_fontStyle') as keyof typeof FONTS;
     return (saved && saved in FONTS) ? saved : 'cinzel';
@@ -110,7 +113,7 @@ export default function Configurator() {
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const { user } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
-  const { pricing } = usePricing();
+  const { pricing, configuratorMetals, configuratorStones } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -301,27 +304,35 @@ export default function Configurator() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // The selected entries, resolved against the live catalogue. Falling back to
+  // the first entry keeps the viewer rendering while a stale key is corrected.
+  const currentMetal = configuratorMetals.find(m => m.key === metal) ?? configuratorMetals[0];
+  const currentStone = configuratorStones.find(s => s.key === stone) ?? configuratorStones[0];
+
+  // An admin can rename or delete a metal/stone between visits, which would leave
+  // localStorage pointing at a key that no longer exists. Snap back to the first
+  // available option once — never while the list is still empty, or the default
+  // would overwrite a valid saved choice on the first paint.
+  useEffect(() => {
+    if (configuratorMetals.length > 0 && !configuratorMetals.some(m => m.key === metal)) {
+      setMetal(configuratorMetals[0].key);
+    }
+  }, [configuratorMetals, metal]);
+
+  useEffect(() => {
+    if (configuratorStones.length > 0 && !configuratorStones.some(s => s.key === stone)) {
+      setStone(configuratorStones[0].key);
+    }
+  }, [configuratorStones, stone]);
+
   const calculatePrice = () => {
     const basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);
 
-    // Metal multiplier: prefer API value, fall back to constants.ts
-    let metalMultiplier = METALS[metal]?.priceMultiplier ?? 1;
-    if (pricing?.metals) {
-      const found = pricing.metals.find(m => m.key === metal);
-      if (found) metalMultiplier = found.multiplier;
-    }
+    // The merged catalogue already prefers the API value over constants.ts.
+    const metalPart = basePrice * (currentMetal?.multiplier ?? 1);
 
-    const metalPart = basePrice * metalMultiplier;
-
-    // Stone price (rings only): prefer API value, fall back to constants.ts
-    let stonePart = 0;
-    if (modelType === 'ring') {
-      stonePart = STONES[stone]?.price ?? 0;
-      if (pricing?.stones) {
-        const found = pricing.stones.find(s => s.key === stone);
-        if (found) stonePart = found.price;
-      }
-    }
+    // Stone price — rings only
+    const stonePart = modelType === 'ring' ? (currentStone?.price ?? 0) : 0;
 
     // Engraving fee — pendant only (rings no longer offer engraving)
     let engravingPart = 0;
@@ -501,11 +512,11 @@ export default function Configurator() {
               <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                 <group position={[0, 0, -0.6]} scale={1.5}>
                   {modelType === 'ring' ? (
-                     <CustomGLBRingModel key={ringStyle} style={ringStyle} metalMaterial={METALS[metal]} stoneMaterial={STONES[stone]} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
+                     <CustomGLBRingModel key={ringStyle} style={ringStyle} metalMaterial={currentMetal?.material} stoneMaterial={currentStone?.material} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
                   ) : (
                     <PendantModel
                       text={customText}
-                      metalMaterial={METALS[metal]}
+                      metalMaterial={currentMetal?.material}
                       fontStyle={fontStyle}
                       fontBold={fontBold}
                       fontItalic={fontItalic}
@@ -637,22 +648,23 @@ export default function Configurator() {
           <div className="mb-6 lg:mb-10">
             <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
               <span>Metal</span>
-              <span className="opacity-50">{METALS[metal].name}</span>
+              <span className="opacity-50">{currentMetal?.name ?? ''}</span>
             </h3>
-            <div className="flex gap-4">
-              {(Object.keys(METALS) as Array<keyof typeof METALS>).map((key) => (
+            <div className="flex gap-4 flex-wrap">
+              {configuratorMetals.map((m) => (
                 <button
-                  key={key}
-                  onClick={() => setMetal(key)}
+                  key={m.key}
+                  onClick={() => setMetal(m.key)}
+                  title={m.name}
                   className={`w-12 h-12 rounded-full border-2 p-1 transition-all ${
-                    metal === key ? 'border-[var(--color-ink)]' : 'border-transparent'
+                    metal === m.key ? 'border-[var(--color-ink)]' : 'border-transparent'
                   }`}
                 >
-                  <div 
-                    className="w-full h-full rounded-full" 
-                    style={{ backgroundColor: METALS[key].color }}
+                  <div
+                    className="w-full h-full rounded-full"
+                    style={{ backgroundColor: m.color }}
                   >
-                    {metal === key && <Check className="w-full h-full p-2 text-white/50 mix-blend-difference" />}
+                    {metal === m.key && <Check className="w-full h-full p-2 text-white/50 mix-blend-difference" />}
                   </div>
                 </button>
               ))}
@@ -664,22 +676,23 @@ export default function Configurator() {
             <div className="mb-6 lg:mb-10">
               <h3 className="text-xs uppercase tracking-widest font-semibold mb-4 border-b border-black/10 pb-2 flex justify-between">
                 <span>Center Stone</span>
-                <span className="opacity-50">{STONES[stone].name}</span>
+                <span className="opacity-50">{currentStone?.name ?? ''}</span>
               </h3>
               <div className="flex flex-wrap gap-2 cursor-pointer">
-                {(Object.keys(STONES) as Array<keyof typeof STONES>).map((key) => (
+                {configuratorStones.map((s) => (
                   <button
-                    key={key}
-                    onClick={() => setStone(key)}
+                    key={s.key}
+                    onClick={() => setStone(s.key)}
+                    title={s.name}
                     className={`w-10 h-10 rounded-full border-2 p-1 transition-all ${
-                      stone === key ? 'border-[var(--color-ink)]' : 'border-transparent'
+                      stone === s.key ? 'border-[var(--color-ink)]' : 'border-transparent'
                     }`}
                   >
-                    <div 
-                      className="w-full h-full rounded-full border border-black/10 shadow-inner" 
-                      style={{ backgroundColor: STONES[key].color }}
+                    <div
+                      className="w-full h-full rounded-full border border-black/10 shadow-inner"
+                      style={{ backgroundColor: s.color }}
                     >
-                      {stone === key && <Check className="w-full h-full p-2 text-black/50 mix-blend-difference" />}
+                      {stone === s.key && <Check className="w-full h-full p-2 text-black/50 mix-blend-difference" />}
                     </div>
                   </button>
                 ))}
@@ -889,9 +902,11 @@ export default function Configurator() {
       <ARTryOnModal 
         isOpen={isARModalOpen} 
         onClose={() => setIsARModalOpen(false)} 
-        metal={metal} 
-        metalName={METALS[metal].name} 
+        metal={metal}
+        metalName={currentMetal?.name ?? ''}
         stone={stone}
+        metalMaterialOverride={currentMetal?.material}
+        stoneMaterialOverride={currentStone?.material}
         modelType={modelType}
         customText={customText}
         fontStyle={fontStyle}

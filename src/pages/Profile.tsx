@@ -465,8 +465,24 @@ export default function Profile() {
       return found ? found[0] : fallback as string;
     };
 
-    const metalKey  = resolveKey(METALS, config.metal, 'silver');
-    const stoneKey  = resolveKey(STONES, config.stone, 'aquamarine');
+    // Metals and stones are admin-managed now, so a saved key that constants.ts
+    // has never heard of is legitimate — pass it through rather than snapping to
+    // the fallback. The configurator reconciles it against the live catalogue and
+    // corrects it only if it has genuinely been deleted.
+    const resolveCatalogKey = <T extends Record<string, { name: string }>>(
+      map: T, value: string | undefined, fallback: keyof T
+    ): string => {
+      if (!value) return fallback as string;
+      if (value in map) return value;
+      const found = Object.entries(map).find(
+        ([, v]) => v.name.toLowerCase() === value.toLowerCase()
+      );
+      return found ? found[0] : value;
+    };
+
+    const metalKey  = resolveCatalogKey(METALS, config.metal, 'silver');
+    const stoneKey  = resolveCatalogKey(STONES, config.stone, 'aquamarine');
+    // Fonts remain fully static — an unresolvable key there would fail to load.
     const fontKey   = resolveKey(FONTS,  config.fontStyle, 'helvetiker');
 
     localStorage.setItem('cfg_modelType', config.type || 'ring');

@@ -31,9 +31,13 @@ export function warmARRuntime() {
 interface ARTryOnModalProps {
   isOpen: boolean;
   onClose: () => void;
-  metal: keyof typeof METALS;
+  metal: string;
   metalName: string;
-  stone?: keyof typeof STONES;
+  stone?: string;
+  // Supplied by callers that read the catalogue from the Pricing API. Without
+  // them the constants.ts tables are used, so existing callers are unaffected.
+  metalMaterialOverride?: Record<string, any>;
+  stoneMaterialOverride?: Record<string, any>;
   modelType: 'ring' | 'pendant';
   fileUrl?: string;
   customText?: string;
@@ -73,15 +77,16 @@ interface RingLandmarks {
   pinkyMcp: { x: number; y: number; z: number };  // 17 — pinky MCP
 }
 
-function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {
+function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl, metalOverride, stoneOverride }: {
   transformRef: any; metal: string; stone?: string; text?: string;
   fontStyle?: string; fileUrl?: string;
+  metalOverride?: Record<string, any>; stoneOverride?: Record<string, any>;
 }) {
   const meshRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
 
-  const metalMaterial = METALS[metal as keyof typeof METALS] || METALS.silver;
-  const stoneMaterial = stone ? STONES[stone as keyof typeof STONES] : STONES.diamond;
+  const metalMaterial = metalOverride || METALS[metal as keyof typeof METALS] || METALS.silver;
+  const stoneMaterial = stoneOverride || (stone ? STONES[stone as keyof typeof STONES] : STONES.diamond);
 
   // Persistent smoothing state — One Euro for position + depth-scale, quaternion slerp for
   // rotation. Held in refs so they survive across frames; reset on tracking loss so a
@@ -179,9 +184,10 @@ function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl }: {
 // Wraps the real PendantModel with face-tracking transform logic.
 // The outer group's position/scale/rotation are driven by MediaPipe face landmarks;
 // PendantModel provides the actual visual, chain physics, and text rendering.
-function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontItalic, pendantShape, pendantSize, textDirection }: {
+function ARPendant({ transformRef, metal, metalOverride, customText, fontStyle, fontBold, fontItalic, pendantShape, pendantSize, textDirection }: {
   transformRef: any;
   metal: string;
+  metalOverride?: Record<string, any>;
   customText?: string;
   fontStyle?: string;
   fontBold?: boolean;
@@ -192,7 +198,7 @@ function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontI
 }) {
   const meshRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
-  const metalMaterial = METALS[metal as keyof typeof METALS] || METALS.silver;
+  const metalMaterial = metalOverride || METALS[metal as keyof typeof METALS] || METALS.silver;
   const currentScale = useRef(0);
 
   useFrame((state, delta) => {
@@ -256,6 +262,7 @@ function ARPendant({ transformRef, metal, customText, fontStyle, fontBold, fontI
 
 export default function ARTryOnModal({
   isOpen, onClose, metal, metalName, stone, modelType,
+  metalMaterialOverride, stoneMaterialOverride,
   customText, fontStyle, fileUrl,
   pendantShape, pendantSize, fontBold, fontItalic, textDirection,
 }: ARTryOnModalProps) {
@@ -609,6 +616,8 @@ export default function ARTryOnModal({
                   transformRef={transformRef}
                   metal={metal}
                   stone={stone}
+                  metalOverride={metalMaterialOverride}
+                  stoneOverride={stoneMaterialOverride}
                   text={customText}
                   fontStyle={fontStyle}
                   fileUrl={fileUrl}
@@ -617,6 +626,7 @@ export default function ARTryOnModal({
                 <ARPendant
                   transformRef={transformRef}
                   metal={metal}
+                  metalOverride={metalMaterialOverride}
                   customText={customText}
                   fontStyle={fontStyle}
                   fontBold={fontBold}

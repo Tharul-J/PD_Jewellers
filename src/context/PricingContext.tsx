@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { METALS, STONES } from '../constants';
 
 export interface IMetalEntry {
@@ -29,8 +29,51 @@ export interface IPricing {
   engravingPrice: number;
 }
 
+/**
+ * PBR fields handed straight to a THREE.MeshPhysicalMaterial. Kept in a nested
+ * `material` object rather than flattened onto the entry: constants.ts warns that
+ * spreading non-material keys (key, price, multiplier…) onto a material logs
+ * "'x' is not a property of THREE.MeshPhysicalMaterial" on every rebuild.
+ */
+export interface MetalMaterial {
+  color: string;
+  metalness: number;
+  roughness: number;
+  clearcoat: number;
+  clearcoatRoughness: number;
+}
+
+export interface StoneMaterial {
+  color: string;
+  transmission: number;
+  ior: number;
+  thickness: number;
+  roughness: number;
+  clearcoat: number;
+}
+
+export interface ConfiguratorMetal {
+  key: string;
+  name: string;
+  color: string;
+  multiplier: number;
+  material: MetalMaterial;
+}
+
+export interface ConfiguratorStone {
+  key: string;
+  name: string;
+  color: string;
+  price: number;
+  material: StoneMaterial;
+}
+
 interface PricingContextType {
   pricing: IPricing | null;
+  /** Admin-managed metals merged with the 3D properties from constants.ts. */
+  configuratorMetals: ConfiguratorMetal[];
+  /** Admin-managed stones merged with the 3D properties from constants.ts. */
+  configuratorStones: ConfiguratorStone[];
   refreshPricing: () => Promise<void>;
   updatePricing: (newPricing: Partial<IPricing>, token: string) => Promise<boolean>;
 }
@@ -114,8 +157,78 @@ function normalisePricing(data: any): IPricing {
   };
 }
 
+// Used for an admin-added metal or stone that constants.ts knows nothing about.
+const DEFAULT_METAL_3D = { metalness: 1.0, roughness: 0.04, clearcoat: 0.6, clearcoatRoughness: 0.1 };
+const DEFAULT_STONE_3D = { transmission: 0.85, ior: 1.77, thickness: 2, roughness: 0.05, clearcoat: 0.8 };
+
+const slugify = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+/**
+ * Resolves a pricing entry to its constants.ts twin.
+ *
+ * Matched on the stored `key` first — the admin UI generates keys and the whole
+ * app (localStorage, saved designs, cart lines, AR) already addresses metals and
+ * stones by that key, so it must stay the identity. Display name is only a
+ * fallback for an entry whose key was renamed.
+ */
+function findConstEntry<T extends { name: string }>(
+  table: Record<string, T>,
+  key: string,
+  displayName: string
+): Partial<T> {
+  if (table[key]) return table[key];
+  const name = displayName?.toLowerCase() ?? '';
+  return Object.values(table).find(v => v.name?.toLowerCase() === name) ?? {};
+}
+
+function buildConfiguratorMetals(metals: IMetalEntry[]): ConfiguratorMetal[] {
+  return metals.map(m => {
+    const key = m.key || slugify(m.displayName);
+    const c = findConstEntry(METALS as any, key, m.displayName) as any;
+    const color = m.color || c.color || '#c0c0c0';
+    return {
+      key,
+      name: m.displayName,
+      color,
+      multiplier: m.multiplier ?? 1,
+      material: {
+        color,
+        metalness:          c.metalness          ?? DEFAULT_METAL_3D.metalness,
+        roughness:          c.roughness          ?? DEFAULT_METAL_3D.roughness,
+        clearcoat:          c.clearcoat          ?? DEFAULT_METAL_3D.clearcoat,
+        clearcoatRoughness: c.clearcoatRoughness ?? DEFAULT_METAL_3D.clearcoatRoughness,
+      },
+    };
+  });
+}
+
+function buildConfiguratorStones(stones: IStoneEntry[]): ConfiguratorStone[] {
+  return stones.map(s => {
+    const key = s.key || slugify(s.displayName);
+    const c = findConstEntry(STONES as any, key, s.displayName) as any;
+    const color = s.color || c.color || '#cccccc';
+    return {
+      key,
+      name: s.displayName,
+      color,
+      price: s.price ?? 0,
+      material: {
+        color,
+        transmission: c.transmission ?? DEFAULT_STONE_3D.transmission,
+        ior:          c.ior          ?? DEFAULT_STONE_3D.ior,
+        thickness:    c.thickness    ?? DEFAULT_STONE_3D.thickness,
+        roughness:    c.roughness    ?? DEFAULT_STONE_3D.roughness,
+        clearcoat:    c.clearcoat    ?? DEFAULT_STONE_3D.clearcoat,
+      },
+    };
+  });
+}
+
 const PricingContext = createContext<PricingContextType>({
   pricing: defaultPricing,
+  configuratorMetals: buildConfiguratorMetals(defaultPricing.metals),
+  configuratorStones: buildConfiguratorStones(defaultPricing.stones),
   refreshPricing: async () => {},
   updatePricing: async () => false,
 });
@@ -157,8 +270,13 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => { refreshPricing(); }, []);
 
+  // Memoised so the material objects keep their identity between renders — the
+  // ring/pendant models rebuild their THREE materials whenever these change.
+  const configuratorMetals = useMemo(() => buildConfiguratorMetals(pricing.metals), [pricing.metals]);
+  const configuratorStones = useMemo(() => buildConfiguratorStones(pricing.stones), [pricing.stones]);
+
   return (
-    <PricingContext.Provider value={{ pricing, refreshPricing, updatePricing }}>
+    <PricingContext.Provider value={{ pricing, configuratorMetals, configuratorStones, refreshPricing, updatePricing }}>
       {children}
     </PricingContext.Provider>
   );
