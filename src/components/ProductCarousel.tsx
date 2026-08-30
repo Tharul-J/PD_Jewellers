@@ -97,8 +97,9 @@ export function ProductCarousel({
               transition={{ duration: 0.5, ease: "easeInOut" }}
               className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full`}
             >
+              {/* Singular `/product/:id` — the route defined in App.tsx. */}
               {visibleProducts.map((product) => (
-                <Link key={product.id} to={`/products/${product.id}`} className="group block">
+                <Link key={product.id} to={`/product/${product.id}`} className="group block">
                   <div className="relative h-[300px] overflow-hidden mb-6 bg-gray-50 p-4 border border-gray-100 group-hover:border-[var(--color-gold)]/30 transition-colors">
                     <img
                       src={product.image}

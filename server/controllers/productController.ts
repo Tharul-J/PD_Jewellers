@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
+import Purchase from '../models/Purchase.js';
 import { MOCK_PRODUCTS } from '../../src/data/products.js';
 
 const CATEGORY_PREFIX: Record<string, string> = {
@@ -21,6 +22,58 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
     // createdAt breaks ties and keeps undated products in a stable newest-first order.
     const products = await Product.find({}).sort({ dateAdded: -1, createdAt: -1 });
     res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Best sellers for the homepage, topped up with newest products
+// @route   GET /api/products/featured?limit=8
+// @access  Public
+export const getFeaturedProducts = async (req: Request, res: Response): Promise<void> => {
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '8'), 10) || 8, 1), 24);
+
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json(MOCK_PRODUCTS.slice(0, limit));
+      return;
+    }
+
+    // Purchases record either a bare SKU or an older `SKU-variant` key, so the
+    // grouping key is the segment before the first dash — SKUs never contain one.
+    const bestSellers = await Purchase.aggregate([
+      { $unwind: '$items' },
+      { $match: { 'items.isCustom': { $ne: true } } },
+      {
+        $project: {
+          sku: { $arrayElemAt: [{ $split: [{ $ifNull: ['$items.productId', ''] }, '-'] }, 0] },
+        },
+      },
+      { $match: { sku: { $nin: ['', null] } } },
+      { $group: { _id: '$sku', sold: { $sum: 1 } } },
+      { $sort: { sold: -1 } },
+      { $limit: limit },
+    ]);
+
+    const rankBySku = new Map<string, number>(bestSellers.map((r: any) => [r._id, r.sold]));
+    const soldProducts = rankBySku.size
+      ? await Product.find({ id: { $in: [...rankBySku.keys()] } })
+      : [];
+
+    // A SKU can be purchased and later deleted from the catalog, so order by the
+    // sales count of the products that still exist rather than by the raw ranking.
+    soldProducts.sort((a, b) => (rankBySku.get(b.id) ?? 0) - (rankBySku.get(a.id) ?? 0));
+
+    // Early on there are few or no purchases — top up with the newest products.
+    if (soldProducts.length < limit) {
+      const filler = await Product.find({ id: { $nin: soldProducts.map(p => p.id) } })
+        .sort({ dateAdded: -1, createdAt: -1 })
+        .limit(limit - soldProducts.length);
+      res.json([...soldProducts, ...filler]);
+      return;
+    }
+
+    res.json(soldProducts);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }

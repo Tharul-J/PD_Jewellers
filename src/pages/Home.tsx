@@ -5,7 +5,9 @@ import { Play, Star, ChevronLeft, ChevronRight, Quote, MapPin, Clock, Phone } fr
 import { ProductCarousel, Product } from '../components/ProductCarousel';
 import { ImageSlider } from '../components/ImageSlider';
 
-const FEATURED_PRODUCTS: Product[] = [
+// Shown only if the featured endpoint is unreachable, so the homepage never
+// renders an empty carousel.
+const FALLBACK_PRODUCTS: Product[] = [
   {
     id: 'NE007',
     name: 'Swarovski Zirconia Choker Necklace',
@@ -98,6 +100,23 @@ export default function Home() {
   const [collBanner, setCollBanner] = useState(0);
   const [allReviews, setAllReviews] = useState<any[]>(STATIC_REVIEWS);
   const [activeReviewIdx, setActiveReviewIdx] = useState(0);
+  const [featured, setFeatured] = useState<Product[]>(FALLBACK_PRODUCTS);
+
+  // Best sellers, computed from actual purchases and topped up with the newest
+  // catalog items when there aren't enough sales yet.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/products/featured?limit=9')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !Array.isArray(data) || data.length === 0) return;
+        setFeatured(data.map((p: any) => ({
+          id: p.id, name: p.name, price: p.price, image: p.image, category: p.category,
+        })));
+      })
+      .catch(() => {}); // keep the fallback list
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setCollBanner(i => (i + 1) % COLLECTION_BANNERS.length), 4000);
@@ -391,7 +410,7 @@ export default function Home() {
       {/* Style Quiz Section removed from here, now triggered globally */}
 
       {/* Featured Products Carousel */}
-      <ProductCarousel products={FEATURED_PRODUCTS} title="FEATURED PRODUCTS" subtitle="Handpicked for you" />
+      <ProductCarousel products={featured} title="FEATURED PRODUCTS" subtitle="Our best-selling pieces" />
 
       {/* Elegant Image Slider — Prominent Landscape */}
       <section className="py-20 text-white" style={{ background: 'linear-gradient(135deg, #1a0a00 0%, #3d1a00 30%, #6b2d00 60%, #3d1a00 80%, #1a0a00 100%)' }}>
