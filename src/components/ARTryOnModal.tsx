@@ -9,6 +9,7 @@ import { CustomGLBRingModel } from './RingModels';
 import { PendantModel } from './PendantModel';
 import { Scene3DErrorBoundary } from './Scene3DErrorBoundary';
 import { Vec3Filter, OneEuroFilter } from '../lib/oneEuro';
+import { useOverlayGuard } from '../lib/pollGuard';
 
 // Camera facing is now runtime state (see facingMode). Front cam is mirrored
 // (scaleX(-1)); back cam is not. The mirror transform is applied conditionally to
@@ -258,6 +259,7 @@ export default function ARTryOnModal({
   customText, fontStyle, fileUrl,
   pendantShape, pendantSize, fontBold, fontItalic, textDirection,
 }: ARTryOnModalProps) {
+  useOverlayGuard(isOpen);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<string>('Initializing AR...');

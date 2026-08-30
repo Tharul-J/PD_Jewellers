@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
+import { useOverlayGuard } from '../lib/pollGuard';
 
 const RECENT_LIMIT = 3;
 
@@ -17,6 +18,9 @@ export function Cart() {
   const navigate = useNavigate();
 
   const [submitted, setSubmitted] = useState<any[]>([]);
+
+  // The drawer is modal over the page — hold background refreshes while it's up.
+  useOverlayGuard(isCartOpen);
 
   useEffect(() => {
     if (!isCartOpen || !user) {

@@ -9,6 +9,7 @@ import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
 import { formatExact } from '../lib/price';
 import InquiryMessages from '../components/InquiryMessages';
+import { mergeById, shouldPausePolling, useOverlayGuard, useResumeOnOverlayClose } from '../lib/pollGuard';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -211,22 +212,36 @@ export default function Admin() {
     try {
       const res = await fetch('/api/orders', { headers: { Authorization: `Bearer ${user.token}` } });
       if (!res.ok) return;
-      setOrdersList(await res.json());
+      const fresh = await res.json();
+      // Merge rather than replace: an expanded row being read, or a half-typed
+      // reply in its thread, must survive a background refresh.
+      setOrdersList(prev => mergeById(prev, fresh));
     } catch {
       // transient — the next tick tries again
     }
   }, [user]);
 
+  // Background ticks stand down while a modal is open or a field has focus.
+  const pollOrders = useCallback(() => {
+    if (shouldPausePolling()) return;
+    refreshOrders();
+  }, [refreshOrders]);
+
+  const resumeOrders = useCallback(() => {
+    if (activeTab === 'orders') refreshOrders();
+  }, [activeTab, refreshOrders]);
+  useResumeOnOverlayClose(resumeOrders);
+
   useEffect(() => {
     if (activeTab !== 'orders' || user?.role !== 'administrator') return;
 
-    refreshOrders();
-    let timer = setInterval(refreshOrders, 15000);
+    refreshOrders(); // switching to the tab is an explicit request, never deferred
+    let timer = setInterval(pollOrders, 15000);
     const onVisibility = () => {
       clearInterval(timer);
       if (!document.hidden) {
-        refreshOrders();
-        timer = setInterval(refreshOrders, 15000);
+        pollOrders();
+        timer = setInterval(pollOrders, 15000);
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -235,7 +250,7 @@ export default function Admin() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [activeTab, user, refreshOrders]);
+  }, [activeTab, user, refreshOrders, pollOrders]);
 
   // Notification deep links: /admin?tab=orders&id=<inquiryId>. The component
   // stays mounted between clicks, so this reacts to the params rather than
@@ -308,6 +323,9 @@ export default function Admin() {
   const [statusNote, setStatusNote] = useState('');
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusError, setStatusError] = useState('');
+
+  // While the confirm modal is up, nothing in the background may refresh.
+  useOverlayGuard(!!statusPrompt);
 
   const openStatusPrompt = (orderId: string, action: StatusAction) => {
     setStatusPrompt({ orderId, action });

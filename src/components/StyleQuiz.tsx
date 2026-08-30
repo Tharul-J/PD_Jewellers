@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useOverlayGuard } from '../lib/pollGuard';
 
 interface StyleQuizProps {
   isOpen: boolean;
@@ -53,6 +54,8 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps) {
+  useOverlayGuard(isOpen);
+
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const navigate = useNavigate();

@@ -1,5 +1,6 @@
 import { X, Ruler } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useOverlayGuard } from '../lib/pollGuard';
 
 interface SizeGuideModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ const RING_SIZES = [
 ];
 
 export function SizeGuideModal({ isOpen, onClose }: SizeGuideModalProps) {
+  useOverlayGuard(isOpen); // must run before the early return below
   if (!isOpen) return null;
 
   return (

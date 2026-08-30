@@ -6,6 +6,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { NotificationBadge } from './NotificationBadge';
 import { useState, useEffect } from 'react';
 import { StyleQuiz } from './StyleQuiz';
+import { useOverlayGuard } from '../lib/pollGuard';
 
 // Single source of truth for the primary nav links — mapped in both the
 // desktop bar and the mobile drawer so the two never drift apart.
@@ -40,6 +41,12 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // The bell dropdown is the one surface the notification poll would rewrite
+  // underneath the reader; the drawer and quiz are modal over the whole page.
+  useOverlayGuard(notifOpen);
+  useOverlayGuard(menuOpen);
+  // StyleQuiz registers itself, so it isn't counted again here.
 
   // Close the drawer on any route change.
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);

@@ -1,10 +1,14 @@
 import { ShieldAlert } from 'lucide-react';
+import { useOverlayGuard } from '../lib/pollGuard';
 
 interface Props {
   onClose: () => void;
 }
 
 export default function AdminActionWarning({ onClose }: Props) {
+  // Rendered only while it should be visible, so it is always an open overlay.
+  useOverlayGuard(true);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center">

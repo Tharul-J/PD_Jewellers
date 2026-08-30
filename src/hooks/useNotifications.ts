@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { mergeById, shouldPausePolling, useResumeOnOverlayClose } from '../lib/pollGuard';
 
 interface Notification {
   _id: string;
@@ -25,11 +26,22 @@ export function useNotifications() {
       });
       if (!res.ok) return;
       const data = await res.json();
-      setNotifications(data.notifications);
+      // Merge by id so unchanged notifications keep their object identity and
+      // the open bell dropdown isn't re-rendered on every tick.
+      setNotifications(prev => mergeById(prev, data.notifications ?? []));
       setUnreadCount(data.unreadCount);
       setUnreadByType(data.unreadByType ?? {});
     } catch { /* silent */ }
   }, [user]);
+
+  // Only the *background* ticks defer to the guard. An explicit refetch — mount,
+  // tab focus, an action the user just took — always runs.
+  const pollNotifications = useCallback(() => {
+    if (shouldPausePolling()) return;
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  useResumeOnOverlayClose(pollNotifications);
 
   const markAllRead = useCallback(async () => {
     if (!user) return;
@@ -71,7 +83,7 @@ export function useNotifications() {
     fetchNotifications();
 
     const start = () => {
-      intervalRef.current = setInterval(fetchNotifications, 5000);
+      intervalRef.current = setInterval(pollNotifications, 5000);
     };
     const stop = () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -92,7 +104,7 @@ export function useNotifications() {
       stop();
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [user, fetchNotifications]);
+  }, [user, fetchNotifications, pollNotifications]);
 
   return { notifications, unreadCount, unreadByType, markReadByType, markAllRead, refetch: fetchNotifications };
 }
