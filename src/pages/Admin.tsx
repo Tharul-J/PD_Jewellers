@@ -157,7 +157,7 @@ function UserNameLink({ user: stub, onOpen }: { user?: any; onOpen: (stub: any) 
  * Read-only profile card for a customer, opened from any admin table.
  * Mounted only while a user is selected, so the overlay guard is unconditional.
  */
-function UserProfileModal({ usr, inquiryCount, onClose }: { usr: any; inquiryCount: number; onClose: () => void }) {
+function UserProfileModal({ usr, inquiryCount, onClose, onMessage }: { usr: any; inquiryCount: number; onClose: () => void; onMessage?: () => void }) {
   useOverlayGuard(true);
 
   useEffect(() => {
@@ -220,7 +220,330 @@ function UserProfileModal({ usr, inquiryCount, onClose }: { usr: any; inquiryCou
             <ProfileRow label="Wishlist" value={Array.isArray(usr.wishlist) ? `${usr.wishlist.length} item${usr.wishlist.length === 1 ? '' : 's'}` : undefined} />
             <ProfileRow label="Saved Designs" value={Array.isArray(usr.savedConfigurations) ? String(usr.savedConfigurations.length) : undefined} />
           </div>
+
+          {onMessage && (
+            <button
+              type="button"
+              onClick={onMessage}
+              className="w-full mt-5 px-4 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors flex items-center justify-center gap-2"
+            >
+              <Mail size={14} />
+              Send Message
+            </button>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface ComposePayload {
+  subject: string;
+  body: string;
+  type: 'individual' | 'announcement';
+  recipientIds: string[];
+}
+
+/**
+ * Compose form for admin → customer messages.
+ *
+ * Module-level and named so its identity is stable, and it owns its own draft
+ * state: typing a message must not re-render the message table behind it.
+ */
+function ComposeMessageModal({
+  users, initialMode, initialRecipients, onSend, onClose,
+}: {
+  users: any[];
+  initialMode: 'individual' | 'announcement';
+  initialRecipients: string[];
+  onSend: (payload: ComposePayload) => Promise<string | null>;
+  onClose: () => void;
+}) {
+  useOverlayGuard(true);
+
+  const [mode, setMode] = useState<'individual' | 'announcement'>(initialMode);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [selected, setSelected] = useState<string[]>(initialRecipients);
+  const [search, setSearch] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape' && !sending) onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [sending, onClose]);
+
+  const query = search.trim().toLowerCase();
+  const matches = users.filter(u =>
+    !query || u.name?.toLowerCase().includes(query) || u.email?.toLowerCase().includes(query)
+  );
+
+  const selectedUsers = selected
+    .map(id => users.find(u => u._id === id))
+    .filter(Boolean);
+
+  const allShownSelected = matches.length > 0 && matches.every(u => selected.includes(u._id));
+
+  const toggle = (id: string) => {
+    // Individual mode is single-recipient: picking one replaces the selection.
+    if (mode === 'individual') {
+      setSelected(prev => (prev[0] === id ? [] : [id]));
+      return;
+    }
+    setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  };
+
+  const switchMode = (next: 'individual' | 'announcement') => {
+    setMode(next);
+    // Narrowing to individual can't keep a multi-selection; widening keeps it.
+    if (next === 'individual') setSelected(prev => prev.slice(0, 1));
+  };
+
+  const canSend = subject.trim() && body.trim() && selected.length > 0 && !sending;
+
+  const handleSend = async () => {
+    if (!canSend) return;
+    setSending(true);
+    setError(null);
+    const err = await onSend({ subject: subject.trim(), body: body.trim(), type: mode, recipientIds: selected });
+    if (err) {
+      setError(err);
+      setSending(false);
+      return;
+    }
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={e => { if (e.target === e.currentTarget && !sending) onClose(); }}
+      role="presentation"
+    >
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[88vh] flex flex-col" role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h3 className="text-base font-semibold text-[var(--color-ink)]">Compose Message</h3>
+          <button onClick={onClose} disabled={sending} className="p-1 text-gray-400 hover:text-gray-700 transition-colors disabled:opacity-40" title="Close">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 overflow-y-auto space-y-4">
+          {/* Mode */}
+          <div className="flex gap-2">
+            {(['individual', 'announcement'] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+                  mode === m ? 'bg-[var(--color-gold)] text-[var(--color-ink)]' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {m === 'individual' ? 'Individual' : 'Announcement'}
+              </button>
+            ))}
+          </div>
+
+          {/* Recipients */}
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">
+              To {mode === 'announcement' && <span className="text-gray-400 normal-case tracking-normal font-medium">— {selected.length} user{selected.length === 1 ? '' : 's'} selected</span>}
+            </label>
+
+            <div className="relative mb-2">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search users by name or email..."
+                className="w-full h-9 pl-9 pr-8 border border-gray-200 text-sm bg-white rounded-lg focus:outline-none focus:border-amber-400 text-gray-600"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500" title="Clear search">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {mode === 'announcement' && matches.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const shownIds = matches.map(u => u._id);
+                  setSelected(prev => allShownSelected
+                    ? prev.filter(id => !shownIds.includes(id))
+                    : [...new Set([...prev, ...shownIds])]);
+                }}
+                className="text-xs text-amber-600 hover:text-amber-700 font-semibold mb-2"
+              >
+                {allShownSelected ? 'Clear' : 'Select All'}{query ? ` (${matches.length} matching)` : ''}
+              </button>
+            )}
+
+            <div className="border border-gray-100 rounded-lg max-h-44 overflow-y-auto divide-y divide-gray-50">
+              {matches.length === 0 ? (
+                <p className="text-xs text-gray-400 px-3 py-4 text-center">
+                  {users.length === 0 ? 'No customers to message.' : `No users match "${search}"`}
+                </p>
+              ) : matches.map(u => {
+                const isSelected = selected.includes(u._id);
+                return (
+                  <button
+                    key={u._id}
+                    type="button"
+                    onClick={() => toggle(u._id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${isSelected ? 'bg-amber-50' : 'hover:bg-gray-50'}`}
+                  >
+                    <span className={`w-4 h-4 shrink-0 flex items-center justify-center text-[10px] font-bold text-white ${mode === 'individual' ? 'rounded-full' : 'rounded'} ${isSelected ? 'bg-amber-500' : 'border border-gray-300'}`}>
+                      {isSelected ? '✓' : ''}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm text-[var(--color-ink)] truncate">{u.name}</span>
+                      <span className="block text-[11px] text-gray-400 truncate">{u.email}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedUsers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {selectedUsers.map((u: any) => (
+                  <span key={u._id} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 bg-amber-50 border border-amber-200 rounded-full text-[11px] text-amber-800">
+                    {u.name}
+                    <button type="button" onClick={() => setSelected(prev => prev.filter(id => id !== u._id))} className="p-0.5 hover:text-amber-950" title="Remove">
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Subject */}
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Subject</label>
+            <input
+              type="text"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              maxLength={140}
+              placeholder="e.g. Your ring is ready for collection"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          {/* Body */}
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Message</label>
+            <textarea
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              rows={6}
+              maxLength={5000}
+              placeholder="Write your message…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          {error && <p className="text-xs text-rose-600">{error}</p>}
+        </div>
+
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            disabled={sending}
+            className="px-4 py-2 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSend}
+            disabled={!canSend}
+            className="px-5 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-40"
+          >
+            {sending ? 'Sending…' : `Send Message${selected.length > 1 ? ` (${selected.length})` : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Sent message with its per-recipient delivery/read stats. */
+function MessageDetailModal({ detail, loading, onClose }: { detail: any; loading: boolean; onClose: () => void }) {
+  useOverlayGuard(true);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      role="presentation"
+    >
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+          <h3 className="text-base font-semibold text-[var(--color-ink)]">Message Details</h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 transition-colors" title="Close">
+            <X size={16} />
+          </button>
+        </div>
+
+        {loading || !detail ? (
+          <div className="py-16 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
+        ) : (
+          <div className="px-6 py-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`px-2.5 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold ${
+                detail.type === 'announcement' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {detail.type}
+              </span>
+              <span className="text-xs text-gray-400">
+                {new Date(detail.createdAt).toLocaleString()}
+              </span>
+            </div>
+
+            <h4 className="text-lg font-serif text-[var(--color-ink)] mb-1">{detail.subject}</h4>
+            <p className="text-xs text-gray-400 mb-4">From {detail.sender?.name || 'Unknown'}</p>
+
+            <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-4 mb-5">{detail.body}</p>
+
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Recipients</p>
+              <p className="text-xs text-gray-500">
+                <span className="font-semibold text-emerald-600">{detail.readCount}</span> of {detail.recipientCount} read
+              </p>
+            </div>
+
+            <div className="border border-gray-100 rounded-lg max-h-56 overflow-y-auto divide-y divide-gray-50">
+              {(detail.recipients ?? []).length === 0 ? (
+                <p className="text-xs text-gray-400 px-3 py-4 text-center">No recipients remain — the accounts may have been deleted.</p>
+              ) : detail.recipients.map((r: any) => (
+                <div key={r._id} className="flex items-center gap-3 px-3 py-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm text-[var(--color-ink)] truncate">{r.name}</span>
+                    <span className="block text-[11px] text-gray-400 truncate">{r.email}</span>
+                  </span>
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0 ${
+                    r.read ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                  }`}>
+                    {r.read ? 'Read' : 'Unread'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -241,7 +564,7 @@ const INQUIRY_TABS: { key: string; label: string }[] = [
 ];
 
 
-type AdminTab = 'dashboard' | 'users' | 'products' | 'catalog' | 'categories' | 'orders' | 'sold' | 'reviews' | 'pricing' | 'blog';
+type AdminTab = 'dashboard' | 'users' | 'products' | 'catalog' | 'categories' | 'orders' | 'sold' | 'reviews' | 'messages' | 'pricing' | 'blog';
 
 export default function Admin() {
   const { user, logout } = useAuth();
@@ -339,6 +662,17 @@ export default function Admin() {
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [viewingUser, setViewingUser] = useState<any | null>(null);
+
+  // Messages state
+  const [messagesList, setMessagesList] = useState<any[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [showComposeModal, setShowComposeModal] = useState(false);
+  const [composeMode, setComposeMode] = useState<'individual' | 'announcement'>('individual');
+  const [composePreselected, setComposePreselected] = useState<string[]>([]);
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
+  const [messageDetail, setMessageDetail] = useState<any | null>(null);
+  const [messageDetailLoading, setMessageDetailLoading] = useState(false);
+  const [viewingMessageId, setViewingMessageId] = useState<string | null>(null);
 
   // Pricing CRUD state
   const [metalsList,          setMetalsList]          = useState<IMetalEntry[]>([]);
@@ -454,7 +788,7 @@ export default function Admin() {
 
   useEffect(() => {
     if (deepLinkTab) {
-      const valid: AdminTab[] = ['dashboard', 'users', 'products', 'catalog', 'categories', 'orders', 'sold', 'reviews', 'pricing', 'blog'];
+      const valid: AdminTab[] = ['dashboard', 'users', 'products', 'catalog', 'categories', 'orders', 'sold', 'reviews', 'messages', 'pricing', 'blog'];
       if (valid.includes(deepLinkTab as AdminTab)) setActiveTab(deepLinkTab as AdminTab);
     }
     if (deepLinkId) setExpandedOrderId(deepLinkId);
@@ -807,10 +1141,71 @@ export default function Admin() {
     }
   };
 
+  const fetchMessages = async () => {
+    setMessagesLoading(true);
+    try {
+      const res = await fetch('/api/messages', { headers: { Authorization: `Bearer ${user?.token}` } });
+      if (res.ok) setMessagesList((await res.json()).messages ?? []);
+    } catch {
+      console.error('Failed to fetch messages');
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  /** Resolves to an error string for the modal to show, or null on success. */
+  const handleSendMessage = async (payload: ComposePayload): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return data.message || 'Failed to send the message.';
+      }
+      setComposePreselected([]);
+      await fetchMessages();
+      return null;
+    } catch {
+      return 'Network error — the message was not sent.';
+    }
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+    try {
+      const res = await fetch(`/api/messages/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (res.ok) setMessagesList(prev => prev.filter(m => m._id !== id));
+    } catch {
+      console.error('Failed to delete message');
+    } finally {
+      setDeleteMessageId(null);
+    }
+  };
+
+  const openMessageDetail = async (id: string) => {
+    setViewingMessageId(id);
+    setMessageDetail(null);
+    setMessageDetailLoading(true);
+    try {
+      const res = await fetch(`/api/messages/${id}`, { headers: { Authorization: `Bearer ${user?.token}` } });
+      if (res.ok) setMessageDetail(await res.json());
+    } catch {
+      console.error('Failed to fetch message detail');
+    } finally {
+      setMessageDetailLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'catalog' && user?.role === 'administrator') fetchCatalog();
     if (activeTab === 'blog' && user?.role === 'administrator') fetchBlog();
     if (activeTab === 'reviews' && user?.role === 'administrator') fetchReviews();
+    if (activeTab === 'messages' && user?.role === 'administrator') fetchMessages();
   }, [activeTab]);
 
   const fetchBlog = async () => {
@@ -1043,6 +1438,9 @@ export default function Admin() {
     u.email?.toLowerCase().includes(userSearchQuery)
   );
 
+  // Admins message customers, never each other — and never themselves.
+  const messageableUsers = usersList.filter(u => u.role !== 'administrator');
+
   // Rows in other tabs carry only a populated {_id, name, email} stub, so the
   // full record is looked up from the users list fetched on mount.
   const openUserProfile = (stub: any) => {
@@ -1082,6 +1480,7 @@ export default function Admin() {
               { id: 'orders', label: 'Inquiries', icon: ShoppingCart, badge: inquiryNotifCount },
               { id: 'sold', label: 'Sold Items', icon: Banknote, badge: orderNotifCount },
               { id: 'reviews', label: 'Reviews', icon: Star, badge: reviewNotifCount },
+              { id: 'messages', label: 'Messages', icon: Mail, badge: 0 },
               { id: 'pricing', label: 'Pricing', icon: DollarSign, badge: 0 },
               { id: 'blog', label: 'Blog', icon: BookOpen, badge: 0 },
             ].map(item => (
@@ -1140,6 +1539,7 @@ export default function Admin() {
                   : activeTab === 'catalog' ? 'product catalog'
                   : activeTab === 'blog' ? 'blog posts and articles'
                   : activeTab === 'categories' ? 'product categories'
+                  : activeTab === 'messages' ? 'messages to customers'
                   : activeTab}.
               </p>
             </div>
@@ -1155,6 +1555,9 @@ export default function Admin() {
                 <option value="categories">Categories</option>
                 <option value="products">3D Models</option>
                 <option value="orders">Inquiries</option>
+                <option value="sold">Sold Items</option>
+                <option value="reviews">Reviews</option>
+                <option value="messages">Messages</option>
                 <option value="pricing">Pricing</option>
                 <option value="blog">Blog</option>
               </select>
@@ -2414,6 +2817,103 @@ export default function Admin() {
             </div>
           )}
 
+          {/* ── MESSAGES ── */}
+          {activeTab === 'messages' && (
+            <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h2 className="text-base font-serif text-[var(--color-ink)]">
+                  Sent Messages <span className="text-sm text-gray-500 font-sans font-medium ml-1">({messagesList.length})</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => { setComposeMode('individual'); setComposePreselected([]); setShowComposeModal(true); }}
+                  className="px-4 py-2 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors flex items-center gap-2"
+                >
+                  <Mail size={14} />
+                  Compose New Message
+                </button>
+              </div>
+
+              {messagesLoading ? (
+                <div className="py-20 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Type</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Subject</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Recipients</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Read</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100">Sent</th>
+                        <th className="py-4 px-4 font-semibold border-b border-gray-100 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {messagesList.map(msg => {
+                        const isPendingDelete = deleteMessageId === msg._id;
+                        const readPct = msg.recipientCount > 0
+                          ? Math.round((msg.readCount / msg.recipientCount) * 100)
+                          : 0;
+                        return (
+                          <tr
+                            key={msg._id}
+                            className={`border-b border-gray-100 transition-colors ${isPendingDelete ? 'bg-red-50' : 'hover:bg-gray-50 cursor-pointer'}`}
+                            onClick={() => !isPendingDelete && openMessageDetail(msg._id)}
+                          >
+                            <td className="py-4 px-4">
+                              <span className={`px-2.5 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold ${
+                                msg.type === 'announcement' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {msg.type}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 max-w-xs">
+                              <p className="font-medium text-[var(--color-ink)] truncate">{msg.subject}</p>
+                              <p className="text-xs text-gray-400 truncate">{msg.body}</p>
+                            </td>
+                            <td className="py-4 px-4 text-gray-600 text-xs">
+                              {msg.recipientCount} user{msg.recipientCount === 1 ? '' : 's'}
+                            </td>
+                            <td className="py-4 px-4 text-xs">
+                              <span className={`font-semibold ${readPct === 100 ? 'text-green-600' : 'text-gray-600'}`}>
+                                {msg.readCount}/{msg.recipientCount}
+                              </span>
+                              <span className="text-gray-400 ml-1">({readPct}%)</span>
+                            </td>
+                            <td className="py-4 px-4 text-gray-500 text-xs">{new Date(msg.createdAt).toLocaleDateString()}</td>
+                            <td className="py-4 px-4 text-right" onClick={e => e.stopPropagation()}>
+                              {isPendingDelete ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="text-xs text-red-600 font-medium">Delete?</span>
+                                  <button onClick={() => handleDeleteMessage(msg._id)} className="px-2.5 py-1 text-xs bg-red-600 text-white rounded font-semibold hover:bg-red-700 transition-colors">Yes</button>
+                                  <button onClick={() => setDeleteMessageId(null)} className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded font-semibold hover:bg-gray-200 transition-colors">No</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setDeleteMessageId(msg._id)}
+                                  className="p-1.5 border border-red-100 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                  title="Delete message"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {messagesList.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 text-sm">
+                      No messages sent yet.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── PRICING ── */}
           {activeTab === 'pricing' && (
             <div className="space-y-6">
@@ -2893,6 +3393,34 @@ export default function Admin() {
           usr={viewingUser}
           inquiryCount={inquiryCountFor(viewingUser._id)}
           onClose={() => setViewingUser(null)}
+          onMessage={
+            // Admins are not messageable recipients, so they get no button.
+            viewingUser.role === 'administrator' ? undefined : () => {
+              const id = viewingUser._id;
+              setViewingUser(null);
+              setComposeMode('individual');
+              setComposePreselected([id]);
+              setShowComposeModal(true);
+            }
+          }
+        />
+      )}
+
+      {showComposeModal && (
+        <ComposeMessageModal
+          users={messageableUsers}
+          initialMode={composeMode}
+          initialRecipients={composePreselected}
+          onSend={handleSendMessage}
+          onClose={() => { setShowComposeModal(false); setComposePreselected([]); }}
+        />
+      )}
+
+      {viewingMessageId && (
+        <MessageDetailModal
+          detail={messageDetail}
+          loading={messageDetailLoading}
+          onClose={() => { setViewingMessageId(null); setMessageDetail(null); }}
         />
       )}
     </div>
