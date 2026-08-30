@@ -14,7 +14,9 @@ import { usePricing } from '../context/PricingContext';
 import { useAuth } from '../context/AuthContext';
 import { MOCK_PRODUCTS } from '../data/products';
 import { formatPrice, formatIndicative, INDICATIVE_NOTE } from '../lib/price';
-import { METALS, STONES, FONTS } from '../constants';
+// Metals and stones come from the Pricing API via usePricing(); constants.ts still
+// supplies their 3D material properties, merged in PricingContext.
+import { FONTS } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { PendantModel } from '../components/PendantModel';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -30,7 +32,7 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
-  const { pricing } = usePricing();
+  const { pricing, configuratorMetals, configuratorStones } = usePricing();
   const { user } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
 
@@ -38,16 +40,17 @@ export default function ProductDetail() {
 
   // Configurator options (if custom or standard customizable)
   const queryType = (searchParams.get('type') || 'ring') as 'ring' | 'pendant';
-  const queryMetal = (searchParams.get('metal') || 'gold') as keyof typeof METALS;
-  const queryStone = (searchParams.get('stone') || 'diamond') as keyof typeof STONES;
+  const queryMetal = searchParams.get('metal') || 'gold';
+  const queryStone = searchParams.get('stone') || 'diamond';
   const queryText = searchParams.get('text') || 'PD';
   const queryFont = (searchParams.get('font') || 'helvetiker') as keyof typeof FONTS;
   const querySize = searchParams.get('size') || 'US 7';
   const queryStyle = searchParams.get('style') || 'custom-glb';
 
   // State
-  const [selectedMetal, setSelectedMetal] = useState<keyof typeof METALS>('gold');
-  const [selectedStone, setSelectedStone] = useState<keyof typeof STONES>('diamond');
+  // Keyed against the admin-managed catalogue from the Pricing API, not constants.
+  const [selectedMetal, setSelectedMetal] = useState<string>('gold');
+  const [selectedStone, setSelectedStone] = useState<string>('diamond');
   const [engravingText, setEngravingText] = useState('');
   const [wantEngraving, setWantEngraving] = useState(false);
   const [selectedSize, setSelectedSize] = useState('US 7');
@@ -123,21 +126,38 @@ export default function ProductDetail() {
   const displayMetalWeight = product?.metalWeight || null;
   const displayHasStones = product?.hasStones ?? false;
 
+  // The selected entries, resolved against the live catalogue. Falling back to the
+  // first entry keeps the page rendering while a stale key is corrected below.
+  const currentMetal = configuratorMetals.find(m => m.key === selectedMetal) ?? configuratorMetals[0];
+  const currentStone = configuratorStones.find(s => s.key === selectedStone) ?? configuratorStones[0];
+
+  // A metal or stone can be renamed or removed by an admin between visits, which
+  // would leave a URL or heuristic pointing at a key that no longer exists. Snap to
+  // the first option only once the catalogue has loaded — never while it is empty,
+  // or the default would clobber a valid choice on first paint.
+  useEffect(() => {
+    if (configuratorMetals.length > 0 && !configuratorMetals.some(m => m.key === selectedMetal)) {
+      setSelectedMetal(configuratorMetals[0].key);
+    }
+  }, [configuratorMetals, selectedMetal]);
+
+  useEffect(() => {
+    if (configuratorStones.length > 0 && !configuratorStones.some(s => s.key === selectedStone)) {
+      setSelectedStone(configuratorStones[0].key);
+    }
+  }, [configuratorStones, selectedStone]);
+
   // Calculate pricing based on options
   const computedPrice = useMemo(() => {
     if (isCustomProduct) {
       let base = queryType === 'pendant' ? 12000 : 25000;
-      let multiplier = METALS[selectedMetal]?.priceMultiplier ?? 1;
-      if (pricing) {
-        multiplier = (pricing as any)[`metalMultiplier_${selectedMetal}`] ?? multiplier;
-      }
 
-      const metalPart = base * multiplier;
-      let stonePart = 0;
-      if (queryType === 'ring') {
-        const storedStonePrice = pricing ? (pricing as any)[`stonePrice_${selectedStone}`] : undefined;
-        stonePart = storedStonePrice ?? STONES[selectedStone]?.price ?? 0;
-      }
+      // Previously read pricing.metalMultiplier_<key> / stonePrice_<key>. Those flat
+      // fields were replaced by the metals/stones arrays, so the lookup always missed
+      // and every admin price edit was ignored here. The merged catalogue carries the
+      // API value already.
+      const metalPart = base * (currentMetal?.multiplier ?? 1);
+      const stonePart = queryType === 'ring' ? (currentStone?.price ?? 0) : 0;
 
       // Engraving is a pendant-only add-on now; rings never include an engraving charge.
       let engravingPart = 0;
@@ -152,23 +172,26 @@ export default function ProductDetail() {
       return Math.round(product.price);
     }
     return 0;
-  }, [product, isCustomProduct, selectedMetal, selectedStone, wantEngraving, queryType, pricing]);
+  }, [product, isCustomProduct, currentMetal, currentStone, wantEngraving, queryType, pricing]);
+
+  const metalName = currentMetal?.name ?? '';
+  const stoneName = currentStone?.name ?? '';
 
   const productDescription = useMemo(() => {
     if (isCustomProduct) {
-      return `Custom designed ${queryType} meticulously configured to your luxurious aesthetic preferences. Features authentic premium handcrafting, high-reflection polished finishes, and customized dimensions. Configured in ${METALS[selectedMetal].name}.`;
+      return `Custom designed ${queryType} meticulously configured to your luxurious aesthetic preferences. Features authentic premium handcrafting, high-reflection polished finishes, and customized dimensions. Configured in ${metalName}.`;
     }
     return product?.description || '';
-  }, [isCustomProduct, product, queryType, selectedMetal]);
+  }, [isCustomProduct, product, queryType, metalName]);
 
   const productName = useMemo(() => {
     if (isCustomProduct) {
-      return queryType === 'ring' 
-        ? `${METALS[selectedMetal].name} Bespoke Ring ("${engravingText || 'PD'}")` 
-        : `${METALS[selectedMetal].name} Heritage Pendant ("${engravingText || 'PD'}")`;
+      return queryType === 'ring'
+        ? `${metalName} Bespoke Ring ("${engravingText || 'PD'}")`
+        : `${metalName} Heritage Pendant ("${engravingText || 'PD'}")`;
     }
     return product?.name || 'Luxury Jewel';
-  }, [isCustomProduct, product, queryType, selectedMetal, engravingText]);
+  }, [isCustomProduct, product, queryType, metalName, engravingText]);
 
   const mainImage = useMemo(() => {
     if (isCustomProduct) {
@@ -210,10 +233,10 @@ export default function ProductDetail() {
       price: computedPrice,
       image: mainImage,
       options: {
-        material: METALS[selectedMetal].name,
+        material: metalName,
         size: selectedSize,
         ...(wantEngraving && queryType !== 'ring' && { engraving: engravingText, font: FONTS[selectedFont].name }),
-        ...((isCustomProduct || product?.hasStones) && { gemstone: STONES[selectedStone].name })
+        ...((isCustomProduct || product?.hasStones) && { gemstone: stoneName })
       },
       quantity: quantity
     });
@@ -316,13 +339,13 @@ export default function ProductDetail() {
                         {queryType === 'ring' ? (
                           <CustomGLBRingModel
                             style={queryStyle}
-                            metalMaterial={METALS[selectedMetal]}
-                            stoneMaterial={STONES[selectedStone]}
+                            metalMaterial={currentMetal?.material}
+                            stoneMaterial={currentStone?.material}
                           />
                         ) : (
-                          <PendantModel 
-                            text={engravingText} 
-                            metalMaterial={METALS[selectedMetal]} 
+                          <PendantModel
+                            text={engravingText}
+                            metalMaterial={currentMetal?.material}
                             fontStyle={selectedFont}
                             shape={selectedPendantShape}
                           />
@@ -436,31 +459,32 @@ export default function ProductDetail() {
                 <div>
                   <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3 flex items-center justify-between">
                     <span>Sovereign Metal Grade</span>
-                    <span className="text-amber-700 font-serif lowercase italic">{METALS[selectedMetal].name}</span>
+                    <span className="text-amber-700 font-serif lowercase italic">{metalName}</span>
                   </h3>
                   <div className="grid grid-cols-3 gap-3">
-                    {(Object.keys(METALS) as Array<keyof typeof METALS>).map((mKey) => (
+                    {configuratorMetals.map((m) => (
                       <button
-                        key={mKey}
-                        onClick={() => setSelectedMetal(mKey)}
+                        key={m.key}
+                        onClick={() => setSelectedMetal(m.key)}
+                        title={m.name}
                         className={`p-3 border rounded-xl flex flex-col items-center gap-2 transition-all ${
-                          selectedMetal === mKey 
-                            ? 'border-amber-600 bg-amber-50/25 shadow-sm' 
+                          selectedMetal === m.key
+                            ? 'border-amber-600 bg-amber-50/25 shadow-sm'
                             : 'border-stone-200 bg-white hover:border-stone-400'
                         }`}
                       >
-                        <div 
+                        <div
                           className="w-10 h-10 rounded-full border border-black/10 shadow-inner relative flex items-center justify-center"
-                          style={{ backgroundColor: METALS[mKey].color }}
+                          style={{ backgroundColor: m.color }}
                         >
-                          {selectedMetal === mKey && (
+                          {selectedMetal === m.key && (
                             <div className="w-5 h-5 rounded-full bg-stone-900 border border-white flex items-center justify-center">
                               <Check size={11} className="text-amber-400" />
                             </div>
                           )}
                         </div>
                         <span className="text-[10px] font-semibold text-stone-700 text-center tracking-tight leading-tight">
-                          {METALS[mKey].name}
+                          {m.name}
                         </span>
                       </button>
                     ))}
@@ -472,30 +496,30 @@ export default function ProductDetail() {
                   <div>
                     <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-stone-700 mb-3 flex items-center justify-between">
                       <span>Accent Gemstone Selection</span>
-                      <span className="text-amber-700 font-serif lowercase italic">{STONES[selectedStone].name}</span>
+                      <span className="text-amber-700 font-serif lowercase italic">{stoneName}</span>
                     </h3>
                     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-2">
-                      {(Object.keys(STONES) as Array<keyof typeof STONES>).map((sKey) => (
+                      {configuratorStones.map((s) => (
                         <button
-                          key={sKey}
-                          onClick={() => setSelectedStone(sKey)}
+                          key={s.key}
+                          onClick={() => setSelectedStone(s.key)}
                           className={`p-2 border rounded-xl flex flex-col items-center gap-1.5 transition-all ${
-                            selectedStone === sKey 
-                              ? 'border-amber-600 bg-amber-50/30' 
+                            selectedStone === s.key
+                              ? 'border-amber-600 bg-amber-50/30'
                               : 'border-stone-200 bg-white hover:border-stone-300'
                           }`}
-                          title={STONES[sKey].name}
+                          title={s.name}
                         >
-                          <div 
+                          <div
                             className="w-8 h-8 rounded-full border border-stone-200 shadow-inner relative flex items-center justify-center opacity-90 hover:opacity-100"
-                            style={{ backgroundColor: STONES[sKey].color }}
+                            style={{ backgroundColor: s.color }}
                           >
-                            {selectedStone === sKey && (
+                            {selectedStone === s.key && (
                               <Check size={12} className="text-stone-900 stroke-[3] mix-blend-difference" />
                             )}
                           </div>
                           <span className="text-[8px] font-sans font-bold text-stone-600 text-center truncate w-full">
-                            {STONES[sKey].name}
+                            {s.name}
                           </span>
                         </button>
                       ))}
@@ -718,11 +742,11 @@ export default function ProductDetail() {
                       </>
                     )}
                     <div className="text-stone-400">Metal Purity:</div>
-                    <div className="text-stone-800 font-medium">{isCustomProduct ? METALS[selectedMetal].name : (displayKaratage || 'Solid Precious Metal')}</div>
+                    <div className="text-stone-800 font-medium">{isCustomProduct ? metalName : (displayKaratage || 'Solid Precious Metal')}</div>
                     <div className="text-stone-400">Hallmark Grade:</div>
                     <div className="text-stone-800 font-medium">PD Certified 916 Luxury Shield</div>
                     <div className="text-stone-400">Accent stones:</div>
-                    <div className="text-stone-800 font-medium">{isCustomProduct ? STONES[selectedStone].name : (displayHasStones ? 'Genuine Fine Gemstones' : 'None')}</div>
+                    <div className="text-stone-800 font-medium">{isCustomProduct ? stoneName : (displayHasStones ? 'Genuine Fine Gemstones' : 'None')}</div>
                     <div className="text-stone-400">Country of birth:</div>
                     <div className="text-stone-800 font-medium">Sri Lanka (Gampaha House)</div>
                   </div>
@@ -784,9 +808,11 @@ export default function ProductDetail() {
       <ARTryOnModal 
         isOpen={isAROpen} 
         onClose={() => setIsAROpen(false)} 
-        metal={selectedMetal} 
-        metalName={METALS[selectedMetal].name} 
+        metal={selectedMetal}
+        metalName={metalName}
         stone={selectedStone}
+        metalMaterialOverride={currentMetal?.material}
+        stoneMaterialOverride={currentStone?.material}
         modelType={isCustomProduct ? queryType : 'ring'}
         customText={wantEngraving ? engravingText : undefined}
         fontStyle={selectedFont}

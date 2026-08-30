@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { METALS, STONES } from '../constants';
+import { shouldPausePolling } from '../lib/pollGuard';
 
 export interface IMetalEntry {
   key: string;
@@ -269,6 +270,19 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   useEffect(() => { refreshPricing(); }, []);
+
+  // An admin editing prices in one tab and switching to the configurator in
+  // another would otherwise keep seeing the catalogue fetched at mount. One GET
+  // per focus — no polling, and it defers to the shared guard so it can't fire
+  // while a modal or a half-typed field is open.
+  useEffect(() => {
+    const onFocus = () => {
+      if (shouldPausePolling()) return;
+      refreshPricing();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   // Memoised so the material objects keep their identity between renders — the
   // ring/pendant models rebuild their THREE materials whenever these change.
