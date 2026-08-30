@@ -77,6 +77,21 @@ function byStyleNumber<T extends { name?: string }>(list: T[]): T[] {
   return [...list].sort((a, b) => styleNumber(a) - styleNumber(b));
 }
 
+// A stored metal/stone key can predate a re-key on the admin side (constants.ts's
+// legacy `gold18k` vs a live-catalogue `18k_yellow_gold` both meaning "18K Yellow
+// Gold" is a real example), so an exact key miss isn't necessarily a deleted entry.
+// Fall back to a normalized key/name comparison before treating it as gone.
+function findCatalogEntry<T extends { key: string; name: string }>(
+  list: T[], stored: string | undefined
+): T | undefined {
+  if (!stored) return undefined;
+  const exact = list.find(e => e.key === stored);
+  if (exact) return exact;
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normalizedStored = normalize(stored);
+  return list.find(e => normalize(e.key) === normalizedStored || normalize(e.name) === normalizedStored);
+}
+
 export default function Configurator() {
   const navigate = useNavigate();
   const [modelType, setModelType] = useState<'ring' | 'pendant'>(() => (localStorage.getItem('cfg_modelType') as 'ring' | 'pendant') || 'ring');
@@ -306,21 +321,31 @@ export default function Configurator() {
 
   // The selected entries, resolved against the live catalogue. Falling back to
   // the first entry keeps the viewer rendering while a stale key is corrected.
-  const currentMetal = configuratorMetals.find(m => m.key === metal) ?? configuratorMetals[0];
-  const currentStone = configuratorStones.find(s => s.key === stone) ?? configuratorStones[0];
+  const currentMetal = findCatalogEntry(configuratorMetals, metal) ?? configuratorMetals[0];
+  const currentStone = findCatalogEntry(configuratorStones, stone) ?? configuratorStones[0];
 
   // An admin can rename or delete a metal/stone between visits, which would leave
   // localStorage pointing at a key that no longer exists. Snap back to the first
   // available option once — never while the list is still empty, or the default
-  // would overwrite a valid saved choice on the first paint.
+  // would overwrite a valid saved choice on the first paint. A fuzzy match (see
+  // findCatalogEntry) is corrected to its canonical key rather than treated as
+  // missing, so it also gets persisted back to localStorage in the canonical form.
   useEffect(() => {
-    if (configuratorMetals.length > 0 && !configuratorMetals.some(m => m.key === metal)) {
+    if (configuratorMetals.length === 0) return;
+    const match = findCatalogEntry(configuratorMetals, metal);
+    if (match) {
+      if (match.key !== metal) setMetal(match.key);
+    } else {
       setMetal(configuratorMetals[0].key);
     }
   }, [configuratorMetals, metal]);
 
   useEffect(() => {
-    if (configuratorStones.length > 0 && !configuratorStones.some(s => s.key === stone)) {
+    if (configuratorStones.length === 0) return;
+    const match = findCatalogEntry(configuratorStones, stone);
+    if (match) {
+      if (match.key !== stone) setStone(match.key);
+    } else {
       setStone(configuratorStones[0].key);
     }
   }, [configuratorStones, stone]);

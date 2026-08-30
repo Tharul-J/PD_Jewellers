@@ -12,7 +12,7 @@ import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import InitialsAvatar from '../components/InitialsAvatar';
 import ProfilePictureUpload from '../components/ProfilePictureUpload';
-import { METALS, STONES, FONTS } from '../constants';
+import { FONTS } from '../constants';
 import { formatPrice, formatExact } from '../lib/price';
 import { timeAgo } from '../lib/utils';
 import { skuOf } from '../lib/sku';
@@ -43,21 +43,6 @@ function resolveKey<T extends Record<string, { name: string }>>(
     ([, v]) => v.name.toLowerCase() === value.toLowerCase()
   );
   return found ? found[0] : fallback as string;
-}
-
-// Metals and stones are admin-managed, so a key that constants.ts has never
-// heard of is legitimate — pass it through rather than snapping to the
-// fallback. The configurator reconciles it against the live catalogue and
-// corrects it only if it has genuinely been deleted.
-function resolveCatalogKey<T extends Record<string, { name: string }>>(
-  map: T, value: string | undefined, fallback: keyof T
-): string {
-  if (!value) return fallback as string;
-  if (value in map) return value;
-  const found = Object.entries(map).find(
-    ([, v]) => v.name.toLowerCase() === value.toLowerCase()
-  );
-  return found ? found[0] : value;
 }
 
 export default function Profile() {
@@ -484,8 +469,12 @@ export default function Profile() {
   };
 
   const handleOpenInConfigurator = (config: any) => {
-    const metalKey  = resolveCatalogKey(METALS, config.metal, 'silver');
-    const stoneKey  = resolveCatalogKey(STONES, config.stone, 'aquamarine');
+    // Metals and stones are admin-managed and can be re-keyed over time, so
+    // resolving against constants.ts here risks landing on a key the live
+    // Pricing API doesn't use. Pass the saved key straight through — the
+    // configurator's own catalogue-aware fuzzy match corrects it if needed.
+    const metalKey  = config.metal || 'silver';
+    const stoneKey  = config.stone || 'aquamarine';
     // Fonts remain fully static — an unresolvable key there would fail to load.
     const fontKey   = resolveKey(FONTS,  config.fontStyle, 'helvetiker');
 
@@ -556,11 +545,11 @@ export default function Profile() {
       isCustomDesign: true,
       // Carried through to the inquiry so a bespoke item can be reopened in
       // the configurator with its exact saved selections, not a default.
-      // Resolved through the same key/name lookup as "Open in Configurator" —
-      // a legacy record can still hold a display name instead of a key.
+      // Metal/stone are passed through as-is (see handleOpenInConfigurator) —
+      // the configurator resolves them against the live catalogue on open.
       options: {
-        material: resolveCatalogKey(METALS, config.metal, 'silver'),
-        gemstone: resolveCatalogKey(STONES, config.stone, 'aquamarine'),
+        material: config.metal,
+        gemstone: config.stone,
         size: type === 'ring' ? config.ringSize : config.pendantSize,
         style: config.ringStyle,
         modelType: type,
