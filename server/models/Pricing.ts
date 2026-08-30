@@ -4,6 +4,7 @@ export interface IMetalEntry {
   key: string;
   displayName: string;
   multiplier: number;
+  color?: string;
 }
 
 export interface IStoneEntry {
@@ -30,7 +31,7 @@ export interface IPricing {
 export interface IPricingDoc extends IPricing, Document {}
 
 const metalEntrySchema = new Schema<IMetalEntry>(
-  { key: String, displayName: String, multiplier: { type: Number, default: 1 } },
+  { key: String, displayName: String, multiplier: { type: Number, default: 1 }, color: String },
   { _id: false }
 );
 

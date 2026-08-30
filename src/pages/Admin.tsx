@@ -678,7 +678,7 @@ export default function Admin() {
   const [metalsList,          setMetalsList]          = useState<IMetalEntry[]>([]);
   const [stonesList,          setStonesList]          = useState<IStoneEntry[]>([]);
   const [upgradesList,        setUpgradesList]        = useState<IUpgradeEntry[]>([]);
-  const [newMetal,            setNewMetal]            = useState({ displayName: '', multiplier: 1 });
+  const [newMetal,            setNewMetal]            = useState({ displayName: '', multiplier: 1, color: '#cccccc' });
   const [newStone,            setNewStone]            = useState({ displayName: '', price: 0, color: '#cccccc' });
   const [showAddMetal,        setShowAddMetal]        = useState(false);
   const [showAddStone,        setShowAddStone]        = useState(false);
@@ -2928,10 +2928,21 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="space-y-2 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
                   {metalsList.map((m, i) => (
                     <div key={m.key} className="flex items-center gap-3 bg-gray-50 rounded-md px-3 py-2">
-                      <span className="flex-1 text-sm text-gray-700 font-medium truncate min-w-0">{m.displayName}</span>
+                      <input
+                        type="color"
+                        value={m.color || '#cccccc'}
+                        onChange={e => {
+                          const updated = [...metalsList];
+                          updated[i] = { ...m, color: e.target.value };
+                          setMetalsList(updated);
+                        }}
+                        className="w-7 h-7 rounded cursor-pointer border border-gray-200 bg-white p-0.5 shrink-0"
+                        title={`Metal colour — ${m.displayName}`}
+                      />
+                      <span className="flex-1 text-xs text-gray-700 font-medium truncate min-w-0">{m.displayName}</span>
                       <span className="text-xs text-gray-400 shrink-0">×</span>
                       <input
                         type="number" step="0.01" min="0"
@@ -2941,7 +2952,7 @@ export default function Admin() {
                           updated[i] = { ...m, multiplier: Number(e.target.value) };
                           setMetalsList(updated);
                         }}
-                        className="w-20 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                        className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
                       />
                       <button
                         type="button"
@@ -2962,6 +2973,13 @@ export default function Admin() {
                 {showAddMetal ? (
                   <div className="flex items-center gap-2 bg-amber-50 rounded-md p-3 border border-amber-200 flex-wrap">
                     <input
+                      type="color"
+                      value={newMetal.color}
+                      onChange={e => setNewMetal({ ...newMetal, color: e.target.value })}
+                      className="w-10 h-10 rounded cursor-pointer border border-amber-200 bg-white p-0.5 shrink-0"
+                      title="Metal colour"
+                    />
+                    <input
                       type="text" placeholder="Display name (e.g. 24K Pure Gold)"
                       value={newMetal.displayName}
                       onChange={e => setNewMetal({ ...newMetal, displayName: e.target.value })}
@@ -2978,13 +2996,13 @@ export default function Admin() {
                       type="button"
                       onClick={() => {
                         if (!newMetal.displayName.trim()) return;
-                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), multiplier: newMetal.multiplier || 1 }]);
-                        setNewMetal({ displayName: '', multiplier: 1 });
+                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), multiplier: newMetal.multiplier || 1, color: newMetal.color }]);
+                        setNewMetal({ displayName: '', multiplier: 1, color: '#cccccc' });
                         setShowAddMetal(false);
                       }}
                       className="px-3 py-2 bg-amber-500 text-white text-xs rounded hover:bg-amber-600 transition-colors shrink-0"
                     >Add</button>
-                    <button type="button" onClick={() => { setShowAddMetal(false); setNewMetal({ displayName: '', multiplier: 1 }); }}
+                    <button type="button" onClick={() => { setShowAddMetal(false); setNewMetal({ displayName: '', multiplier: 1, color: '#cccccc' }); }}
                       className="p-1.5 text-gray-400 hover:text-gray-600 rounded text-sm">✕</button>
                   </div>
                 ) : (

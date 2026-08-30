@@ -7,12 +7,18 @@ const router = express.Router();
 
 // ── Phase 2 canonical defaults ────────────────────────────────────────────────
 export const DEFAULT_METALS = [
-  { key: 'silver',    displayName: '925 Sterling Silver',        multiplier: 1  },
-  { key: 'white',     displayName: '18K White Gold',              multiplier: 13 },
-  { key: 'gold',      displayName: '22K Yellow Gold (916 Gold)',  multiplier: 18 },
-  { key: 'rose',      displayName: '18K Rose Gold',               multiplier: 13 },
-  { key: 'platinum',  displayName: 'Platinum (Pt950)',             multiplier: 22 },
+  { key: 'silver',    displayName: '925 Sterling Silver',        multiplier: 1,  color: '#e4e4e4' },
+  { key: 'white',     displayName: '18K White Gold',              multiplier: 13, color: '#eeecea' },
+  { key: 'gold',      displayName: '22K Yellow Gold (916 Gold)',  multiplier: 18, color: '#d4a820' },
+  { key: 'rose',      displayName: '18K Rose Gold',               multiplier: 13, color: '#e89080' },
+  { key: 'platinum',  displayName: 'Platinum (Pt950)',             multiplier: 22, color: '#b8b8b4' },
 ];
+
+// Mirrors src/constants.ts METALS, so an admin swatch matches the 3D material.
+const METAL_COLOR_BY_KEY: Record<string, string> = {
+  ...Object.fromEntries(DEFAULT_METALS.map(m => [m.key, m.color])),
+  gold18k: '#F5C842',
+};
 
 export const DEFAULT_STONES = [
   { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: 65000,  color: '#6BA3C8' },
@@ -36,6 +42,20 @@ const STONE_COLOR_BY_KEY: Record<string, string> = {
   zircon:      '#0098C9',
 };
 
+// Stones an admin added by hand have a generated key that no map can know, so
+// they're matched on display name as a second pass before the grey fallback.
+const STONE_COLOR_BY_NAME: Record<string, string> = {
+  'Cornflower / Sky Blue Sapphire': '#6BA3C8',
+  'White Ceylon Sapphire':          '#f0f0f0',
+  'Crimson Ceylon Ruby':            '#c41230',
+  'Vibrant Emerald':                '#0a8a3c',
+  'Royal Blue Ceylon Sapphire':     '#0a3d8f',
+  'Ceylon Padparadscha Sapphire':   '#FF7F50',
+  'Premium Blue-Sheen Moonstone':   '#B0C4DE',
+  'Yellow Ceylon Sapphire':         '#FFD166',
+  'Ceylon Pink Sapphire':           '#E88AAD',
+};
+
 const FALLBACK_STONE_COLOR = '#cccccc';
 
 const DEFAULT_ENGRAVING = 5000;
@@ -44,12 +64,27 @@ export const DEFAULT_UPGRADES = [
   { key: 'engraving', name: 'Engraving', price: DEFAULT_ENGRAVING },
 ];
 
-/** Adds a `color` to any stone entry missing one, using the known key map. */
+/**
+ * Adds a `color` to any stone entry missing one, by key then by display name.
+ *
+ * A previously stored FALLBACK_STONE_COLOR counts as missing: it was assigned by
+ * an earlier backfill that had no entry for that stone, never chosen by an admin,
+ * so a real colour now known for it should win.
+ */
 function withStoneColors(stones: any[]): any[] {
-  return (stones ?? []).map(s => ({
-    ...s,
-    color: s?.color || STONE_COLOR_BY_KEY[s?.key] || FALLBACK_STONE_COLOR,
-  }));
+  return (stones ?? []).map(s => {
+    const known = STONE_COLOR_BY_KEY[s?.key] || STONE_COLOR_BY_NAME[s?.displayName];
+    const saved = s?.color && s.color.toLowerCase() !== FALLBACK_STONE_COLOR ? s.color : null;
+    return { ...s, color: saved || known || FALLBACK_STONE_COLOR };
+  });
+}
+
+/** Same treatment for metals — key map, then the shared grey fallback. */
+function withMetalColors(metals: any[]): any[] {
+  return (metals ?? []).map(m => {
+    const saved = m?.color && m.color.toLowerCase() !== FALLBACK_STONE_COLOR ? m.color : null;
+    return { ...m, color: saved || METAL_COLOR_BY_KEY[m?.key] || FALLBACK_STONE_COLOR };
+  });
 }
 
 /** Seeds the upgrades array from the legacy flat engravingPrice when it's empty. */
@@ -73,6 +108,7 @@ function migrateFromFlatFields(old: Record<string, any>) {
     multiplier: typeof old[`metalMultiplier_${m.key}`] === 'number'
       ? old[`metalMultiplier_${m.key}`]
       : m.multiplier,
+    color: m.color,
   }));
 
   const stones = DEFAULT_STONES.map(s => {
@@ -157,20 +193,27 @@ router.get('/', async (req, res) => {
       return res.json(migrated);
     }
 
-    // Already new format — backfill stone colours and the upgrades array if this
+    // Already new format — backfill colours and the upgrades array if this
     // document predates them, then persist the backfill so it happens once.
     const stones   = withStoneColors(raw.stones);
+    const metals   = withMetalColors(raw.metals);
     const upgrades = withUpgrades(raw.upgrades, raw.engravingPrice);
+
+    // Compare against the resolved values so a stone stuck on the grey fallback
+    // is rewritten too, not just one with no colour field at all.
+    const changed = (before: any[] = [], after: any[] = []) =>
+      after.some((entry, i) => entry.color !== before[i]?.color);
 
     const needsBackfill =
       !Array.isArray(raw.upgrades) || raw.upgrades.length === 0 ||
-      (raw.stones ?? []).some((s: any) => !s?.color);
+      changed(raw.stones, stones) ||
+      changed(raw.metals, metals);
 
     if (needsBackfill) {
-      await Pricing.updateOne({ _id: raw._id }, { $set: { stones, upgrades } });
+      await Pricing.updateOne({ _id: raw._id }, { $set: { stones, metals, upgrades } });
     }
 
-    return res.json({ ...raw, stones, upgrades });
+    return res.json({ ...raw, stones, metals, upgrades });
   } catch (error) {
     console.error('[Pricing GET]', error);
     res.status(500).json({ message: 'Server Error' });
@@ -196,13 +239,13 @@ router.put('/', protect, admin, async (req, res) => {
     if (!pricing) {
       const nextUpgrades = withUpgrades(upgrades, engravingPrice ?? DEFAULT_ENGRAVING);
       pricing = new Pricing({
-        metals:         metals ?? DEFAULT_METALS,
+        metals:         withMetalColors(metals ?? DEFAULT_METALS),
         stones:         withStoneColors(stones ?? DEFAULT_STONES),
         upgrades:       nextUpgrades,
         engravingPrice: engravingFromUpgrades(nextUpgrades, engravingPrice ?? DEFAULT_ENGRAVING),
       });
     } else {
-      if (metals         != null) pricing.metals         = metals;
+      if (metals         != null) pricing.metals         = withMetalColors(metals);
       if (stones         != null) pricing.stones         = withStoneColors(stones);
       if (engravingPrice != null) pricing.engravingPrice = engravingPrice;
       if (upgrades       != null) {

@@ -5,6 +5,7 @@ export interface IMetalEntry {
   key: string;
   displayName: string;
   multiplier: number;
+  color?: string;
 }
 
 export interface IStoneEntry {
@@ -36,12 +37,12 @@ interface PricingContextType {
 
 const defaultPricing: IPricing = {
   metals: [
-    { key: 'silver',     displayName: '925 Sterling Silver',        multiplier: METALS.silver.priceMultiplier    },
-    { key: 'white',      displayName: '18K White Gold',              multiplier: METALS.white.priceMultiplier     },
-    { key: 'gold',       displayName: '22K Yellow Gold (916 Gold)',  multiplier: METALS.gold.priceMultiplier      },
-    { key: 'gold18k', displayName: '18K Yellow Gold', multiplier: METALS.gold18k.priceMultiplier },
-    { key: 'rose',       displayName: '18K Rose Gold',               multiplier: METALS.rose.priceMultiplier      },
-    { key: 'platinum',   displayName: 'Platinum (Pt950)',             multiplier: METALS.platinum.priceMultiplier  },
+    { key: 'silver',     displayName: '925 Sterling Silver',        multiplier: METALS.silver.priceMultiplier,    color: METALS.silver.color    },
+    { key: 'white',      displayName: '18K White Gold',              multiplier: METALS.white.priceMultiplier,     color: METALS.white.color     },
+    { key: 'gold',       displayName: '22K Yellow Gold (916 Gold)',  multiplier: METALS.gold.priceMultiplier,      color: METALS.gold.color      },
+    { key: 'gold18k', displayName: '18K Yellow Gold', multiplier: METALS.gold18k.priceMultiplier, color: METALS.gold18k.color },
+    { key: 'rose',       displayName: '18K Rose Gold',               multiplier: METALS.rose.priceMultiplier,      color: METALS.rose.color      },
+    { key: 'platinum',   displayName: 'Platinum (Pt950)',             multiplier: METALS.platinum.priceMultiplier,  color: METALS.platinum.color  },
   ],
   stones: [
     { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: STONES.aquamarine.price,     color: STONES.aquamarine.color     },
@@ -63,13 +64,29 @@ const defaultPricing: IPricing = {
   engravingPrice: 5000,
 };
 
-const FALLBACK_STONE_COLOR = '#cccccc';
+const FALLBACK_COLOR = '#cccccc';
+
+/** A stored fallback grey was never an admin's choice — treat it as unset. */
+const savedColor = (c?: string) =>
+  c && c.toLowerCase() !== FALLBACK_COLOR ? c : null;
 
 /** Stone entries saved before colours existed get one from the STONES map by key. */
 function withStoneColors(stones: IStoneEntry[]): IStoneEntry[] {
   return stones.map(s => ({
     ...s,
-    color: s.color || (STONES as Record<string, { color: string }>)[s.key]?.color || FALLBACK_STONE_COLOR,
+    color: savedColor(s.color)
+      || (STONES as Record<string, { color: string }>)[s.key]?.color
+      || FALLBACK_COLOR,
+  }));
+}
+
+/** Same for metals, from the METALS map. */
+function withMetalColors(metals: IMetalEntry[]): IMetalEntry[] {
+  return metals.map(m => ({
+    ...m,
+    color: savedColor(m.color)
+      || (METALS as Record<string, { color: string }>)[m.key]?.color
+      || FALLBACK_COLOR,
   }));
 }
 
@@ -79,9 +96,11 @@ function normalisePricing(data: any): IPricing {
     : defaultPricing.engravingPrice;
 
   return {
-    metals: Array.isArray(data.metals) && data.metals.length > 0
-      ? data.metals
-      : defaultPricing.metals,
+    metals: withMetalColors(
+      Array.isArray(data.metals) && data.metals.length > 0
+        ? data.metals
+        : defaultPricing.metals
+    ),
     stones: withStoneColors(
       Array.isArray(data.stones) && data.stones.length > 0
         ? data.stones
