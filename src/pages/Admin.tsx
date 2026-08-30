@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry, IUpgradeEntry } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X, Mail, Phone, MapPin, Calendar, MessageSquare } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
@@ -114,6 +114,112 @@ function StatusChangeModal({ action, targetLabel, saving, error, onConfirm, onCa
           >
             {saving ? 'Saving...' : 'Confirm'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** One label/value line in the profile modal. Renders nothing for empty values. */
+function ProfileRow({ icon, label, value }: { icon?: React.ReactNode; label: string; value?: React.ReactNode }) {
+  if (value === undefined || value === null || value === '') return null;
+  return (
+    <div className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+      <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-400 font-bold w-28 shrink-0 pt-0.5">
+        {icon}{label}
+      </span>
+      <span className="text-sm text-[var(--color-ink)] break-words min-w-0 flex-1">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * A customer's name in any admin table, linked to their profile card.
+ * Falls back to plain text when the row has no user reference (deleted account).
+ */
+function UserNameLink({ user: stub, onOpen }: { user?: any; onOpen: (stub: any) => void }) {
+  const name = stub?.name || 'Unknown';
+  if (!stub?._id) return <span className="text-gray-500">{name}</span>;
+  return (
+    <button
+      type="button"
+      // The inquiry row itself toggles expansion — a name click must not do both.
+      onClick={e => { e.stopPropagation(); onOpen(stub); }}
+      className="text-amber-700 hover:text-amber-900 hover:underline font-medium text-left transition-colors"
+      title={`View ${name}'s profile`}
+    >
+      {name}
+    </button>
+  );
+}
+
+/**
+ * Read-only profile card for a customer, opened from any admin table.
+ * Mounted only while a user is selected, so the overlay guard is unconditional.
+ */
+function UserProfileModal({ usr, inquiryCount, onClose }: { usr: any; inquiryCount: number; onClose: () => void }) {
+  useOverlayGuard(true);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  const isAdmin = usr.role === 'administrator';
+  const addr = usr.address || {};
+  // The model splits the address across five optional sub-fields; join whatever is filled in.
+  const streetLine = [addr.street, addr.city, addr.state].filter(Boolean).join(', ');
+  const regionLine = [addr.zip, addr.country].filter(Boolean).join(', ');
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      role="presentation"
+    >
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto" role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+          <h3 className="text-base font-semibold text-[var(--color-ink)]">User Profile</h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 transition-colors" title="Close">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5">
+          <div className="flex flex-col items-center gap-2 mb-5">
+            {usr.profilePicture ? (
+              <img
+                src={usr.profilePicture}
+                alt={usr.name}
+                className="w-16 h-16 rounded-full object-cover border border-gray-100"
+                onError={e => (e.currentTarget.style.display = 'none')}
+              />
+            ) : (
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white ${isAdmin ? 'bg-gradient-to-br from-amber-500 to-yellow-400' : 'bg-gradient-to-br from-blue-500 to-blue-400'}`}>
+                {usr.name?.charAt(0).toUpperCase() || '?'}
+              </div>
+            )}
+            <h4 className="text-lg font-serif text-[var(--color-ink)]">{usr.name || 'Unknown'}</h4>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold ${isAdmin ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+              {isAdmin ? <Shield size={10} /> : <Users size={10} />}{usr.role}
+            </span>
+          </div>
+
+          <div className="space-y-0">
+            <ProfileRow icon={<Mail size={11} />} label="Email" value={usr.email} />
+            <ProfileRow icon={<Phone size={11} />} label="Phone" value={usr.phone} />
+            <ProfileRow icon={<MapPin size={11} />} label="Address" value={streetLine} />
+            <ProfileRow label="Region" value={regionLine} />
+            <ProfileRow
+              icon={<Calendar size={11} />}
+              label="Joined"
+              value={usr.createdAt ? new Date(usr.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : undefined}
+            />
+            <ProfileRow icon={<MessageSquare size={11} />} label="Inquiries" value={String(inquiryCount)} />
+            <ProfileRow label="Wishlist" value={Array.isArray(usr.wishlist) ? `${usr.wishlist.length} item${usr.wishlist.length === 1 ? '' : 's'}` : undefined} />
+            <ProfileRow label="Saved Designs" value={Array.isArray(usr.savedConfigurations) ? String(usr.savedConfigurations.length) : undefined} />
+          </div>
         </div>
       </div>
     </div>
@@ -231,6 +337,8 @@ export default function Admin() {
   // User CRUD state
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [viewingUser, setViewingUser] = useState<any | null>(null);
 
   // Pricing CRUD state
   const [metalsList,          setMetalsList]          = useState<IMetalEntry[]>([]);
@@ -927,6 +1035,25 @@ export default function Admin() {
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
     .slice(0, 6);
 
+  // Users filtered list
+  const userSearchQuery = userSearch.trim().toLowerCase();
+  const filteredUsers = usersList.filter(u =>
+    !userSearchQuery ||
+    u.name?.toLowerCase().includes(userSearchQuery) ||
+    u.email?.toLowerCase().includes(userSearchQuery)
+  );
+
+  // Rows in other tabs carry only a populated {_id, name, email} stub, so the
+  // full record is looked up from the users list fetched on mount.
+  const openUserProfile = (stub: any) => {
+    if (!stub) return;
+    const full = usersList.find(u => u._id === (stub._id ?? stub));
+    setViewingUser(full ?? (typeof stub === 'object' ? stub : null));
+  };
+
+  const inquiryCountFor = (userId?: string) =>
+    userId ? ordersList.filter(o => (o.user?._id ?? o.user) === userId).length : 0;
+
   // Catalog filtered list
   const catalogSearchQuery = catalogSearch.trim().toLowerCase();
   const filteredProducts = productsList
@@ -1234,6 +1361,32 @@ export default function Admin() {
           {/* ── USERS ── */}
           {activeTab === 'users' && (
             <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h2 className="text-base font-serif text-[var(--color-ink)]">
+                  All Users <span className="text-sm text-gray-500 font-sans font-medium ml-1">({filteredUsers.length}{userSearchQuery ? ` of ${usersList.length}` : ''})</span>
+                </h2>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    placeholder="Search users by name or email..."
+                    className="h-9 pl-9 pr-8 border border-gray-200 text-sm bg-white rounded-lg focus:outline-none focus:border-amber-400 text-gray-600 w-64"
+                  />
+                  {userSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setUserSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                      title="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {loading ? (
                 <div className="py-20 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
               ) : (
@@ -1249,19 +1402,24 @@ export default function Admin() {
                       </tr>
                     </thead>
                     <tbody className="text-sm divide-y divide-gray-100">
-                      {usersList.map(usr => {
+                      {filteredUsers.map(usr => {
                         const isSelf = usr._id === user?._id;
                         const isAdmin = usr.role === 'administrator';
                         return (
                           <tr key={usr._id} className={`transition-colors ${deleteUserId === usr._id ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                             <td className="py-4 px-6">
                               <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isAdmin ? 'bg-gradient-to-br from-amber-500 to-yellow-400' : 'bg-gradient-to-br from-blue-500 to-blue-400'}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingUser(usr)}
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isAdmin ? 'bg-gradient-to-br from-amber-500 to-yellow-400' : 'bg-gradient-to-br from-blue-500 to-blue-400'}`}
+                                  title={`View ${usr.name}'s profile`}
+                                >
                                   {usr.name?.charAt(0).toUpperCase() || '?'}
-                                </div>
+                                </button>
                                 <div>
-                                  <p className="font-medium text-[var(--color-ink)]">{usr.name}</p>
-                                  {isSelf && <span className="text-[9px] text-amber-600 font-bold uppercase tracking-wider">You</span>}
+                                  <UserNameLink user={usr} onOpen={setViewingUser} />
+                                  {isSelf && <span className="block text-[9px] text-amber-600 font-bold uppercase tracking-wider">You</span>}
                                 </div>
                               </div>
                             </td>
@@ -1305,8 +1463,10 @@ export default function Admin() {
                       })}
                     </tbody>
                   </table>
-                  {usersList.length === 0 && (
-                    <div className="text-center py-12 text-gray-500 text-sm">No users found.</div>
+                  {filteredUsers.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 text-sm">
+                      {userSearchQuery ? `No users match "${userSearch}"` : 'No users found.'}
+                    </div>
                   )}
                 </div>
               )}
@@ -2004,7 +2164,7 @@ export default function Admin() {
                                   )}
                                 </span>
                               </td>
-                              <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{order.user?.name || 'Unknown'}</td>
+                              <td className="py-4 px-4"><UserNameLink user={order.user} onOpen={openUserProfile} /></td>
                               <td className="py-4 px-4 font-semibold text-gray-700">{formatExact(order.totalPrice)}</td>
                               <td className="py-4 px-4 text-gray-500 text-xs">{new Date(order.createdAt).toLocaleDateString()}</td>
                               <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
@@ -2140,7 +2300,7 @@ export default function Admin() {
                         return (
                           <tr key={purchase._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                             <td className="py-4 px-4 text-gray-500 text-xs">{new Date(purchase.createdAt).toLocaleDateString()}</td>
-                            <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{purchase.user?.name || 'Unknown'}</td>
+                            <td className="py-4 px-4"><UserNameLink user={purchase.user} onOpen={openUserProfile} /></td>
                             <td className="py-4 px-4">
                               <button
                                 onClick={() => { setActiveTab('orders'); setExpandedOrderId(purchase.order); }}
@@ -2196,7 +2356,7 @@ export default function Admin() {
                         const isPendingDelete = deleteReviewId === review._id;
                         return (
                           <tr key={review._id} className={`transition-colors border-b border-gray-100 ${isPendingDelete ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
-                            <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{review.user?.name || 'Unknown'}</td>
+                            <td className="py-4 px-4"><UserNameLink user={review.user} onOpen={openUserProfile} /></td>
                             <td className="py-4 px-4">
                               <div className="flex gap-0.5 text-amber-400">
                                 {[1, 2, 3, 4, 5].map(s => (
@@ -2724,6 +2884,15 @@ export default function Admin() {
           error={statusError}
           onConfirm={handleConfirmStatusChange}
           onCancel={() => setStatusPrompt(null)}
+        />
+      )}
+
+      {/* Opened from any tab that shows a customer name. */}
+      {viewingUser && (
+        <UserProfileModal
+          usr={viewingUser}
+          inquiryCount={inquiryCountFor(viewingUser._id)}
+          onClose={() => setViewingUser(null)}
         />
       )}
     </div>
