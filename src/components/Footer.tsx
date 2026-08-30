@@ -43,7 +43,7 @@ export function Footer() {
           </div>
         </div>
         
-        <div className="md:col-span-2 md:col-start-6">
+        <div className="md:col-span-3 md:col-start-6">
           <h4 className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-8 text-white/80">Discover</h4>
           <ul className="space-y-4 opacity-70 text-[13px] tracking-wide">
             <li><Link to="/collections" className="hover:text-[#D4AF37] transition-colors">Collection</Link></li>
@@ -52,29 +52,27 @@ export function Footer() {
             <li><Link to="/materials" className="hover:text-[#D4AF37] transition-colors">Blog</Link></li>
           </ul>
         </div>
-        
-        <div className="md:col-span-2">
-          <h4 className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-8 text-white/80">Support</h4>
-          <ul className="space-y-4 opacity-70 text-[13px] tracking-wide">
-            <li><a href="#" className="hover:text-[#D4AF37] transition-colors">FAQ</a></li>
-            <li><a href="#" className="hover:text-[#D4AF37] transition-colors">Shipping Returns</a></li>
-            <li><a href="#" className="hover:text-[#D4AF37] transition-colors">Jewelry Care</a></li>
-            <li><a href="#" className="hover:text-[#D4AF37] transition-colors">Ring Guide</a></li>
-            <li><a href="#" className="hover:text-[#D4AF37] transition-colors">Contact Us</a></li>
-          </ul>
-        </div>
 
-        <div className="md:col-span-3">
+        <div className="md:col-span-4 md:col-start-9">
            <h4 className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-8 text-white/80">Boutique</h4>
+
            <div className="opacity-70 text-[13px] leading-loose mb-6">
              <p className="font-medium text-white/90">PD Jewellers</p>
              <a href="https://maps.app.goo.gl/cNBJc2rsfr2PvYq66" target="_blank" rel="noopener noreferrer" className="hover:text-[#D4AF37] transition-colors block">
-               <p>No 5 Main Street</p>
+               <p>No 5, Main Street</p>
                <p>Gampaha, Sri Lanka</p>
              </a>
            </div>
+
+           <div className="opacity-70 text-[13px] leading-loose mb-6">
+             <p><a href="tel:+94332222735" className="hover:text-[#D4AF37] transition-colors">0332 222 735</a></p>
+             <p><a href="mailto:pdjewellerslk@gmail.com" className="hover:text-[#D4AF37] transition-colors break-all">pdjewellerslk@gmail.com</a></p>
+           </div>
+
+           <h5 className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-3 text-white/60">Opening Hours</h5>
            <div className="opacity-70 text-[13px] leading-loose">
-             <p>0332 222 735</p>
+             <p>Mon &ndash; Sat: 9:00 AM &ndash; 6:00 PM</p>
+             <p>Sunday: Closed</p>
            </div>
         </div>
       </div>
