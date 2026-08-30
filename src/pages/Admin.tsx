@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry } from '../context/PricingContext';
@@ -8,24 +8,49 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
 import { formatExact } from '../lib/price';
+import InquiryMessages from '../components/InquiryMessages';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 // Extend this list to add new 3D model categories without other code changes
 const MODEL_CATEGORIES_DEFAULT = ['ring', 'pendant'];
 
-// Post-payment, an inquiry can only move forward through the crafting pipeline
-const getForwardStatusOptions = (currentStatus: string): string[] => {
-  switch (currentStatus) {
-    case 'ordered':
-    case 'crafting':
-      return ['crafting', 'completed'];
-    case 'completed':
-      return ['completed'];
-    default:
-      return ['pending', 'availability_confirmed', 'crafting', 'completed', 'declined'];
-  }
+// The inquiry pipeline is one-directional; each status offers only the actions
+// that move it forward. Mirrors ALLOWED_TRANSITIONS on the server, which is the
+// actual enforcement — this list just decides what the admin is offered.
+interface StatusAction {
+  status: string;
+  label: string;
+  intent: 'forward' | 'decline';
+}
+
+const STATUS_ACTIONS: Record<string, StatusAction[]> = {
+  pending: [
+    { status: 'availability_confirmed', label: '✓ Confirm Availability', intent: 'forward' },
+    { status: 'declined', label: '✗ Decline', intent: 'decline' },
+  ],
+  availability_confirmed: [],
+  ordered: [{ status: 'crafting', label: '▶ Start Crafting', intent: 'forward' }],
+  crafting: [{ status: 'ready', label: '✓ Mark Ready', intent: 'forward' }],
+  ready: [{ status: 'completed', label: '✓ Complete', intent: 'forward' }],
+  completed: [],
+  declined: [],
 };
+
+// Inquiries the shop has to act on, versus ones waiting on the customer or done
+const NEEDS_ACTION = ['pending', 'ordered', 'crafting', 'ready'];
+
+const INQUIRY_TABS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'New' },
+  { key: 'availability_confirmed', label: 'Awaiting Payment' },
+  { key: 'ordered', label: 'Ordered' },
+  { key: 'crafting', label: 'Crafting' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'declined', label: 'Declined' },
+];
+
 
 type AdminTab = 'dashboard' | 'users' | 'products' | 'catalog' | 'categories' | 'orders' | 'sold' | 'reviews' | 'pricing' | 'blog';
 
@@ -42,6 +67,7 @@ export default function Admin() {
   });
   const [usersList, setUsersList] = useState<any[]>([]);
   const [ordersList, setOrdersList] = useState<any[]>([]);
+  const [inquiryFilter, setInquiryFilter] = useState('all');
   const [soldList, setSoldList] = useState<any[]>([]);
   const [reviewsList, setReviewsList] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -178,6 +204,62 @@ export default function Admin() {
     }
   }, [user]);
 
+  // The inquiry list is fetched once with everything else, so a message sent
+  // after the page loaded would never appear. Refresh it while the tab is open.
+  const refreshOrders = useCallback(async () => {
+    if (user?.role !== 'administrator') return;
+    try {
+      const res = await fetch('/api/orders', { headers: { Authorization: `Bearer ${user.token}` } });
+      if (!res.ok) return;
+      setOrdersList(await res.json());
+    } catch {
+      // transient — the next tick tries again
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab !== 'orders' || user?.role !== 'administrator') return;
+
+    refreshOrders();
+    let timer = setInterval(refreshOrders, 15000);
+    const onVisibility = () => {
+      clearInterval(timer);
+      if (!document.hidden) {
+        refreshOrders();
+        timer = setInterval(refreshOrders, 15000);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [activeTab, user, refreshOrders]);
+
+  // Notification deep links: /admin?tab=orders&id=<inquiryId>. The component
+  // stays mounted between clicks, so this reacts to the params rather than
+  // reading them once at mount.
+  const deepLinkTab = searchParams.get('tab');
+  const deepLinkId = searchParams.get('id');
+
+  useEffect(() => {
+    if (deepLinkTab) {
+      const valid: AdminTab[] = ['dashboard', 'users', 'products', 'catalog', 'categories', 'orders', 'sold', 'reviews', 'pricing', 'blog'];
+      if (valid.includes(deepLinkTab as AdminTab)) setActiveTab(deepLinkTab as AdminTab);
+    }
+    if (deepLinkId) setExpandedOrderId(deepLinkId);
+  }, [deepLinkTab, deepLinkId]);
+
+  // Scroll to the linked row once it has actually rendered.
+  useEffect(() => {
+    if (!deepLinkId || activeTab !== 'orders' || ordersList.length === 0) return;
+    const el = document.getElementById(`inquiry-row-${deepLinkId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    void markInquiryRead(deepLinkId);
+  }, [deepLinkId, activeTab, ordersList.length]);
+
   const inquiryNotifCount = unreadByType['new_inquiry'] ?? 0;
   const orderNotifCount = unreadByType['new_order'] ?? 0;
   const userNotifCount = unreadByType['new_user'] ?? 0;
@@ -220,19 +302,58 @@ export default function Admin() {
     }
   };
 
-  const handleUpdateOrderStatus = async (orderId: string, status: string) => {
+  // Status changes go through a confirmation modal so the admin can attach an
+  // optional note, which reaches the customer in both the thread and the email.
+  const [statusPrompt, setStatusPrompt] = useState<{ orderId: string; action: StatusAction } | null>(null);
+  const [statusNote, setStatusNote] = useState('');
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusError, setStatusError] = useState('');
+
+  const openStatusPrompt = (orderId: string, action: StatusAction) => {
+    setStatusPrompt({ orderId, action });
+    setStatusNote('');
+    setStatusError('');
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!statusPrompt) return;
+    setStatusSaving(true);
+    setStatusError('');
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
+      const res = await fetch(`/api/orders/${statusPrompt.orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: statusPrompt.action.status, note: statusNote }),
       });
-      if (res.ok) {
-        setOrdersList(ordersList.map(o => o._id === orderId ? { ...o, status } : o));
-      }
-    } catch (error) {
-      console.error('Error updating order', error);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not update status');
+      setOrdersList(prev => prev.map(o => (o._id === statusPrompt.orderId ? { ...o, ...data } : o)));
+      setStatusPrompt(null);
+    } catch (err: any) {
+      setStatusError(err.message || 'Could not update status');
+    } finally {
+      setStatusSaving(false);
     }
+  };
+
+  // Opening an inquiry is what marks the customer's messages read for all admins.
+  const markInquiryRead = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/messages/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setOrdersList(prev => prev.map(o => (o._id === orderId ? { ...o, ...data } : o)));
+    } catch {
+      // a failed read-receipt is not worth surfacing
+    }
+  };
+
+  const handleToggleOrderExpanded = (orderId: string, isExpanded: boolean) => {
+    setExpandedOrderId(isExpanded ? null : orderId);
+    if (!isExpanded) void markInquiryRead(orderId);
   };
 
   const handleDeleteOrder = async (id: string) => {
@@ -666,11 +787,22 @@ export default function Admin() {
   const STATUS_LABELS: Record<string, string> = {
     pending: 'Pending Review',
     availability_confirmed: 'Confirmed',
+    ordered: 'Ordered',
     crafting: 'Crafting',
+    ready: 'Ready',
     completed: 'Completed',
     declined: 'Declined',
-    ordered: 'Ordered',
   };
+
+  // Counts come from the full list so every tab stays accurate while one is active.
+  const inquiryTabCounts = INQUIRY_TABS.map(tab => ({
+    ...tab,
+    count: tab.key === 'all' ? ordersList.length : ordersList.filter(o => o.status === tab.key).length,
+  }));
+
+  const filteredOrders = inquiryFilter === 'all'
+    ? ordersList
+    : ordersList.filter(o => o.status === inquiryFilter);
 
   const statusBreakdown = Object.entries(STATUS_LABELS).map(([key, label]) => ({
     key,
@@ -779,11 +911,11 @@ export default function Admin() {
                   : activeTab}.
               </p>
             </div>
-            <div className="md:hidden">
+            <div className="md:hidden relative">
               <select
                 value={activeTab}
                 onChange={e => setActiveTab(e.target.value as any)}
-                className="p-2 border border-gray-200 rounded-md bg-white text-sm focus:outline-none focus:border-[var(--color-gold)]"
+                className="appearance-none p-2 pr-9 border border-gray-200 rounded-md bg-white text-sm focus:outline-none focus:border-[var(--color-gold)] cursor-pointer"
               >
                 <option value="dashboard">Dashboard</option>
                 <option value="users">Users</option>
@@ -794,6 +926,7 @@ export default function Admin() {
                 <option value="pricing">Pricing</option>
                 <option value="blog">Blog</option>
               </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
             </div>
           </div>
 
@@ -803,10 +936,12 @@ export default function Admin() {
               {/* Stat Cards — gold theme */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
                 {[
+                  // Gradients sit in a deliberately narrow luminance band so the row
+                  // scans as one family — distinct, but no card jumping out.
                   { label: 'Catalog Products', value: productsList.length, icon: LayoutList, sub: 'In collection', gradient: 'from-amber-600 via-yellow-500 to-amber-500', shadow: 'shadow-amber-400/50' },
-                  { label: 'Customers', value: customerCount, icon: Users, sub: 'Registered', gradient: 'from-amber-900 via-yellow-800 to-amber-700', shadow: 'shadow-amber-800/30' },
-                  { label: 'Inquiries', value: ordersList.length, icon: ShoppingCart, sub: 'Total received', gradient: 'from-amber-700 via-amber-600 to-yellow-500', shadow: 'shadow-amber-300/50' },
-                  { label: '3D Models', value: modelsList.length, icon: Package, sub: 'Uploaded', gradient: 'from-yellow-600 via-amber-500 to-yellow-400', shadow: 'shadow-yellow-300/50' },
+                  { label: 'Customers', value: customerCount, icon: Users, sub: 'Registered', gradient: 'from-amber-800 via-yellow-700 to-amber-600', shadow: 'shadow-amber-700/30' },
+                  { label: 'Inquiries', value: ordersList.length, icon: ShoppingCart, sub: 'Total received', gradient: 'from-amber-700 via-amber-600 to-amber-500', shadow: 'shadow-amber-400/50' },
+                  { label: '3D Models', value: modelsList.length, icon: Package, sub: 'Uploaded', gradient: 'from-yellow-600 via-amber-500 to-yellow-500', shadow: 'shadow-yellow-400/50' },
                 ].map((stat, i) => (
                   <motion.div
                     key={i}
@@ -1140,16 +1275,19 @@ export default function Admin() {
                             <button type="button" onClick={() => { setAddingCatEdit(false); setNewCatInputEdit(''); }} className="px-2 py-1 text-gray-400 text-xs hover:text-gray-600">Cancel</button>
                           </div>
                         ) : (
-                          <select
-                            value={modelForm.category}
-                            onChange={e => e.target.value === '__new__' ? setAddingCatEdit(true) : setModelForm({ ...modelForm, category: e.target.value })}
-                            className="w-full p-2.5 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400"
-                          >
-                            {modelCategories.map(cat => (
-                              <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                            ))}
-                            <option value="__new__">+ Add New Category</option>
-                          </select>
+                          <div className="relative">
+                            <select
+                              value={modelForm.category}
+                              onChange={e => e.target.value === '__new__' ? setAddingCatEdit(true) : setModelForm({ ...modelForm, category: e.target.value })}
+                              className="w-full appearance-none p-2.5 pr-9 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400 cursor-pointer"
+                            >
+                              {modelCategories.map(cat => (
+                                <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                              ))}
+                              <option value="__new__">+ Add New Category</option>
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                          </div>
                         )}
                       </div>
                       <div>
@@ -1238,16 +1376,19 @@ export default function Admin() {
                           <button type="button" onClick={() => { setAddingCatUpload(false); setNewCatInputUpload(''); }} className="px-2 py-1 text-gray-400 text-xs hover:text-gray-600">Cancel</button>
                         </div>
                       ) : (
-                        <select
-                          value={newModel.category}
-                          onChange={e => e.target.value === '__new__' ? setAddingCatUpload(true) : setNewModel({ ...newModel, category: e.target.value })}
-                          className="w-full p-2 border border-gray-200 text-sm bg-white"
-                        >
-                          {modelCategories.map(cat => (
-                            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                          ))}
-                          <option value="__new__">+ Add New Category</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={newModel.category}
+                            onChange={e => e.target.value === '__new__' ? setAddingCatUpload(true) : setNewModel({ ...newModel, category: e.target.value })}
+                            className="w-full appearance-none p-2 pr-9 border border-gray-200 text-sm bg-white cursor-pointer focus:outline-none focus:border-amber-400"
+                          >
+                            {modelCategories.map(cat => (
+                              <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                            ))}
+                            <option value="__new__">+ Add New Category</option>
+                          </select>
+                          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1371,15 +1512,18 @@ export default function Admin() {
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Category *</label>
-                        <select
-                          value={productForm.category}
-                          onChange={e => setProductForm({ ...productForm, category: e.target.value })}
-                          className="w-full p-2.5 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400"
-                        >
-                          {availableCategories.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={productForm.category}
+                            onChange={e => setProductForm({ ...productForm, category: e.target.value })}
+                            className="w-full appearance-none p-2.5 pr-9 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400 cursor-pointer"
+                          >
+                            {availableCategories.map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Price (LKR) *</label>
@@ -1470,45 +1614,49 @@ export default function Admin() {
               <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                   <h2 className="text-base font-serif text-[var(--color-ink)]">
-                    All Products <span className="text-sm text-gray-400 font-sans font-normal ml-1">({filteredProducts.length}{(catalogFilter !== 'all' || catalogSearchQuery) ? ` of ${productsList.length}` : ''})</span>
+                    All Products <span className="text-sm text-gray-500 font-sans font-medium ml-1">({filteredProducts.length}{(catalogFilter !== 'all' || catalogSearchQuery) ? ` of ${productsList.length}` : ''})</span>
                   </h2>
                   <div className="flex items-center gap-3">
                     {/* Search */}
                     <div className="relative">
-                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                       <input
                         type="text"
                         value={catalogSearch}
                         onChange={e => setCatalogSearch(e.target.value)}
                         placeholder="Search by name or SKU..."
-                        className="pl-8 pr-7 py-2 border border-gray-200 text-xs bg-white rounded focus:outline-none focus:border-amber-400 text-gray-600 w-52"
+                        className="h-9 pl-9 pr-8 border border-gray-200 text-sm bg-white rounded-lg focus:outline-none focus:border-amber-400 text-gray-600 w-52"
                       />
                       {catalogSearch && (
                         <button
                           type="button"
                           onClick={() => setCatalogSearch('')}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
                           title="Clear search"
                         >
-                          <X size={13} />
+                          <X size={14} />
                         </button>
                       )}
                     </div>
-                    {/* Category filter */}
-                    <select
-                      value={catalogFilter}
-                      onChange={e => setCatalogFilter(e.target.value)}
-                      className="p-2 border border-gray-200 text-xs bg-white rounded focus:outline-none focus:border-amber-400 text-gray-600"
-                    >
-                      <option value="all">All Categories</option>
-                      {availableCategories.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                    {/* Category filter — appearance-none so it matches the search
+                        input rather than rendering the OS dropdown chrome. */}
+                    <div className="relative">
+                      <select
+                        value={catalogFilter}
+                        onChange={e => setCatalogFilter(e.target.value)}
+                        className="h-9 appearance-none pl-3 pr-9 border border-gray-200 text-sm bg-white rounded-lg focus:outline-none focus:border-amber-400 text-gray-600 cursor-pointer"
+                      >
+                        <option value="all">All Categories</option>
+                        {availableCategories.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                    </div>
                     {!showProductForm && (
                       <button
                         onClick={() => { handleCancelProductForm(); setShowProductForm(true); }}
-                        className="px-4 py-2 btn-richbrown text-white text-[10px] uppercase tracking-widest font-bold rounded transition-colors"
+                        className="h-9 px-4 btn-richbrown text-white text-xs uppercase tracking-widest font-bold rounded-lg transition-colors"
                       >
                         + Add Product
                       </button>
@@ -1654,6 +1802,24 @@ export default function Admin() {
           {/* ── INQUIRIES ── */}
           {activeTab === 'orders' && (
             <div className="bg-white shadow-sm border border-gray-100 rounded-lg overflow-hidden">
+              {/* Status filter tabs */}
+              <div className="flex flex-wrap items-center gap-2 px-4 pt-4 pb-3 border-b border-gray-100">
+                {inquiryTabCounts.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => { setInquiryFilter(tab.key); setExpandedOrderId(null); }}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+                      inquiryFilter === tab.key
+                        ? 'bg-[var(--color-gold)] text-[var(--color-ink)]'
+                        : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                    }`}
+                    id={`inquiry-tab-${tab.key}`}
+                  >
+                    {tab.label} <span className="font-normal">({tab.count})</span>
+                  </button>
+                ))}
+              </div>
+
               {loading ? (
                 <div className="py-20 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
               ) : (
@@ -1671,73 +1837,87 @@ export default function Admin() {
                       </tr>
                     </thead>
                     <tbody className="text-sm">
-                      {ordersList.map(order => {
+                      {filteredOrders.map(order => {
                         const isExpanded = expandedOrderId === order._id;
                         const isPendingDelete = deleteOrderId === order._id;
                         const items: any[] = order.orderItems || [];
-                        const statusStyle: Record<string, { pill: string; chevron: string }> = {
-                          pending: { pill: 'bg-orange-100 text-orange-700 border border-orange-200 focus:ring-orange-300', chevron: 'text-orange-400' },
-                          availability_confirmed: { pill: 'bg-blue-100 text-blue-700 border border-blue-200 focus:ring-blue-300', chevron: 'text-blue-400' },
-                          crafting: { pill: 'bg-amber-100 text-amber-700 border border-amber-200 focus:ring-amber-300', chevron: 'text-amber-500' },
-                          completed: { pill: 'bg-green-100 text-green-700 border border-green-200 focus:ring-green-300', chevron: 'text-green-500' },
-                          declined: { pill: 'bg-red-100 text-red-700 border border-red-200 focus:ring-red-300', chevron: 'text-red-400' },
-                          ordered: { pill: 'bg-amber-100 text-amber-700 border border-amber-200', chevron: 'text-amber-500' },
+                        const statusStyle: Record<string, { pill: string }> = {
+                          pending: { pill: 'bg-orange-100 text-orange-700 border border-orange-200' },
+                          availability_confirmed: { pill: 'bg-blue-100 text-blue-700 border border-blue-200' },
+                          ordered: { pill: 'bg-amber-100 text-amber-700 border border-amber-200' },
+                          crafting: { pill: 'bg-amber-100 text-amber-700 border border-amber-200' },
+                          ready: { pill: 'bg-teal-100 text-teal-700 border border-teal-200' },
+                          completed: { pill: 'bg-green-100 text-green-700 border border-green-200' },
+                          declined: { pill: 'bg-red-100 text-red-700 border border-red-200' },
                         };
                         const ss = statusStyle[order.status] || statusStyle.pending;
+                        const actions = STATUS_ACTIONS[order.status] ?? [];
+                        const unread = order.unreadCount ?? 0;
+                        const needsAction = NEEDS_ACTION.includes(order.status);
+
+                        // Row emphasis: gold left border where the shop owes an
+                        // action, warm tint for brand-new inquiries.
+                        const rowAccent = [
+                          needsAction ? 'border-l-2 border-l-[var(--color-gold)]' : 'border-l-2 border-l-transparent',
+                          order.status === 'pending' && !isPendingDelete && !isExpanded ? 'bg-amber-50/30' : '',
+                        ].join(' ');
+
                         return (
                           <>
                             <tr
                               key={order._id}
-                              className={`transition-colors cursor-pointer ${isPendingDelete ? 'bg-red-50' : isExpanded ? 'bg-amber-50/40' : 'hover:bg-gray-50'} border-b border-gray-100`}
-                              onClick={() => !isPendingDelete && setExpandedOrderId(isExpanded ? null : order._id)}
+                              id={`inquiry-row-${order._id}`}
+                              className={`transition-colors cursor-pointer ${isPendingDelete ? 'bg-red-50' : isExpanded ? 'bg-amber-50/40' : `${rowAccent} hover:bg-gray-50`} border-b border-gray-100`}
+                              onClick={() => !isPendingDelete && handleToggleOrderExpanded(order._id, isExpanded)}
                             >
                               <td className="py-4 px-4 text-gray-400">
                                 {isExpanded
                                   ? <ChevronDown size={14} className="text-amber-600" />
                                   : <ChevronRight size={14} />}
                               </td>
-                              <td className="py-4 px-4 font-mono text-xs font-bold text-amber-700">{order.inquiryRef || 'INQ-PENDING'}</td>
+                              <td className="py-4 px-4 font-mono text-xs font-bold text-amber-700">
+                                <span className="inline-flex items-center gap-2">
+                                  {order.inquiryRef || 'INQ-PENDING'}
+                                  {unread > 0 && (
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full bg-[var(--color-gold)] shrink-0"
+                                      title={`${unread} unread message${unread === 1 ? '' : 's'} from the customer`}
+                                    />
+                                  )}
+                                </span>
+                              </td>
                               <td className="py-4 px-4 font-medium text-[var(--color-ink)]">{order.user?.name || 'Unknown'}</td>
                               <td className="py-4 px-4 font-semibold text-gray-700">{formatExact(order.totalPrice)}</td>
                               <td className="py-4 px-4 text-gray-500 text-xs">{new Date(order.createdAt).toLocaleDateString()}</td>
                               <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
-                                {['ordered', 'crafting', 'completed'].includes(order.status) ? (
-                                  <div className="flex items-center gap-2">
-                                    <span className={`inline-flex px-3 py-1.5 rounded-full text-[11px] font-bold ${ss.pill}`}>
-                                      {STATUS_LABELS[order.status] ?? order.status}
-                                    </span>
-                                    {getForwardStatusOptions(order.status).filter(s => s !== order.status).length > 0 && (
-                                      <div className="relative inline-flex items-center">
-                                        <select
-                                          value=""
-                                          onChange={e => e.target.value && handleUpdateOrderStatus(order._id, e.target.value)}
-                                          className="appearance-none pl-2 pr-6 py-1 rounded-full text-[10px] font-bold cursor-pointer border border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                                        >
-                                          <option value="" disabled>Move to...</option>
-                                          {getForwardStatusOptions(order.status).filter(s => s !== order.status).map(s => (
-                                            <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
-                                          ))}
-                                        </select>
-                                        <ChevronDown size={10} className="absolute right-1.5 pointer-events-none text-gray-400" />
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="relative inline-flex items-center">
-                                    <select
-                                      value={order.status}
-                                      onChange={e => handleUpdateOrderStatus(order._id, e.target.value)}
-                                      className={`appearance-none pl-3 pr-7 py-1.5 rounded-full text-[11px] font-bold cursor-pointer focus:outline-none focus:ring-2 transition-colors ${ss.pill}`}
+                                {/* Buttons keep their text on one line; when the cell
+                                    narrows they stack instead of wrapping mid-label. */}
+                                <div className="flex items-start gap-2 flex-wrap max-[1200px]:flex-col">
+                                  <span className={`inline-flex px-3 py-1.5 rounded-full text-[11px] font-bold ${ss.pill}`}>
+                                    {STATUS_LABELS[order.status] ?? order.status}
+                                  </span>
+
+                                  {actions.map(action => (
+                                    <button
+                                      key={action.status}
+                                      onClick={() => openStatusPrompt(order._id, action)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors border ${
+                                        action.intent === 'forward'
+                                          ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                                          : 'bg-transparent text-red-600 border-red-200 hover:bg-red-50'
+                                      }`}
+                                      id={`status-action-${order._id}-${action.status}`}
                                     >
-                                      <option value="pending">Pending Review</option>
-                                      <option value="availability_confirmed">Availability Confirmed</option>
-                                      <option value="crafting">Crafting</option>
-                                      <option value="completed">Completed / Collection</option>
-                                      <option value="declined">Declined / Slot full</option>
-                                    </select>
-                                    <ChevronDown size={11} className={`absolute right-2 pointer-events-none ${ss.chevron}`} />
-                                  </div>
-                                )}
+                                      {action.label}
+                                    </button>
+                                  ))}
+
+                                  {order.status === 'availability_confirmed' && (
+                                    <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                      Awaiting Customer Payment
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-4 px-4 text-right" onClick={e => e.stopPropagation()}>
                                 {isPendingDelete ? (
@@ -1763,7 +1943,7 @@ export default function Admin() {
                                   {items.length === 0 ? (
                                     <p className="text-xs text-gray-400 italic">No item details available.</p>
                                   ) : (
-                                    <div>
+                                    <div className="mb-6">
                                       <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Requested Items</p>
                                       <div className="space-y-2">
                                         {items.map((item: any, idx: number) => (
@@ -1789,6 +1969,17 @@ export default function Admin() {
                                       </div>
                                     </div>
                                   )}
+
+                                  <InquiryMessages
+                                    inquiryId={order._id}
+                                    messages={order.messages || []}
+                                    viewerRole="administrator"
+                                    customerName={order.user?.name}
+                                    token={user?.token}
+                                    onUpdated={updated =>
+                                      setOrdersList(prev => prev.map(o => (o._id === order._id ? { ...o, ...updated } : o)))
+                                    }
+                                  />
                                 </td>
                               </tr>
                             )}
@@ -1797,8 +1988,10 @@ export default function Admin() {
                       })}
                     </tbody>
                   </table>
-                  {ordersList.length === 0 && (
-                    <div className="text-center py-12 text-gray-500 text-sm">No inquiries found.</div>
+                  {filteredOrders.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 text-sm">
+                      {ordersList.length === 0 ? 'No inquiries found.' : 'No inquiries with this status.'}
+                    </div>
                   )}
                 </div>
               )}
@@ -2174,15 +2367,18 @@ export default function Admin() {
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Category</label>
-                        <select
-                          value={blogForm.category}
-                          onChange={e => setBlogForm({ ...blogForm, category: e.target.value })}
-                          className="w-full p-2.5 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400"
-                        >
-                          {['General', 'Styling Tips', 'Engagement', 'Craftsmanship', 'Gold Guide', 'Gemstones', 'Bridal', 'Mens'].map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={blogForm.category}
+                            onChange={e => setBlogForm({ ...blogForm, category: e.target.value })}
+                            className="w-full appearance-none p-2.5 pr-9 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400 cursor-pointer"
+                          >
+                            {['General', 'Styling Tips', 'Engagement', 'Craftsmanship', 'Gold Guide', 'Gemstones', 'Bridal', 'Mens'].map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Author</label>
@@ -2327,6 +2523,72 @@ export default function Admin() {
 
         </motion.div>
       </main>
+
+      {/* Status change confirmation — the note reaches the customer in both the
+          message thread and, where a template exists, the status email. */}
+      {statusPrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          // Clicking the overlay itself (never a child) dismisses, as does Escape.
+          onClick={e => { if (e.target === e.currentTarget && !statusSaving) setStatusPrompt(null); }}
+          onKeyDown={e => { if (e.key === 'Escape' && !statusSaving) setStatusPrompt(null); }}
+          role="presentation"
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
+            ref={el => el?.focus()}
+            onKeyDown={e => { if (e.key === 'Escape' && !statusSaving) setStatusPrompt(null); }}
+          >
+            <h3 className="text-base font-semibold text-[var(--color-ink)] mb-1">
+              Confirm: {statusPrompt.action.label.replace(/^[✓✗▶]\s*/, '')}
+            </h3>
+            <p className="text-xs text-gray-500 mb-4">
+              This moves the inquiry to <span className="font-semibold">{STATUS_LABELS[statusPrompt.action.status] ?? statusPrompt.action.status}</span> and notifies the customer.
+            </p>
+
+            <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">
+              Add a note for the customer (optional)
+            </label>
+            <textarea
+              value={statusNote}
+              onChange={e => setStatusNote(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="e.g. Your ring is polished and ready for collection."
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
+            />
+
+            {statusError && <p className="text-xs text-rose-600 mt-2">{statusError}</p>}
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setStatusPrompt(null)}
+                disabled={statusSaving}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmStatusChange}
+                disabled={statusSaving}
+                // Confirm carries the weight of the action it commits: red to
+                // decline, green to move the inquiry forward.
+                className={`px-5 py-2 text-xs font-semibold text-white rounded-lg transition-colors disabled:opacity-40 ${
+                  statusPrompt.action.intent === 'decline'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+                id="confirm-status-change"
+              >
+                {statusSaving ? 'Saving...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

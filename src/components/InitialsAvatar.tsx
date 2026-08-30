@@ -2,6 +2,8 @@ interface InitialsAvatarProps {
   name: string;
   size?: number;
   className?: string;
+  /** Overrides the name-derived colour, e.g. to keep a brand identity on-palette. */
+  color?: string;
 }
 
 const AVATAR_COLORS = [
@@ -24,11 +26,11 @@ function getColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-export default function InitialsAvatar({ name, size = 40, className = '' }: InitialsAvatarProps) {
+export default function InitialsAvatar({ name, size = 40, className = '', color }: InitialsAvatarProps) {
   return (
     <div
       className={`rounded-full flex items-center justify-center text-white font-semibold shrink-0 ${className}`}
-      style={{ width: size, height: size, backgroundColor: getColor(name), fontSize: size * 0.4 }}
+      style={{ width: size, height: size, backgroundColor: color || getColor(name), fontSize: size * 0.4 }}
     >
       {getInitials(name)}
     </div>

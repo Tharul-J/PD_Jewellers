@@ -104,6 +104,23 @@ const buildItemsTable = (items: EmailItem[] = [], priceLabel = 'Price'): string 
 const heading = (text: string): string =>
   `<h1 style="margin:0 0 16px 0;font-size:21px;font-weight:600;color:${GOLD};">${esc(text)}</h1>`;
 
+/**
+ * Optional note an administrator attaches to a status change. Renders nothing
+ * when absent, so every template sends exactly as before if no note is given.
+ */
+const noteBlock = (note?: string): string => {
+  const trimmed = note?.trim();
+  if (!trimmed) return '';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-collapse:collapse;">
+    <tr>
+      <td style="padding:14px 16px;background-color:#faf8f3;border-left:3px solid ${GOLD};">
+        <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#999999;">A note from our team</p>
+        <p style="margin:0;font-size:14px;white-space:pre-line;">${esc(trimmed)}</p>
+      </td>
+    </tr>
+  </table>`;
+};
+
 const signOff = `<p style="margin:24px 0 0 0;">With warm regards,<br /><strong>The PD Jewellers Team</strong></p>`;
 
 const send = async (to: string, subject: string, html: string, tag: string): Promise<boolean> => {
@@ -143,7 +160,8 @@ export const sendAvailabilityConfirmedEmail = async (
   name: string,
   inquiryRef: string,
   items: EmailItem[],
-  total: number
+  total: number,
+  note?: string
 ): Promise<boolean> => {
   const html = buildEmailHtml(`
     ${heading('Great news — your items are available')}
@@ -151,6 +169,7 @@ export const sendAvailabilityConfirmedEmail = async (
     <p style="margin:0 0 12px 0;">We're delighted to let you know that the items in your inquiry <strong>${esc(inquiryRef)}</strong> have been reviewed and are available for you.</p>
     ${buildItemsTable(items, 'Est. Price')}
     <p style="margin:0 0 12px 0;font-size:16px;"><strong>Estimated Total: ${money(total)}</strong></p>
+    ${noteBlock(note)}
     <p style="margin:0 0 12px 0;">You can now proceed to place your order by visiting your account dashboard and selecting &ldquo;Order Now&rdquo; on your inquiry.</p>
     <p style="margin:0;">We look forward to crafting something truly special for you.</p>
     ${signOff}
@@ -167,16 +186,42 @@ export const sendAvailabilityConfirmedEmail = async (
 export const sendInquiryDeclinedEmail = async (
   to: string,
   name: string,
-  inquiryRef: string
+  inquiryRef: string,
+  note?: string
 ): Promise<boolean> => {
   const html = buildEmailHtml(`
     ${heading('An update on your inquiry')}
     <p style="margin:0 0 12px 0;">Dear ${esc(name)},</p>
     <p style="margin:0 0 12px 0;">Thank you for your interest in PD Jewellers. After careful review, we regret to inform you that we are unable to accommodate your inquiry <strong>${esc(inquiryRef)}</strong> at this time due to current availability constraints.</p>
+    ${noteBlock(note)}
     <p style="margin:0;">We sincerely appreciate your patience and understanding. We'd love to help you find the perfect piece — please feel free to browse our latest collection or submit a new inquiry at any time.</p>
     ${signOff}
   `);
   return send(to, `An Update on Your Inquiry ${inquiryRef}`, html, 'inquiry-declined');
+};
+
+/** An administrator replied on an inquiry's message thread */
+export const sendInquiryMessageEmail = async (
+  to: string,
+  name: string,
+  inquiryRef: string,
+  message: string
+): Promise<boolean> => {
+  const html = buildEmailHtml(`
+    ${heading('A message about your inquiry')}
+    <p style="margin:0 0 12px 0;">Dear ${esc(name)},</p>
+    <p style="margin:0 0 12px 0;">Our team has sent you a message regarding your inquiry <strong>${esc(inquiryRef)}</strong>.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-collapse:collapse;">
+      <tr>
+        <td style="padding:14px 16px;background-color:#faf8f3;border-left:3px solid ${GOLD};">
+          <p style="margin:0;font-size:14px;white-space:pre-line;">${esc(message)}</p>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;">You can reply from your account dashboard under &ldquo;My Inquiries&rdquo;.</p>
+    ${signOff}
+  `);
+  return send(to, `A Message About Your Inquiry ${inquiryRef}`, html, 'inquiry-message');
 };
 
 /** Purchase created (payment received) */
@@ -217,7 +262,8 @@ export const sendOrderReadyEmail = async (
   to: string,
   name: string,
   inquiryRef: string,
-  isPickup: boolean
+  isPickup: boolean,
+  note?: string
 ): Promise<boolean> => {
   const collection = isPickup
     ? 'You are welcome to collect your order from our showroom in Gampaha at your earliest convenience.'
@@ -228,6 +274,7 @@ export const sendOrderReadyEmail = async (
     <p style="margin:0 0 12px 0;">Dear ${esc(name)},</p>
     <p style="margin:0 0 12px 0;">Wonderful news — your custom piece from inquiry <strong>${esc(inquiryRef)}</strong> has been completed and is ready for you!</p>
     <p style="margin:0 0 12px 0;">${collection}</p>
+    ${noteBlock(note)}
     <p style="margin:0;">It has been a pleasure crafting this piece for you. We hope it brings you joy for years to come.</p>
     ${signOff}
   `);

@@ -43,48 +43,79 @@ async function startServer() {
 
   // Connect to MongoDB
   if (process.env.MONGODB_URI) {
-    mongoose.connection.on('error', (err) => {
-    });
-
     const MONGO_URI = process.env.MONGODB_URI;
-    (async () => {
-      const MAX_ATTEMPTS = 3;
-      const RETRY_DELAY_MS = 3000;
-      let connected = false;
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 5000;
 
+    // The controllers fall back to mock data whenever `readyState !== 1`, so an
+    // unattended blip would silently serve fake records. Boot and reconnect both
+    // exhaust every retry before that fallback is allowed to take over.
+    let bootComplete = false;
+    let reconnecting = false;
+
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+    const connectWithRetry = async (): Promise<boolean> => {
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
+          console.log(`[db] Connecting to MongoDB (attempt ${attempt}/${MAX_ATTEMPTS})...`);
           await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15000 });
-          await seedBlogPosts();
-          // Stale review indexes Mongoose won't drop on its own. `inquiry_1`
-          // predates inquiry becoming optional. `user_1` enforced one review
-          // per user site-wide — with product reviews that has to go, or a
-          // user's second review of any kind fails as a duplicate key.
-          for (const staleIndex of ['inquiry_1', 'user_1']) {
-            try {
-              await Review.collection.dropIndex(staleIndex);
-            } catch (err: any) {
-              if (err.codeName !== 'IndexNotFound') {
-              }
-            }
-          }
-          try {
-            await Review.syncIndexes();
-          } catch (err: any) {
-          }
-          connected = true;
-          break;
+          console.log(`[db] Connected to MongoDB on attempt ${attempt}.`);
+          return true;
         } catch (err: any) {
+          console.error(`[db] Attempt ${attempt}/${MAX_ATTEMPTS} failed: ${err?.message || err}`);
+          // Drop the half-open connection so the next attempt starts clean.
+          try { await mongoose.disconnect(); } catch (_) {}
           if (attempt < MAX_ATTEMPTS) {
-            await new Promise(res => setTimeout(res, RETRY_DELAY_MS));
-            try { await mongoose.disconnect(); } catch (_) {}
+            console.log(`[db] Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+            await delay(RETRY_DELAY_MS);
           }
         }
       }
+      console.error(
+        `[db] All ${MAX_ATTEMPTS} attempts exhausted — falling back to mock mode until a connection is restored.`
+      );
+      return false;
+    };
 
-      if (!connected) {
-        try { await mongoose.disconnect(); } catch (_) {}
+    mongoose.connection.on('error', (err: any) => {
+      console.error(`[db] Connection error: ${err?.message || err}`);
+    });
+
+    // Mongoose emits this for our own retry-loop disconnects too, so ignore
+    // anything raised before boot settles or while a reconnect is already running.
+    mongoose.connection.on('disconnected', () => {
+      if (!bootComplete || reconnecting) return;
+      console.warn('[db] Lost the MongoDB connection — attempting to reconnect.');
+      reconnecting = true;
+      connectWithRetry().finally(() => { reconnecting = false; });
+    });
+
+    (async () => {
+      const connected = await connectWithRetry();
+
+      if (connected) {
+        await seedBlogPosts();
+        // Stale review indexes Mongoose won't drop on its own. `inquiry_1`
+        // predates inquiry becoming optional. `user_1` enforced one review
+        // per user site-wide — with product reviews that has to go, or a
+        // user's second review of any kind fails as a duplicate key.
+        for (const staleIndex of ['inquiry_1', 'user_1']) {
+          try {
+            await Review.collection.dropIndex(staleIndex);
+          } catch (err: any) {
+            if (err.codeName !== 'IndexNotFound') {
+            }
+          }
+        }
+        try {
+          await Review.syncIndexes();
+        } catch (err: any) {
+        }
       }
+
+      // Only now does a 'disconnected' event mean a genuine connection loss.
+      bootComplete = true;
     })();
   }
 

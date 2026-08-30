@@ -4,7 +4,7 @@ import Review from '../models/Review.js';
 import Product from '../models/Product.js';
 import Purchase from '../models/Purchase.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
-import { notifyAdmins } from '../utils/notify.js';
+import { notifyAdmins, notifyUser } from '../utils/notify.js';
 import { skuOf } from '../../src/lib/sku.js';
 
 const router = express.Router();
@@ -262,6 +262,17 @@ router.patch('/:id/approve', protect, admin, async (req, res) => {
       req.params.id, { approved }, { new: true }
     );
     if (!review) { res.status(404).json({ error: 'Not found' }); return; }
+
+    // Approval is the moment the author's review becomes public — tell them.
+    if (approved) {
+      await notifyUser(
+        review.user.toString(),
+        'review_approved',
+        'Your review has been approved and is now published.',
+        '/profile?tab=reviews'
+      );
+    }
+
     res.json({ review });
   } catch {
     res.status(500).json({ error: 'Failed' });

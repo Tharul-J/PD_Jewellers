@@ -233,7 +233,9 @@ export default function PaymentPage() {
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 mb-6 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-8 translate-x-8" />
           <CreditCard size={28} className="mb-4 text-amber-400" />
-          <p className="text-lg tracking-[0.2em] font-mono mb-3">
+          {/* Tabular figures so the masked groups and the last four align evenly
+              across the card face instead of drifting apart. */}
+          <p className="text-lg tracking-[0.2em] font-mono tabular-nums mb-3">
             {form.cardNumber || '•••• •••• •••• ••••'}
           </p>
           <div className="flex justify-between text-xs text-gray-400">

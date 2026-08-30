@@ -10,6 +10,9 @@ interface ProductReviewsProps {
   productName: string;
 }
 
+/** Brand gold — the single primary-action colour across recent components. */
+const GOLD = '#B8860B';
+
 function StarRow({ value, size = 14 }: { value: number; size?: number }) {
   return (
     <div className="flex gap-0.5 text-amber-400">
@@ -168,7 +171,8 @@ export default function ProductReviews({ productId, productName }: ProductReview
                 </div>
                 <button
                   onClick={openForm}
-                  className="btn-richbrown text-white px-5 py-2.5 uppercase tracking-widest text-[10px] font-bold transition-colors rounded-lg"
+                  style={{ backgroundColor: GOLD }}
+                  className="text-white px-5 py-2.5 uppercase tracking-widest text-xs font-bold transition-opacity hover:opacity-90 rounded-lg"
                 >
                   {myReview ? 'Edit Review' : 'Write a Review'}
                 </button>
@@ -198,7 +202,7 @@ export default function ProductReviews({ productId, productName }: ProductReview
                   onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
                   maxLength={120}
                   placeholder="Sum it up in a few words (optional)"
-                  className="w-full border border-stone-200 rounded px-3 py-2 text-sm mb-4 focus:outline-none focus:border-amber-400"
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:border-amber-400"
                 />
 
                 <label className="block text-[10px] tracking-widest uppercase text-stone-400 mb-1">Your Review</label>
@@ -208,7 +212,7 @@ export default function ProductReviews({ productId, productName }: ProductReview
                   rows={4}
                   maxLength={600}
                   placeholder="How does it wear? How was the craftsmanship?"
-                  className="w-full border border-stone-200 rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-400"
                 />
                 <p className="text-xs text-stone-400 text-right mt-0.5 mb-4">{form.text.length}/600</p>
 
@@ -218,13 +222,14 @@ export default function ProductReviews({ productId, productName }: ProductReview
                   <button
                     onClick={() => guard(handleSave)}
                     disabled={saving || !form.rating || !form.text.trim()}
-                    className="btn-richbrown text-white px-5 py-2.5 uppercase tracking-widest text-[10px] font-bold transition-colors rounded-lg disabled:opacity-40"
+                    style={{ backgroundColor: GOLD }}
+                    className="text-white px-5 py-2.5 uppercase tracking-widest text-xs font-bold transition-opacity hover:opacity-90 rounded-lg disabled:opacity-60"
                   >
                     {saving ? 'Saving...' : myReview ? 'Update Review' : 'Submit Review'}
                   </button>
                   <button
                     onClick={() => setIsFormOpen(false)}
-                    className="border border-stone-200 text-stone-600 px-5 py-2.5 uppercase tracking-widest text-[10px] font-bold hover:bg-stone-50 transition-colors rounded-lg"
+                    className="border border-stone-200 text-stone-600 px-5 py-2.5 uppercase tracking-widest text-xs font-bold hover:bg-stone-50 transition-colors rounded-lg"
                   >
                     Cancel
                   </button>
@@ -247,7 +252,7 @@ export default function ProductReviews({ productId, productName }: ProductReview
         {loading ? (
           <p className="text-center text-xs text-stone-400 py-10">Loading reviews...</p>
         ) : reviews.length === 0 ? (
-          <div className="py-14 text-center border border-dashed border-stone-200 rounded-xl bg-white/40">
+          <div className="py-8 text-center border border-dashed border-stone-200 rounded-2xl bg-white/40">
             <MessageSquare size={28} strokeWidth={1} className="mx-auto mb-3 text-stone-300" />
             <p className="text-sm text-stone-600 font-serif">No reviews yet</p>
             <p className="text-xs text-stone-400 mt-1">Be the first to share your experience with this piece.</p>

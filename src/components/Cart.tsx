@@ -118,13 +118,25 @@ export function Cart() {
                             </p>
                           </div>
                           <div className="flex items-center justify-between mt-2">
-                            <div className="flex items-center border border-[rgba(26,26,26,0.15)] rounded-full px-1.5 py-0.5 bg-white/60">
-                              <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-0.5 opacity-60 hover:opacity-100" id={`qty-dec-${item.id}`}>
-                                <Minus size={11} />
+                            {/* Icons stay small; the padding carries the tap target
+                                up to the 32px accessibility minimum. */}
+                            <div className="flex items-center border border-[rgba(26,26,26,0.15)] rounded-full bg-white/60">
+                              <button
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full opacity-60 hover:opacity-100 hover:bg-black/5 transition-colors"
+                                id={`qty-dec-${item.id}`}
+                                aria-label={`Decrease quantity of ${item.name}`}
+                              >
+                                <Minus size={13} />
                               </button>
-                              <span className="px-2 text-xs font-semibold" id={`qty-value-${item.id}`}>{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-0.5 opacity-60 hover:opacity-100" id={`qty-inc-${item.id}`}>
-                                <Plus size={11} />
+                              <span className="px-1 text-xs font-semibold min-w-[16px] text-center" id={`qty-value-${item.id}`}>{item.quantity}</span>
+                              <button
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                className="min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full opacity-60 hover:opacity-100 hover:bg-black/5 transition-colors"
+                                id={`qty-inc-${item.id}`}
+                                aria-label={`Increase quantity of ${item.name}`}
+                              >
+                                <Plus size={13} />
                               </button>
                             </div>
                             <span className="font-serif text-sm font-semibold text-stone-900">{formatEstimate(item.price * item.quantity)}</span>

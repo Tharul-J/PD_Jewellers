@@ -15,14 +15,16 @@ import ProfilePictureUpload from '../components/ProfilePictureUpload';
 import { METALS, STONES, FONTS } from '../constants';
 import { formatPrice, formatExact } from '../lib/price';
 import { skuOf } from '../lib/sku';
+import InquiryMessages from '../components/InquiryMessages';
 
 const STATUS_LABELS: Record<string, string> = {
   pending:                'Pending Review',
   availability_confirmed: 'Confirmed',
+  ordered:                'Order Placed',
   crafting:               'Crafting',
+  ready:                  'Ready for Collection',
   completed:              'Collection / Handover',
   declined:               'Declined',
-  ordered:                'Order Placed',
 };
 
 export default function Profile() {
@@ -47,6 +49,23 @@ export default function Profile() {
     if (tab === 'configs' || tab === 'wishlist' || tab === 'orders' || tab === 'purchases' || tab === 'reviews') return tab;
     return 'account';
   });
+
+  // Notification deep links: /profile?tab=orders&id=<inquiryId>. The page stays
+  // mounted between notification clicks, so react to the params rather than
+  // only reading them in the initial state above.
+  const deepLinkTab = searchParams.get('tab');
+  const deepLinkId = searchParams.get('id');
+
+  useEffect(() => {
+    if (deepLinkTab && ['account', 'wishlist', 'orders', 'configs', 'purchases', 'reviews'].includes(deepLinkTab)) {
+      setActiveTab(deepLinkTab as typeof activeTab);
+    }
+    if (deepLinkId) {
+      // Only one of these collections will hold the id; the other add is inert.
+      setExpandedOrderIds(prev => new Set(prev).add(deepLinkId));
+      setExpandedPurchaseIds(prev => new Set(prev).add(deepLinkId));
+    }
+  }, [deepLinkTab, deepLinkId]);
 
   const [orders, setOrders] = useState<any[]>([]);
 
@@ -281,6 +300,15 @@ export default function Profile() {
     }
   }, [activeTab, user]);
 
+  // Scroll to the deep-linked card once the list it lives in has rendered.
+  useEffect(() => {
+    if (!deepLinkId) return;
+    const el = document.getElementById(`inquiry-card-${deepLinkId}`)
+      || document.getElementById(`purchase-card-${deepLinkId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [deepLinkId, activeTab, orders.length, purchases.length]);
+
   const inquiryNotifCount = unreadByType['inquiry_status'] ?? 0;
 
   useEffect(() => {
@@ -441,12 +469,30 @@ export default function Profile() {
     navigate('/');
   };
 
+  // Opening an inquiry clears the shop's unread messages on it.
+  const markInquiryRead = async (id: string) => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/orders/${id}/messages/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setOrders(prev => prev.map(o => (o._id === id ? { ...o, ...data } : o)));
+    } catch {
+      // a failed read-receipt is not worth surfacing
+    }
+  };
+
   const toggleOrderExpanded = (id: string) => {
+    const wasExpanded = expandedOrderIds.has(id);
     setExpandedOrderIds(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+    if (!wasExpanded) void markInquiryRead(id);
   };
 
   const isOrderExpanded = (id: string) => expandedOrderIds.has(id);
@@ -497,19 +543,34 @@ export default function Profile() {
             {/* Sidebar */}
             <div className="w-full md:w-1/3 lg:w-1/4">
               <div className="mb-8 flex flex-col items-center md:items-start text-center md:text-left">
-                {profileData?.profilePicture ? (
-                  <img
-                    src={profileData.profilePicture}
-                    alt={profileData.name}
-                    className="w-24 h-24 rounded-full object-cover border-2 border-[var(--color-gold)] mb-4 shadow-sm"
-                  />
-                ) : (
-                  <InitialsAvatar
-                    name={profileData?.name || user?.name || '?'}
-                    size={96}
-                    className="border-2 border-[var(--color-gold)] mb-4 shadow-sm"
-                  />
-                )}
+                {/* The upload control itself lives in the account tab's edit mode.
+                    This makes the avatar the obvious way in, rather than expecting
+                    people to find "Edit Profile" first. */}
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('account'); setIsEditing(true); }}
+                  className="group relative mb-4 rounded-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)] focus:ring-offset-2"
+                  title="Change profile photo"
+                  aria-label="Change profile photo"
+                  id="avatar-upload-entry"
+                >
+                  {profileData?.profilePicture ? (
+                    <img
+                      src={profileData.profilePicture}
+                      alt={profileData.name}
+                      className="w-24 h-24 rounded-full object-cover border-2 border-[var(--color-gold)] shadow-sm"
+                    />
+                  ) : (
+                    <InitialsAvatar
+                      name={profileData?.name || user?.name || '?'}
+                      size={96}
+                      className="border-2 border-[var(--color-gold)] shadow-sm"
+                    />
+                  )}
+                  <span className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera size={22} className="text-white" />
+                  </span>
+                </button>
                 <h1 className="text-2xl font-serif text-[var(--color-ink)] break-words w-full">{profileData?.name || user?.name}</h1>
                 <p className="text-gray-500 mt-2 text-sm break-all w-full">{profileData?.email || user?.email}</p>
               </div>
@@ -906,7 +967,7 @@ export default function Profile() {
                     ) : (
                       <div className="space-y-6">
                         {orders.map((order) => (
-                          <div key={order._id} className="border border-gray-100 rounded-lg overflow-hidden">
+                          <div key={order._id} id={`inquiry-card-${order._id}`} className="border border-gray-100 rounded-lg overflow-hidden">
                             <div
                               className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center flex-wrap gap-4 cursor-pointer select-none"
                               onClick={() => toggleOrderExpanded(order._id)}
@@ -921,13 +982,22 @@ export default function Profile() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Inquiry Reference Code</p>
-                                <p className="text-sm font-mono font-bold text-amber-700">{order.inquiryRef || 'INQ-PENDING'}</p>
+                                <p className="text-sm font-mono font-bold text-amber-700 flex items-center gap-2">
+                                  {order.inquiryRef || 'INQ-PENDING'}
+                                  {(order.unreadCount ?? 0) > 0 && (
+                                    <span
+                                      className="w-2 h-2 rounded-full bg-[var(--color-gold)] shrink-0"
+                                      title={`${order.unreadCount} unread message${order.unreadCount === 1 ? '' : 's'} from PD Jewellers`}
+                                    />
+                                  )}
+                                </p>
                               </div>
                               <div className="flex items-center gap-3 ml-4 shrink-0">
                                 <span className={`px-3 py-1 text-[10px] uppercase tracking-wide rounded-full font-bold
                                   ${order.status === 'pending' ? 'bg-orange-100 text-orange-700' : ''}
                                   ${order.status === 'availability_confirmed' ? 'bg-blue-100 text-blue-700' : ''}
                                   ${order.status === 'crafting' ? 'bg-yellow-100 text-[var(--color-gold-dark)]' : ''}
+                                  ${order.status === 'ready' ? 'bg-teal-100 text-teal-700' : ''}
                                   ${order.status === 'completed' ? 'bg-green-100 text-green-700' : ''}
                                   ${order.status === 'declined' ? 'bg-red-100 text-red-700' : ''}
                                   ${order.status === 'ordered' ? 'bg-amber-100 text-amber-700' : ''}
@@ -991,9 +1061,10 @@ export default function Profile() {
                                     style={{
                                       width:
                                         order.status === 'pending' ? '0%' :
-                                        order.status === 'availability_confirmed' ? '25%' :
-                                        order.status === 'ordered' ? '50%' :
-                                        order.status === 'crafting' ? '75%' :
+                                        order.status === 'availability_confirmed' ? '20%' :
+                                        order.status === 'ordered' ? '40%' :
+                                        order.status === 'crafting' ? '60%' :
+                                        order.status === 'ready' ? '80%' :
                                         '100%'
                                     }}
                                   ></div>
@@ -1005,6 +1076,7 @@ export default function Profile() {
                                       { id: 'availability_confirmed', label: 'Confirmed' },
                                       { id: 'ordered', label: 'Ordered / Paid' },
                                       { id: 'crafting', label: 'Crafting' },
+                                      { id: 'ready', label: 'Ready' },
                                       { id: 'completed', label: 'Collection / Handover' }
                                     ].map((step, index) => {
                                       const indexMap: Record<string, number> = {
@@ -1012,7 +1084,8 @@ export default function Profile() {
                                         'availability_confirmed': 1,
                                         'ordered': 2,
                                         'crafting': 3,
-                                        'completed': 4
+                                        'ready': 4,
+                                        'completed': 5
                                       };
                                       const currentIdx = indexMap[order.status] ?? 0;
                                       const isActive = currentIdx >= index;
@@ -1049,6 +1122,19 @@ export default function Profile() {
                                 </div>
                               ))}
                             </div>
+
+                            <div className="p-4 border-t border-gray-100">
+                              <InquiryMessages
+                                inquiryId={order._id}
+                                messages={order.messages || []}
+                                viewerRole="customer"
+                                customerName={profileData?.name || user?.name}
+                                token={user?.token}
+                                onUpdated={updated =>
+                                  setOrders(prev => prev.map(o => (o._id === order._id ? { ...o, ...updated } : o)))
+                                }
+                              />
+                            </div>
                               </>
                             )}
                           </div>
@@ -1073,7 +1159,7 @@ export default function Profile() {
                     ) : (
                       <div className="space-y-3">
                         {purchases.map((purchase) => (
-                          <div key={purchase._id} className="border border-gray-100 rounded-lg overflow-hidden">
+                          <div key={purchase._id} id={`purchase-card-${purchase._id}`} className="border border-gray-100 rounded-lg overflow-hidden">
                             {/* Header — always visible, full click target */}
                             <div
                               className="bg-gray-50 px-5 py-4 flex justify-between items-center flex-wrap gap-4 cursor-pointer select-none hover:bg-gray-100 transition-colors"

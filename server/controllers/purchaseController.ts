@@ -4,7 +4,7 @@ import Order from '../models/Order.js';
 import Purchase from '../models/Purchase.js';
 import User from '../models/User.js';
 import { getDefaultOrders } from './userController.js';
-import { notifyAdmins } from '../utils/notify.js';
+import { notifyAdmins, notifyUser } from '../utils/notify.js';
 import { sendPaymentReceiptEmail } from '../utils/email.js';
 import { newestFirst } from '../utils/sort.js';
 
@@ -81,7 +81,16 @@ export const createPurchase = async (req: Request, res: Response): Promise<void>
     await notifyAdmins(
       'new_order',
       `Order placed for inquiry ${order.inquiryRef} — LKR ${Number(purchase.totalAmount).toLocaleString()}`,
-      '/admin?tab=sold'
+      `/admin?tab=sold&id=${purchase._id}`
+    );
+
+    // The buyer gets their own receipt notification, deep-linked to the
+    // purchase in their profile rather than the admin's sold-items list.
+    await notifyUser(
+      req.user._id.toString(),
+      'purchase',
+      `Payment received for inquiry ${order.inquiryRef} — LKR ${Number(purchase.totalAmount).toLocaleString()}`,
+      `/profile?tab=purchases&id=${purchase._id}`
     );
 
     // Fire-and-forget: a failed receipt must never fail a completed payment.
