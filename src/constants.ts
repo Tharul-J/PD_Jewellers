@@ -48,6 +48,11 @@ export const FONTS = {
   // survive generateShapes() (the Tag's cut-through path) where thin serifs fragment.
   pacifico:   { name: 'Pacifico',           url: '/fonts/pacifico.typeface.json',                    boldUrl: '/fonts/pacifico.typeface.json' },
   lobster:    { name: 'Lobster',            url: '/fonts/lobster_regular.typeface.json',             boldUrl: '/fonts/lobster_regular.typeface.json' },
+  // Great Vibes / Satisfy: single-weight Google Fonts scripts (no bold master exists),
+  // same reused-face pattern as Pacifico/Lobster above.
+  great_vibes: { name: 'Great Vibes',       url: '/fonts/great_vibes_regular.typeface.json',         boldUrl: '/fonts/great_vibes_regular.typeface.json' },
+  satisfy:     { name: 'Satisfy',           url: '/fonts/satisfy_regular.typeface.json',              boldUrl: '/fonts/satisfy_regular.typeface.json' },
+  montserrat:  { name: 'Montserrat',        url: '/fonts/montserrat_regular.typeface.json',           boldUrl: '/fonts/montserrat_bold.typeface.json' },
 };
 
 // The Tag pendant builds 3D letters via font.generateShapes(); thin serif outlines
@@ -57,13 +62,22 @@ export const TAG_HIDDEN_FONTS: Array<keyof typeof FONTS> = ['cinzel', 'cormorant
 
 // Cursive scripts are never offered on ring engraving — that selector keeps the
 // original serif/sans set unchanged.
-export const CURSIVE_FONTS: Array<keyof typeof FONTS> = ['pacifico', 'lobster'];
+export const CURSIVE_FONTS: Array<keyof typeof FONTS> = ['pacifico', 'lobster', 'great_vibes', 'satisfy'];
 
 // Pacifico's wide brush glyphs overlap into an illegible blob on the Standard/Heart
 // Text3D path (advance-width layout + the -0.08 letterSpacing), measured at ~the same
 // overlap as Dancing Script, so it stays Tag-only. Lobster's connected script remains
 // legible on Text3D, so it is allowed on all pendant shapes (and is NOT in this list).
-export const TAG_ONLY_FONTS: Array<keyof typeof FONTS> = ['pacifico'];
+// Great Vibes / Satisfy measured at a similar overlap magnitude to Pacifico (~0.14-0.17
+// units at "SAM", vs Lobster's ~0.06) — same swash-collision risk, so tag-only too.
+export const TAG_ONLY_FONTS: Array<keyof typeof FONTS> = ['pacifico', 'great_vibes', 'satisfy'];
+
+// Cursive scripts (Lobster, Pacifico) ship only one weight, so their boldUrl reuses the
+// regular face — toggling Bold loads the identical file and produces no visual change.
+// The UI should disable the Bold control for these rather than let it silently no-op.
+export function fontHasBoldFace(key: keyof typeof FONTS): boolean {
+  return FONTS[key].boldUrl !== FONTS[key].url;
+}
 
 // Font keys visible in the selector for a given context (model type + pendant shape).
 export function visibleFontKeys(
@@ -75,10 +89,10 @@ export function visibleFontKeys(
   if (modelType === 'ring') {
     return all.filter((k) => !CURSIVE_FONTS.includes(k));
   }
-  // Tag pendant: hide the serifs that fragment; keep sans + both cursive scripts.
+  // Tag pendant: hide the serifs that fragment; keep sans + all four cursive scripts.
   if (pendantShape === 'tag') {
-    return all.filter((k) => !TAG_HIDDEN_FONTS.includes(k));   // poppins, helvetica, pacifico, lobster
+    return all.filter((k) => !TAG_HIDDEN_FONTS.includes(k));   // poppins, helvetica, montserrat, pacifico, lobster, great_vibes, satisfy
   }
-  // Standard / Heart pendants: everything except the Tag-only cursive (Pacifico).
-  return all.filter((k) => !TAG_ONLY_FONTS.includes(k));        // serifs + sans + lobster
+  // Standard / Heart pendants: everything except the Tag-only cursives (Pacifico, Great Vibes, Satisfy).
+  return all.filter((k) => !TAG_ONLY_FONTS.includes(k));        // serifs + sans + montserrat + lobster
 }

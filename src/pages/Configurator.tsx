@@ -12,7 +12,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 // Metals and stones now come from the Pricing API via usePricing(); constants.ts
 // still supplies their 3D material properties (merged in PricingContext) and,
 // here, doubles as the legacy-key translation table findCatalogEntry falls back to.
-import { FONTS, visibleFontKeys, METALS, STONES } from '../constants';
+import { FONTS, visibleFontKeys, fontHasBoldFace, METALS, STONES } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
 import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
@@ -166,6 +166,15 @@ export default function Configurator() {
       setFontStyle(availableFontKeys[0]);
     }
   }, [modelType, pendantShape, fontStyle]);
+
+  // Lobster/Pacifico have no distinct bold face (boldUrl === url) — force Bold off when
+  // switching to one of those so stale "on" state doesn't linger with no visual effect.
+  const fontBoldAvailable = fontHasBoldFace(fontStyle);
+  useEffect(() => {
+    if (!fontBoldAvailable && fontBold) {
+      setFontBold(false);
+    }
+  }, [fontBoldAvailable, fontBold]);
 
   // Shared "Text Size" slider — applies to pendant text and ring engraving.
   const textSizeControl = (
@@ -851,8 +860,13 @@ export default function Configurator() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setFontBold(!fontBold)}
-                    className={`flex-1 py-2 text-[10px] font-bold tracking-widest border transition-colors ${fontBold ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'}`}
+                    onClick={() => fontBoldAvailable && setFontBold(!fontBold)}
+                    disabled={!fontBoldAvailable}
+                    title={fontBoldAvailable ? undefined : `${FONTS[fontStyle].name} has no bold weight`}
+                    className={`flex-1 py-2 text-[10px] font-bold tracking-widest border transition-colors ${
+                      !fontBoldAvailable ? 'border-black/5 text-black/30 cursor-not-allowed' :
+                      fontBold ? 'border-[var(--color-ink)] bg-black/5' : 'border-black/10 hover:border-black/50'
+                    }`}
                   >
                     B Bold
                   </button>
