@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Wand2, X, WifiOff } from 'lucide-react';
+import { Sparkles, X, WifiOff } from 'lucide-react';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { Cart } from './Cart';
@@ -82,7 +82,7 @@ export function Layout() {
                   </motion.span>
                 ) : (
                   <motion.span key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
-                    <Wand2 size={22} />
+                    <Sparkles strokeWidth={1.5} size={22} />
                   </motion.span>
                 )}
               </AnimatePresence>
