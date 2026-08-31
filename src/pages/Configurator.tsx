@@ -4,14 +4,15 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { Html, Environment, OrbitControls, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAuth } from '../context/AuthContext';
-import { usePricing } from '../context/PricingContext';
+import { usePricing, findCatalogEntry } from '../context/PricingContext';
 import { Check, Glasses, Type, Save } from 'lucide-react';
 import ARTryOnModal, { warmARRuntime } from '../components/ARTryOnModal';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 // Metals and stones now come from the Pricing API via usePricing(); constants.ts
-// still supplies their 3D material properties, merged in PricingContext.
-import { FONTS, visibleFontKeys } from '../constants';
+// still supplies their 3D material properties (merged in PricingContext) and,
+// here, doubles as the legacy-key translation table findCatalogEntry falls back to.
+import { FONTS, visibleFontKeys, METALS, STONES } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
 import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
@@ -77,21 +78,6 @@ function byStyleNumber<T extends { name?: string }>(list: T[]): T[] {
   return [...list].sort((a, b) => styleNumber(a) - styleNumber(b));
 }
 
-// A stored metal/stone key can predate a re-key on the admin side (constants.ts's
-// legacy `gold18k` vs a live-catalogue `18k_yellow_gold` both meaning "18K Yellow
-// Gold" is a real example), so an exact key miss isn't necessarily a deleted entry.
-// Fall back to a normalized key/name comparison before treating it as gone.
-function findCatalogEntry<T extends { key: string; name: string }>(
-  list: T[], stored: string | undefined
-): T | undefined {
-  if (!stored) return undefined;
-  const exact = list.find(e => e.key === stored);
-  if (exact) return exact;
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const normalizedStored = normalize(stored);
-  return list.find(e => normalize(e.key) === normalizedStored || normalize(e.name) === normalizedStored);
-}
-
 export default function Configurator() {
   const navigate = useNavigate();
   const [modelType, setModelType] = useState<'ring' | 'pendant'>(() => (localStorage.getItem('cfg_modelType') as 'ring' | 'pendant') || 'ring');
@@ -128,7 +114,7 @@ export default function Configurator() {
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const { user } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
-  const { pricing, configuratorMetals, configuratorStones } = usePricing();
+  const { pricing, configuratorMetals, configuratorStones, pricingLoaded } = usePricing();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -321,8 +307,8 @@ export default function Configurator() {
 
   // The selected entries, resolved against the live catalogue. Falling back to
   // the first entry keeps the viewer rendering while a stale key is corrected.
-  const currentMetal = findCatalogEntry(configuratorMetals, metal) ?? configuratorMetals[0];
-  const currentStone = findCatalogEntry(configuratorStones, stone) ?? configuratorStones[0];
+  const currentMetal = findCatalogEntry(configuratorMetals, metal, METALS) ?? configuratorMetals[0];
+  const currentStone = findCatalogEntry(configuratorStones, stone, STONES) ?? configuratorStones[0];
 
   // An admin can rename or delete a metal/stone between visits, which would leave
   // localStorage pointing at a key that no longer exists. Snap back to the first
@@ -330,25 +316,33 @@ export default function Configurator() {
   // would overwrite a valid saved choice on the first paint. A fuzzy match (see
   // findCatalogEntry) is corrected to its canonical key rather than treated as
   // missing, so it also gets persisted back to localStorage in the canonical form.
+  //
+  // Critically, this must also wait for pricingLoaded: `configuratorMetals` is
+  // non-empty from the very first render because it starts out derived from the
+  // hardcoded defaultPricing fallback, not an empty list. Reconciling against
+  // that smaller fallback before the real `/api/pricing` fetch resolves would
+  // treat any admin-added metal/stone as "missing" and permanently overwrite the
+  // visitor's actual selection with the fallback's first entry, moments before
+  // the real catalogue — which does contain it — arrives.
   useEffect(() => {
-    if (configuratorMetals.length === 0) return;
-    const match = findCatalogEntry(configuratorMetals, metal);
+    if (!pricingLoaded || configuratorMetals.length === 0) return;
+    const match = findCatalogEntry(configuratorMetals, metal, METALS);
     if (match) {
       if (match.key !== metal) setMetal(match.key);
     } else {
       setMetal(configuratorMetals[0].key);
     }
-  }, [configuratorMetals, metal]);
+  }, [pricingLoaded, configuratorMetals, metal]);
 
   useEffect(() => {
-    if (configuratorStones.length === 0) return;
-    const match = findCatalogEntry(configuratorStones, stone);
+    if (!pricingLoaded || configuratorStones.length === 0) return;
+    const match = findCatalogEntry(configuratorStones, stone, STONES);
     if (match) {
       if (match.key !== stone) setStone(match.key);
     } else {
       setStone(configuratorStones[0].key);
     }
-  }, [configuratorStones, stone]);
+  }, [pricingLoaded, configuratorStones, stone]);
 
   const calculatePrice = () => {
     const basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);

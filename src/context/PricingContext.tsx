@@ -69,12 +69,69 @@ export interface ConfiguratorStone {
   material: StoneMaterial;
 }
 
+const normalizeKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Resolves a stored metal/stone key against the live catalogue.
+ *
+ * An exact key miss isn't necessarily a deleted entry — try three fallbacks
+ * before giving up, each catching a different way a stored key can go stale:
+ *
+ * 1. Normalized key/name match — catches punctuation/case drift, e.g. a stored
+ *    "18K-Yellow-Gold" against a catalogue key `18k_yellow_gold`.
+ * 2. Legacy-key translation via `legacyMap` (constants.ts's METALS/STONES) —
+ *    catches a stored key that predates a re-key on the admin side. constants.ts's
+ *    `gold18k` and a live-catalogue entry `18k_yellow_gold` both mean "18K Yellow
+ *    Gold", but neither normalized form is a substring or rearrangement of the
+ *    other ("gold18k" vs "18kyellowgold") — step 1 alone cannot bridge them.
+ *    Translating the stored legacy key to its constants.ts display name first,
+ *    then matching that name against the catalogue, closes the gap.
+ *
+ * Shared by every page that resolves a selection against configuratorMetals/
+ * configuratorStones, so a fix here can't drift out of sync between pages the
+ * way ProductDetail's exact-only lookup once did.
+ */
+export function findCatalogEntry<T extends { key: string; name: string }>(
+  list: T[],
+  stored: string | undefined,
+  legacyMap?: Record<string, { name: string }>
+): T | undefined {
+  if (!stored) return undefined;
+
+  const exact = list.find(e => e.key === stored);
+  if (exact) return exact;
+
+  const normalizedStored = normalizeKey(stored);
+  const byKeyOrName = list.find(
+    e => normalizeKey(e.key) === normalizedStored || normalizeKey(e.name) === normalizedStored
+  );
+  if (byKeyOrName) return byKeyOrName;
+
+  const legacyName = legacyMap?.[stored]?.name;
+  if (legacyName) {
+    const normalizedLegacyName = normalizeKey(legacyName);
+    return list.find(e => normalizeKey(e.name) === normalizedLegacyName);
+  }
+
+  return undefined;
+}
+
 interface PricingContextType {
   pricing: IPricing | null;
   /** Admin-managed metals merged with the 3D properties from constants.ts. */
   configuratorMetals: ConfiguratorMetal[];
   /** Admin-managed stones merged with the 3D properties from constants.ts. */
   configuratorStones: ConfiguratorStone[];
+  /**
+   * False until the first `/api/pricing` fetch has settled (success or failure).
+   * Until then, `pricing` is the hardcoded `defaultPricing` fallback — a much
+   * smaller catalogue than the real one, missing anything an admin has added.
+   * A consumer that "corrects" an unrecognized selection back to the first
+   * catalogue entry MUST wait for this to be true first, or a valid admin-added
+   * metal/stone gets permanently overwritten in the instant before the real
+   * catalogue arrives (it looks "missing" only because the fallback is smaller).
+   */
+  pricingLoaded: boolean;
   refreshPricing: () => Promise<void>;
   updatePricing: (newPricing: Partial<IPricing>, token: string) => Promise<boolean>;
 }
@@ -230,6 +287,7 @@ const PricingContext = createContext<PricingContextType>({
   pricing: defaultPricing,
   configuratorMetals: buildConfiguratorMetals(defaultPricing.metals),
   configuratorStones: buildConfiguratorStones(defaultPricing.stones),
+  pricingLoaded: false,
   refreshPricing: async () => {},
   updatePricing: async () => false,
 });
@@ -238,6 +296,7 @@ export const usePricing = () => useContext(PricingContext);
 
 export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [pricing, setPricing] = useState<IPricing>(defaultPricing);
+  const [pricingLoaded, setPricingLoaded] = useState(false);
 
   const refreshPricing = async () => {
     try {
@@ -248,6 +307,10 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } catch {
       console.error('Failed to fetch pricing');
+    } finally {
+      // Marked loaded even on failure: a down API is a real, if degraded, state —
+      // the app proceeds on defaultPricing rather than blocking correction forever.
+      setPricingLoaded(true);
     }
   };
 
@@ -290,7 +353,7 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const configuratorStones = useMemo(() => buildConfiguratorStones(pricing.stones), [pricing.stones]);
 
   return (
-    <PricingContext.Provider value={{ pricing, configuratorMetals, configuratorStones, refreshPricing, updatePricing }}>
+    <PricingContext.Provider value={{ pricing, configuratorMetals, configuratorStones, pricingLoaded, refreshPricing, updatePricing }}>
       {children}
     </PricingContext.Provider>
   );

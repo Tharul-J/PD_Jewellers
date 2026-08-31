@@ -10,13 +10,14 @@ import {
 
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { usePricing } from '../context/PricingContext';
+import { usePricing, findCatalogEntry } from '../context/PricingContext';
 import { useAuth } from '../context/AuthContext';
 import { MOCK_PRODUCTS } from '../data/products';
 import { formatPrice, formatIndicative, INDICATIVE_NOTE } from '../lib/price';
 // Metals and stones come from the Pricing API via usePricing(); constants.ts still
-// supplies their 3D material properties, merged in PricingContext.
-import { FONTS } from '../constants';
+// supplies their 3D material properties (merged in PricingContext) and, here,
+// doubles as the legacy-key translation table findCatalogEntry falls back to.
+import { FONTS, METALS, STONES } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { PendantModel } from '../components/PendantModel';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -33,7 +34,7 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const { addToCart, isDuplicate } = useCart();
   const { toggleWishlistItem, isInWishlist } = useWishlist();
-  const { pricing, configuratorMetals, configuratorStones } = usePricing();
+  const { pricing, configuratorMetals, configuratorStones, pricingLoaded } = usePricing();
   const { user } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
 
@@ -130,24 +131,42 @@ export default function ProductDetail() {
 
   // The selected entries, resolved against the live catalogue. Falling back to the
   // first entry keeps the page rendering while a stale key is corrected below.
-  const currentMetal = configuratorMetals.find(m => m.key === selectedMetal) ?? configuratorMetals[0];
-  const currentStone = configuratorStones.find(s => s.key === selectedStone) ?? configuratorStones[0];
+  const currentMetal = findCatalogEntry(configuratorMetals, selectedMetal, METALS) ?? configuratorMetals[0];
+  const currentStone = findCatalogEntry(configuratorStones, selectedStone, STONES) ?? configuratorStones[0];
 
   // A metal or stone can be renamed or removed by an admin between visits, which
   // would leave a URL or heuristic pointing at a key that no longer exists. Snap to
   // the first option only once the catalogue has loaded — never while it is empty,
-  // or the default would clobber a valid choice on first paint.
+  // or the default would clobber a valid choice on first paint. A fuzzy match (see
+  // findCatalogEntry) is corrected to its canonical key rather than treated as
+  // missing — e.g. a legacy `?metal=gold18k` link lands on the live catalogue's
+  // `18k_yellow_gold` instead of silently resetting to the first metal.
+  //
+  // Also gated on pricingLoaded: configuratorMetals is non-empty from the first
+  // render because it starts out derived from the hardcoded defaultPricing
+  // fallback, not an empty list. Reconciling against that smaller fallback before
+  // the real fetch resolves would treat any admin-added metal/stone as "missing"
+  // and permanently overwrite the visitor's selection moments before the real
+  // catalogue — which does contain it — arrives.
   useEffect(() => {
-    if (configuratorMetals.length > 0 && !configuratorMetals.some(m => m.key === selectedMetal)) {
+    if (!pricingLoaded || configuratorMetals.length === 0) return;
+    const match = findCatalogEntry(configuratorMetals, selectedMetal, METALS);
+    if (match) {
+      if (match.key !== selectedMetal) setSelectedMetal(match.key);
+    } else {
       setSelectedMetal(configuratorMetals[0].key);
     }
-  }, [configuratorMetals, selectedMetal]);
+  }, [pricingLoaded, configuratorMetals, selectedMetal]);
 
   useEffect(() => {
-    if (configuratorStones.length > 0 && !configuratorStones.some(s => s.key === selectedStone)) {
+    if (!pricingLoaded || configuratorStones.length === 0) return;
+    const match = findCatalogEntry(configuratorStones, selectedStone, STONES);
+    if (match) {
+      if (match.key !== selectedStone) setSelectedStone(match.key);
+    } else {
       setSelectedStone(configuratorStones[0].key);
     }
-  }, [configuratorStones, selectedStone]);
+  }, [pricingLoaded, configuratorStones, selectedStone]);
 
   // Calculate pricing based on options
   const computedPrice = useMemo(() => {
