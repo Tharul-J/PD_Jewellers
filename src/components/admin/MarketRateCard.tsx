@@ -36,15 +36,12 @@ export function MarketRateCard({ rates }: MarketRateCardProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 md:items-stretch gap-6">
       {/* Gold sovereign (1 pawn / 8g) — hero card, first thing the eye lands on */}
-      <div className="md:col-span-2 bg-gradient-to-br from-amber-200 via-amber-100 to-yellow-200 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 shadow-lg shadow-amber-200/50 px-6 py-5">
+      <div className="md:col-span-2 flex flex-col justify-center bg-gradient-to-br from-amber-200 via-amber-100 to-yellow-200 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 shadow-lg shadow-amber-200/50 px-6 py-5">
         <div className="flex items-center gap-2 mb-2">
           <div className="p-2 bg-gradient-to-br from-yellow-600 via-amber-500 to-yellow-500 rounded-lg shadow shadow-yellow-400/40 shrink-0">
             <Weight size={16} className="text-white" />
           </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Gold Sovereign (1 Pawn)</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">රන් පවුමක මිල (8g)</p>
-          </div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Gold Sovereign (1 Pawn)</p>
         </div>
 
         {loading ? (
@@ -101,7 +98,7 @@ export function MarketRateCard({ rates }: MarketRateCardProps) {
       </div>
 
       {/* USD -> LKR */}
-      <div className="md:col-span-1 bg-gradient-to-br from-amber-100 via-amber-50 to-yellow-100 rounded-2xl border border-amber-100 shadow-sm px-6 py-4 flex flex-col">
+      <div className="md:col-span-1 flex flex-col justify-center bg-gradient-to-br from-amber-100 via-amber-50 to-yellow-100 rounded-2xl border border-amber-100 shadow-sm px-6 py-4">
         <div className="flex items-center gap-2 mb-2">
           <div className="p-2 bg-gradient-to-br from-amber-800 via-yellow-700 to-amber-600 rounded-lg shadow shadow-amber-700/30 shrink-0">
             <ArrowLeftRight size={16} className="text-white" />
@@ -117,7 +114,7 @@ export function MarketRateCard({ rates }: MarketRateCardProps) {
           </h3>
         )}
 
-        <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
           <p className="text-[9px] text-gray-400">
             {lastUpdated ? `Last updated: ${lastUpdated}` : ''}
           </p>
