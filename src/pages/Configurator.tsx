@@ -24,9 +24,20 @@ import AdminActionWarning from '../components/AdminActionWarning';
 
 // Scales the pendant body (not the chain/attachment) for all three pendant shapes.
 const PENDANT_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
-  small: 0.82,
+  small: 0.88,
   medium: 1.00,
-  large: 1.22,
+  large: 1.15,
+};
+
+// Ring size scaling — base = US 7 (17.3mm), multiplier = 1.00. Keys match the
+// <select> option values in the Ring Size control below (short "US N" form).
+const RING_SIZE_SCALE: Record<string, number> = {
+  'US 4': 0.88,
+  'US 5': 0.92,
+  'US 6': 0.96,
+  'US 7': 1.00,
+  'US 8': 1.05,
+  'US 9': 1.10,
 };
 
 // Camera FOV compensates for body scale so Large stays framed and Small doesn't look lost.
@@ -542,7 +553,9 @@ export default function Configurator() {
               <Suspense fallback={<Html center><LoadingSpinner fullScreen={false} /></Html>}>
                 <group position={[0, 0, -0.6]} scale={1.5}>
                   {modelType === 'ring' ? (
-                     <CustomGLBRingModel key={ringStyle} style={ringStyle} metalMaterial={currentMetal?.material} stoneMaterial={currentStone?.material} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
+                     <group scale={RING_SIZE_SCALE[ringSize] ?? 1.0}>
+                       <CustomGLBRingModel key={ringStyle} style={ringStyle} metalMaterial={currentMetal?.material} stoneMaterial={currentStone?.material} syntheticStone={!(currentStyleDef?.hasRealStone ?? false)} fileUrl={currentStyleDef?.fileUrl || '/glb-models/rings/ring1.glb'} />
+                     </group>
                   ) : (
                     <PendantModel
                       text={customText}
@@ -946,6 +959,7 @@ export default function Configurator() {
         customText={customText}
         fontStyle={fontStyle}
         fileUrl={currentStyleDef?.fileUrl}
+        ringSize={modelType === 'ring' ? ringSize : undefined}
         pendantShape={modelType === 'pendant' ? pendantShape : undefined}
         pendantSize={modelType === 'pendant' ? pendantSize : undefined}
         fontBold={fontBold}

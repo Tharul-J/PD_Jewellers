@@ -42,6 +42,8 @@ interface ARTryOnModalProps {
   fileUrl?: string;
   customText?: string;
   fontStyle?: keyof typeof FONTS;
+  // Ring-specific — mirrors the configurator's tracked state
+  ringSize?: string;
   // Pendant-specific — mirrors the configurator's tracked state
   pendantShape?: 'standard' | 'heart' | 'tag';
   pendantSize?: 'small' | 'medium' | 'large';
@@ -55,9 +57,22 @@ interface ARTryOnModalProps {
 // against a real-world camera backdrop the pendant is small in-frame, so ±18% reads as
 // negligible — the size difference needs to be exaggerated to be perceptible on the neck.
 const AR_SIZE_SCALE: Record<'small' | 'medium' | 'large', number> = {
-  small: 0.65,
+  small: 0.68,
   medium: 1.00,
-  large: 1.45,
+  large: 1.38,
+};
+
+// Ring size scaling for AR — wider spread than the configurator's RING_SIZE_SCALE
+// for the same reason AR_SIZE_SCALE is wider than PENDANT_SIZE_SCALE: on-camera
+// perceptibility needs more exaggeration than a studio-lit 3D viewer. Keys match
+// the configurator's ringSize <select> option values ("US 4".."US 9").
+const RING_AR_SIZE_SCALE: Record<string, number> = {
+  'US 4': 0.78,
+  'US 5': 0.85,
+  'US 6': 0.92,
+  'US 7': 1.00,
+  'US 8': 1.09,
+  'US 9': 1.18,
 };
 
 // Bump this if the ring reads too small/large on device. Started ~35% up from the old
@@ -77,10 +92,11 @@ interface RingLandmarks {
   pinkyMcp: { x: number; y: number; z: number };  // 17 — pinky MCP
 }
 
-function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl, metalOverride, stoneOverride }: {
+function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl, metalOverride, stoneOverride, ringSize }: {
   transformRef: any; metal: string; stone?: string; text?: string;
   fontStyle?: string; fileUrl?: string;
   metalOverride?: Record<string, any>; stoneOverride?: Record<string, any>;
+  ringSize?: string;
 }) {
   const meshRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
@@ -136,7 +152,7 @@ function ARRing({ transformRef, metal, stone, text, fontStyle, fileUrl, metalOve
     // DEPTH-PROXY SCALE — finger width (ring MCP <-> middle MCP) tracks apparent hand size,
     // so the ring holds its real-world size as the hand moves toward/away from the camera.
     const fingerWidthProxy = p13.distanceTo(p9);
-    const sizeMultiplier = 1; // ring path has no S/M/L knob; RING_FIT_SCALE is the sole size source
+    const sizeMultiplier = RING_AR_SIZE_SCALE[ringSize ?? 'US 7'] ?? 1.0;
     const rawScale = fingerWidthProxy * RING_FIT_SCALE * sizeMultiplier;
     const fScale = scaleFilter.current.filter(rawScale, now);
 
@@ -263,7 +279,7 @@ function ARPendant({ transformRef, metal, metalOverride, customText, fontStyle, 
 export default function ARTryOnModal({
   isOpen, onClose, metal, metalName, stone, modelType,
   metalMaterialOverride, stoneMaterialOverride,
-  customText, fontStyle, fileUrl,
+  customText, fontStyle, fileUrl, ringSize,
   pendantShape, pendantSize, fontBold, fontItalic, textDirection,
 }: ARTryOnModalProps) {
   useOverlayGuard(isOpen);
@@ -621,6 +637,7 @@ export default function ARTryOnModal({
                   text={customText}
                   fontStyle={fontStyle}
                   fileUrl={fileUrl}
+                  ringSize={ringSize}
                 />
               ) : (
                 <ARPendant
