@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { uploadGlbToCloudinary } from '../utils/cloudinaryStorage.js';
+import { compressGlb } from '../utils/compressGlb.js';
 
 const router = express.Router();
 
@@ -29,7 +30,8 @@ router.post('/', upload.single('file'), async (req, res) => {
   }
 
 
-  const url = await uploadGlbToCloudinary(req.file.buffer, req.file.originalname);
+  const compressedBuffer = await compressGlb(req.file.buffer);
+  const url = await uploadGlbToCloudinary(compressedBuffer, req.file.originalname);
 
   if (!url) {
     return res.status(500).json({ message: 'Cloudinary upload failed. Please try again.' });
