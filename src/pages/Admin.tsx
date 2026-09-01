@@ -7,6 +7,11 @@ import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil,
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
+import { useMarketRates } from '../hooks/useMarketRates';
+import { MarketRateCard } from '../components/admin/MarketRateCard';
+import { GoldPriceChart } from '../components/admin/GoldPriceChart';
+import { ExportDashboardButton } from '../components/admin/ExportDashboardButton';
+import { exportDashboardCsv, exportDashboardPdf } from '../lib/dashboardExport';
 import { formatExact } from '../lib/price';
 import InquiryMessages from '../components/InquiryMessages';
 import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
@@ -572,6 +577,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const { pricing, updatePricing } = usePricing();
   const { unreadByType, markReadByType } = useNotifications();
+  const marketRates = useMarketRates();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     const tab = searchParams.get('tab');
@@ -1440,6 +1446,27 @@ export default function Admin() {
     .map(cat => ({ name: cat, count: productsList.filter(p => p.category === cat).length }))
     .filter(c => c.count > 0);
 
+  const handleExportDashboardCsv = () => {
+    const { goldPerGramLkr, goldPerGramUsd, usdToLkr } = marketRates;
+    exportDashboardCsv({
+      marketRates: {
+        gold24k: goldPerGramLkr != null ? goldPerGramLkr * 8 : null,
+        gold22k: goldPerGramLkr != null ? goldPerGramLkr * (22 / 24) * 8 : null,
+        goldPerGramLkr,
+        goldPerGramUsd,
+        usdToLkr,
+      },
+      platformStats: {
+        catalogProducts: productsList.length,
+        registeredCustomers: customerCount,
+        totalInquiries: ordersList.length,
+        modelsUploaded: modelsList.length,
+      },
+      inquiriesByStatus: statusBreakdown.map(({ label, count }) => ({ label, count })),
+      productsByCategory: categoryCounts.map(({ name, count }) => ({ name, count })),
+    });
+  };
+
   const recentInquiries = [...ordersList]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
@@ -1561,31 +1588,41 @@ export default function Admin() {
                   : activeTab}.
               </p>
             </div>
-            <div className="md:hidden relative">
-              <select
-                value={activeTab}
-                onChange={e => setActiveTab(e.target.value as any)}
-                className="appearance-none p-2 pr-9 border border-gray-200 rounded-md bg-white text-sm focus:outline-none focus:border-[var(--color-gold)] cursor-pointer"
-              >
-                <option value="dashboard">Dashboard</option>
-                <option value="users">Users</option>
-                <option value="catalog">Catalog</option>
-                <option value="categories">Categories</option>
-                <option value="products">3D Models</option>
-                <option value="orders">Inquiries</option>
-                <option value="sold">Sold Items</option>
-                <option value="reviews">Reviews</option>
-                <option value="messages">Messages</option>
-                <option value="pricing">Pricing</option>
-                <option value="blog">Blog</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+            <div className="flex items-center gap-3">
+              {activeTab === 'dashboard' && (
+                <ExportDashboardButton onExportCsv={handleExportDashboardCsv} onExportPdf={exportDashboardPdf} />
+              )}
+              <div className="md:hidden relative">
+                <select
+                  value={activeTab}
+                  onChange={e => setActiveTab(e.target.value as any)}
+                  className="appearance-none p-2 pr-9 border border-gray-200 rounded-md bg-white text-sm focus:outline-none focus:border-[var(--color-gold)] cursor-pointer"
+                >
+                  <option value="dashboard">Dashboard</option>
+                  <option value="users">Users</option>
+                  <option value="catalog">Catalog</option>
+                  <option value="categories">Categories</option>
+                  <option value="products">3D Models</option>
+                  <option value="orders">Inquiries</option>
+                  <option value="sold">Sold Items</option>
+                  <option value="reviews">Reviews</option>
+                  <option value="messages">Messages</option>
+                  <option value="pricing">Pricing</option>
+                  <option value="blog">Blog</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+              </div>
             </div>
           </div>
 
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
             <>
+              <div id="dashboard-content">
+              <div className="mb-6">
+                <MarketRateCard rates={marketRates} />
+              </div>
+
               {/* Stat Cards — gold theme */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
                 {[
@@ -1630,6 +1667,8 @@ export default function Admin() {
                   </motion.div>
                 ))}
               </div>
+
+              <GoldPriceChart rates={marketRates} />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Inquiry Status Breakdown */}
@@ -1709,6 +1748,7 @@ export default function Admin() {
                     </div>
                   )}
                 </div>
+              </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -2973,6 +3013,8 @@ export default function Admin() {
           {/* ── PRICING ── */}
           {activeTab === 'pricing' && (
             <div className="space-y-6">
+
+              <MarketRateCard rates={marketRates} />
 
               {/* Metal Multipliers card */}
               <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
