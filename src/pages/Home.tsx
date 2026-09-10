@@ -199,33 +199,6 @@ export default function Home() {
            />
         </div>
 
-        {/* Legibility scrim — stronger on mobile where the wordmark overlaps the model */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/40 sm:from-black/30 sm:via-transparent sm:to-black/30 pointer-events-none" />
-
-        <div className="max-w-7xl mx-auto h-full px-6 relative z-10">
-          
-          {/* Logo on Left */}
-          <div className="absolute top-16 md:top-24 left-6 md:left-12 flex flex-col items-center z-20">
-            {/* Logo approximation using text since we don't have the vector */}
-            <div className="relative mb-2">
-               <h1 className="text-7xl md:text-8xl lg:text-[120px] font-serif text-[#D4AF37] tracking-widest leading-none drop-shadow-lg" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.1)' }}>PDJ</h1>
-               {/* Tiny decorative ring shape on top right of logo */}
-               <div className="absolute -top-4 -right-2 md:-top-6 md:-right-4 w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-[#D4AF37] shadow-lg flex items-start justify-center">
-                  <div className="w-2 h-2 md:w-3 md:h-3 bg-white rotate-45 transform -translate-y-1/2 shadow-inner"></div>
-               </div>
-            </div>
-            
-            <div className="h-[1px] w-full max-w-[300px] bg-gradient-to-r from-transparent via-[#D4AF37]/50 to-transparent my-4"></div>
-            
-            <h2 className="text-[10px] md:text-sm tracking-[0.3em] font-sans uppercase text-[#3A352F] font-medium text-center">
-              P Dedigamuwa Jewellers
-            </h2>
-            <p className="text-xs md:text-lg italic tracking-wider text-[#A67C00] mt-3 font-serif">
-              Over 110 Years of Excellence
-            </p>
-          </div>
-          
-        </div>
       </section>
 
       {/* About Us Section */}
