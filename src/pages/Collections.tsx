@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, Share2, Facebook, Twitter, Link as LinkIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -10,11 +10,9 @@ import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import DuplicateInquiryWarning from '../components/DuplicateInquiryWarning';
 import { formatPrice, formatIndicative } from '../lib/price';
+import { normalize, deriveCategories } from '../lib/categories';
+import { useToastContext } from '../context/ToastContext';
 export { MOCK_PRODUCTS };
-
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const BASE_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 
 const HERO_IMAGES = [
   "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
@@ -51,21 +49,7 @@ export default function Collections() {
   const [isLoading, setIsLoading] = useState(false);
   const [allProducts, setAllProducts] = useState(MOCK_PRODUCTS);
 
-  const categories = useMemo(() => {
-    const fromStorage: string[] = (() => {
-      try {
-        const stored = localStorage.getItem('pd_product_categories');
-        return stored ? JSON.parse(stored) : [];
-      } catch { return []; }
-    })();
-    const seen = new Set<string>();
-    const merged: string[] = [];
-    for (const c of [...BASE_CATEGORIES, ...fromStorage, ...allProducts.map(p => p.category).filter(Boolean)]) {
-      const key = normalize(c);
-      if (!seen.has(key)) { seen.add(key); merged.push(c); }
-    }
-    return ['All', ...merged];
-  }, [allProducts]);
+  const categories = useMemo(() => ['All', ...deriveCategories(allProducts)], [allProducts]);
 
   // New states for extended filtering and sorting
   const [showFilters, setShowFilters] = useState(false);
@@ -75,6 +59,14 @@ export default function Collections() {
 
   const maxProductPrice = Math.max(...allProducts.map(p => p.price));
   const [maxPrice, setMaxPrice] = useState(maxProductPrice);
+  const hasUserAdjustedPrice = useRef(false);
+
+  // The slider starts out seeded from the mock catalog, whose ceiling is lower than the
+  // live one — left alone it would silently hide every product priced above it. Re-sync
+  // until the user takes the slider over, after which their budget stands.
+  useEffect(() => {
+    if (!hasUserAdjustedPrice.current) setMaxPrice(maxProductPrice);
+  }, [maxProductPrice]);
 
   const ALL_BANNERS = Object.values(CATEGORY_BANNERS);
   const [bannerIndex, setBannerIndex] = useState(0);
@@ -103,8 +95,11 @@ export default function Collections() {
 
   useEffect(() => {
     if (categoryParam) {
+      // The catalog fetch may not have landed yet, so a category that only exists in the DB
+      // (Mens, Teen) won't be in `categories` — fall back to the param itself, which the
+      // filter normalizes the same way the tabs do.
       const match = categories.find(c => normalize(c) === normalize(categoryParam));
-      if (match) setActiveCategory(match);
+      setActiveCategory(match ?? categoryParam);
     }
 
     if (priceParam) {
@@ -138,6 +133,7 @@ export default function Collections() {
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { user } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
+  const { showToast } = useToastContext();
   const [duplicateProduct, setDuplicateProduct] = useState<typeof MOCK_PRODUCTS[0] | null>(null);
 
   const handleQuickAdd = (product: typeof MOCK_PRODUCTS[0]) => {
@@ -152,8 +148,6 @@ export default function Collections() {
     let products =
       activeCategory === 'All'
         ? [...allProducts]
-        : normalize(activeCategory) === 'bridal'
-        ? allProducts.filter(p => ['rings', 'necklaces', 'earrings'].includes(normalize(p.category)) && p.hasStones === true)
         : allProducts.filter(p => normalize(p.category) === normalize(activeCategory));
 
     if (urlFilters.price) {
@@ -454,7 +448,7 @@ export default function Collections() {
                 max={maxProductPrice}
                 step="10000"
                 value={maxPrice}
-                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                onChange={(e) => { hasUserAdjustedPrice.current = true; setMaxPrice(Number(e.target.value)); }}
                 className="w-full h-[3px] bg-[#e5dfd3] rounded-lg appearance-none cursor-pointer accent-[#D4AF37]"
               />
               <div className="flex justify-between mt-3 text-[11px] text-[#a09a8a] uppercase font-bold tracking-wider">
@@ -579,7 +573,7 @@ export default function Collections() {
                         <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out ' + product.name)}&url=${encodeURIComponent(window.location.origin + '/collections?category=' + product.category)}`} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-blue-400 transition-colors" onClick={e => e.stopPropagation()} title="Share on Twitter">
                            <Twitter size={16} />
                         </a>
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/collections?category=' + product.category); alert('Link copied to clipboard!'); }} className="text-gray-500 hover:text-gray-800 transition-colors" title="Copy Link">
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/collections?category=' + product.category); showToast('Link copied to clipboard!', 'success'); }} className="text-gray-500 hover:text-gray-800 transition-colors" title="Copy Link">
                            <LinkIcon size={16} />
                         </button>
                     </div>

@@ -16,6 +16,7 @@ import { formatExact } from '../lib/price';
 import InquiryMessages from '../components/InquiryMessages';
 import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
 import { mergeById, shouldPausePolling, useOverlayGuard, useResumeOnOverlayClose } from '../lib/pollGuard';
+import { useToastContext } from '../context/ToastContext';
 
 const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -577,6 +578,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const { pricing, updatePricing } = usePricing();
   const { unreadByType, markReadByType } = useNotifications();
+  const { showToast } = useToastContext();
   const marketRates = useMarketRates();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
@@ -846,7 +848,7 @@ export default function Admin() {
       setConfiguratorEnabled(data.configuratorEnabled);
     } catch (err) {
       console.error('[admin] toggle error:', err);
-      alert('Failed to update configurator status. Please try again.');
+      showToast('Failed to update configurator status. Please try again.', 'error');
     } finally {
       setToggleLoading(false);
     }
@@ -937,9 +939,9 @@ export default function Admin() {
         setDeleteOrderId(null);
       } else {
         const err = await res.json();
-        alert(err.message || 'Delete failed');
+        showToast(err.message || 'Delete failed', 'error');
       }
-    } catch { alert('Delete failed'); }
+    } catch { showToast('Delete failed', 'error'); }
   };
 
   const handleApproveReview = async (id: string, approved: boolean) => {
@@ -965,9 +967,9 @@ export default function Admin() {
         setReviewsList(prev => prev.filter(r => r._id !== id));
         setDeleteReviewId(null);
       } else {
-        alert('Delete failed');
+        showToast('Delete failed', 'error');
       }
-    } catch { alert('Delete failed'); }
+    } catch { showToast('Delete failed', 'error'); }
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -981,9 +983,9 @@ export default function Admin() {
         setDeleteUserId(null);
       } else {
         const err = await res.json();
-        alert(err.message || 'Delete failed');
+        showToast(err.message || 'Delete failed', 'error');
       }
-    } catch { alert('Delete failed'); }
+    } catch { showToast('Delete failed', 'error'); }
   };
 
   const handleToggleUserRole = async (usr: any) => {
@@ -999,9 +1001,9 @@ export default function Admin() {
         setUsersList(prev => prev.map(u => u._id === usr._id ? { ...u, role: newRole } : u));
       } else {
         const err = await res.json();
-        alert(err.message || 'Update failed');
+        showToast(err.message || 'Update failed', 'error');
       }
-    } catch { alert('Update failed'); }
+    } catch { showToast('Update failed', 'error'); }
     finally { setTogglingUserId(null); }
   };
 
@@ -1034,7 +1036,7 @@ export default function Admin() {
 
   const handleUploadModel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return alert('Please select a file');
+    if (!file) { showToast('Please select a file', 'info'); return; }
     setUploading(true);
     setUploadProgress(0);
     try {
@@ -1073,10 +1075,10 @@ export default function Admin() {
       setModelsList(prev => [...prev, createdModel]);
       setNewModel({ name: '', category: 'ring', basePrice: 1000 });
       setFile(null);
-      alert('Model uploaded successfully');
+      showToast('Model uploaded successfully', 'success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
-      alert(error.message || 'Upload failed');
+      showToast(error.message || 'Upload failed', 'error');
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -1095,10 +1097,10 @@ export default function Admin() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         const err = await res.json();
-        alert(err.message || 'Delete failed');
+        showToast(err.message || 'Delete failed', 'error');
       }
     } catch {
-      alert('Delete failed');
+      showToast('Delete failed', 'error');
     }
   };
 
@@ -1135,7 +1137,7 @@ export default function Admin() {
       handleCancelModelForm();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     } finally {
       setSavingModel(false);
     }
@@ -1267,7 +1269,7 @@ export default function Admin() {
       setEditingBlog(null);
       setBlogForm({ title: '', category: 'General', excerpt: '', coverImage: '', imagesRaw: '', content: '', author: 'PD Jewellers' });
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     } finally {
       setSavingBlog(false);
     }
@@ -1284,10 +1286,10 @@ export default function Admin() {
         setDeleteBlogId(null);
       } else {
         const err = await res.json();
-        alert(err.message || 'Delete failed');
+        showToast(err.message || 'Delete failed', 'error');
       }
     } catch {
-      alert('Delete failed');
+      showToast('Delete failed', 'error');
     }
   };
 
@@ -1345,7 +1347,7 @@ export default function Admin() {
       setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', hasStones: false });
       setProductFile(null);
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     } finally {
       setSavingProduct(false);
     }
@@ -1362,10 +1364,10 @@ export default function Admin() {
         setDeleteConfirmId(null);
       } else {
         const err = await res.json();
-        alert(err.message || 'Delete failed');
+        showToast(err.message || 'Delete failed', 'error');
       }
     } catch {
-      alert('Delete failed');
+      showToast('Delete failed', 'error');
     }
   };
 

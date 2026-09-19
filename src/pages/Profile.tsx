@@ -17,6 +17,7 @@ import { formatPrice, formatExact } from '../lib/price';
 import { timeAgo } from '../lib/utils';
 import { skuOf } from '../lib/sku';
 import InquiryMessages from '../components/InquiryMessages';
+import { useToastContext } from '../context/ToastContext';
 import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
 import DuplicateInquiryWarning from '../components/DuplicateInquiryWarning';
 
@@ -51,6 +52,7 @@ export default function Profile() {
   const { addToCart, isDuplicate } = useCart();
   const navigate = useNavigate();
   const { unreadByType, unreadMessages, setUnreadMessages, markReadByType } = useNotifications();
+  const { showToast } = useToastContext();
   const { guard, showWarning, dismiss } = useAdminGuard();
 
   const [profileData, setProfileData] = useState<any>(null);
@@ -333,10 +335,18 @@ export default function Profile() {
   }, [deepLinkId, activeTab, orders.length, purchases.length]);
 
   const inquiryNotifCount = unreadByType['inquiry_status'] ?? 0;
+  const purchaseNotifCount = unreadByType['purchase'] ?? 0;
+  const reviewNotifCount = unreadByType['review_approved'] ?? 0;
 
   useEffect(() => {
     if (activeTab === 'orders' && inquiryNotifCount > 0) {
       markReadByType('inquiry_status');
+    }
+    if (activeTab === 'purchases' && purchaseNotifCount > 0) {
+      markReadByType('purchase');
+    }
+    if (activeTab === 'reviews' && reviewNotifCount > 0) {
+      markReadByType('review_approved');
     }
   }, [activeTab]);
 
@@ -420,7 +430,7 @@ export default function Profile() {
       setReviewTitle('');
       setReviewText('');
     } catch (err: any) {
-      alert(err.message || 'Failed to submit review');
+      showToast(err.message || 'Failed to submit review', 'error');
     } finally {
       setReviewSubmitting(false);
     }
@@ -445,7 +455,7 @@ export default function Profile() {
       setMyReviews(prev => prev.map(r => r._id === id ? data.review : r));
       setEditingReviewId(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to update review');
+      showToast(err.message || 'Failed to update review', 'error');
     } finally {
       setEditReviewSaving(false);
     }
@@ -462,7 +472,7 @@ export default function Profile() {
       if (!res.ok) throw new Error();
       setMyReviews(prev => prev.filter(r => r._id !== id));
     } catch {
-      alert('Could not delete review.');
+      showToast('Could not delete review.', 'error');
     } finally {
       setDeletingReviewId(null);
     }
@@ -572,7 +582,7 @@ export default function Profile() {
       setProfileData((prev: any) => prev ? { ...prev, savedConfigurations } : prev);
     } catch (err) {
       console.error('[saved-designs] delete error:', err);
-      alert('Could not remove design. Please try again.');
+      showToast('Could not remove design. Please try again.', 'error');
     } finally {
       setDeletingConfigId(null);
     }
@@ -634,7 +644,7 @@ export default function Profile() {
       setOrders(prev => prev.filter(o => o._id !== orderId));
     } catch (err: any) {
       console.error('[inquiries] cancel error:', err);
-      alert(err.message || 'Could not cancel inquiry. Please try again.');
+      showToast(err.message || 'Could not cancel inquiry. Please try again.', 'error');
     } finally {
       setCancellingOrderId(null);
     }
@@ -720,6 +730,7 @@ export default function Profile() {
                   className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'purchases' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <Package size={16} /> Purchased Items
+                  <NotificationBadge count={purchaseNotifCount} />
                 </button>
                 <button
                   onClick={() => setActiveTab('messages')}
@@ -733,6 +744,7 @@ export default function Profile() {
                   className={`flex items-center gap-3 w-full p-3 text-left text-sm font-medium transition-colors rounded-sm ${activeTab === 'reviews' ? 'btn-richbrown text-white' : 'text-gray-600 hover:text-[var(--color-ink)] hover:bg-gray-100'}`}
                 >
                   <Star size={16} /> Reviews{myReviews.length ? ` (${myReviews.length})` : ''}
+                  <NotificationBadge count={reviewNotifCount} />
                 </button>
 
                 <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 text-left text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-sm mt-8 border-t border-gray-200 pt-6">

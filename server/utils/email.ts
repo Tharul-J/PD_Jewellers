@@ -290,6 +290,68 @@ export const sendPaymentReceiptEmail = async (
   );
 };
 
+/** Status -> ordered */
+export const sendOrderPlacedEmail = async (
+  to: string,
+  name: string,
+  inquiryRef: string,
+  note?: string
+): Promise<boolean> => {
+  const html = buildEmailHtml(`
+    ${heading('Your order is being processed')}
+    <p style="margin:0 0 12px 0;">Dear ${esc(name)},</p>
+    <p style="margin:0 0 12px 0;">We've received your order for inquiry <strong>${esc(inquiryRef)}</strong> and it is now being processed by our team.</p>
+    <p style="margin:0 0 12px 0;">We'll be in touch again as soon as your piece moves into crafting.</p>
+    ${noteBlock(note)}
+    <p style="margin:0;">Thank you for choosing PD Jewellers.</p>
+    ${signOff}
+  `);
+  return send(to, `Your Order is Being Processed — Inquiry ${inquiryRef}`, html, 'order-placed');
+};
+
+/** Status -> crafting */
+export const sendCraftingEmail = async (
+  to: string,
+  name: string,
+  inquiryRef: string,
+  note?: string
+): Promise<boolean> => {
+  const html = buildEmailHtml(`
+    ${heading('Your jewellery is being crafted')}
+    <p style="margin:0 0 12px 0;">Dear ${esc(name)},</p>
+    <p style="margin:0 0 12px 0;">Your piece from inquiry <strong>${esc(inquiryRef)}</strong> is now in production. Our master craftsmen have begun the detailed work of bringing it to life.</p>
+    <p style="margin:0 0 12px 0;">Each piece is made by hand, so this stage takes the time it deserves. We'll let you know the moment it is ready.</p>
+    ${noteBlock(note)}
+    <p style="margin:0;">Thank you for your patience.</p>
+    ${signOff}
+  `);
+  return send(to, `Your Jewellery is Being Crafted — Inquiry ${inquiryRef}`, html, 'crafting');
+};
+
+/** Status -> ready */
+export const sendOrderAwaitingCollectionEmail = async (
+  to: string,
+  name: string,
+  inquiryRef: string,
+  isPickup: boolean,
+  note?: string
+): Promise<boolean> => {
+  const collection = isPickup
+    ? 'You are welcome to collect your order from our showroom in Gampaha at your earliest convenience.'
+    : 'Your order will be carefully packaged and dispatched to your provided delivery address shortly.';
+
+  const html = buildEmailHtml(`
+    ${heading('Your order is ready')}
+    <p style="margin:0 0 12px 0;">Dear ${esc(name)},</p>
+    <p style="margin:0 0 12px 0;">Your order from inquiry <strong>${esc(inquiryRef)}</strong> is ready.</p>
+    <p style="margin:0 0 12px 0;">${collection}</p>
+    ${noteBlock(note)}
+    <p style="margin:0;">We can't wait for you to see it.</p>
+    ${signOff}
+  `);
+  return send(to, `Your Order is Ready — Inquiry ${inquiryRef}`, html, 'order-awaiting-collection');
+};
+
 /** Status -> completed */
 export const sendOrderReadyEmail = async (
   to: string,

@@ -8,12 +8,14 @@ import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import { formatPrice, formatEstimate } from '../lib/price';
 import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
+import { useToastContext } from '../context/ToastContext';
 
 export default function Inquiry() {
   const { items, cartTotal, clearCart, removeFromCart, markInquirySubmitted } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { guard, showWarning, dismiss } = useAdminGuard();
+  const { showToast } = useToastContext();
   const [isProcessing, setIsProcessing] = useState(false);
   const [inquiryCreated, setInquiryCreated] = useState<any | null>(null);
 
@@ -60,7 +62,7 @@ export default function Inquiry() {
   const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert("Please log in to submit your inquiry.");
+      showToast("Please log in to submit your inquiry.", 'info');
       return;
     }
     setIsProcessing(true);
@@ -106,11 +108,11 @@ export default function Inquiry() {
         markInquirySubmitted();
       } else {
         const errorData = await response.json();
-        alert(`Inquiry failed: ${errorData.message}`);
+        showToast(`Inquiry failed: ${errorData.message}`, 'error');
       }
     } catch (error) {
       console.error("Inquiry error:", error);
-      alert("An error occurred during submitting your inquiry.");
+      showToast("An error occurred during submitting your inquiry.", 'error');
     } finally {
       setIsProcessing(false);
     }

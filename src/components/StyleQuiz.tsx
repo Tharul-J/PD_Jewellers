@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useOverlayGuard } from '../lib/pollGuard';
+import { deriveCategories } from '../lib/categories';
 
 interface StyleQuizProps {
   isOpen: boolean;
@@ -12,12 +13,14 @@ interface StyleQuizProps {
 
 const TOTAL_STEPS = 5;
 
-const STEPS = [
+// Step 1 offers whatever categories the catalog actually has, so anything an admin adds
+// (Bridal, Mens, Teen) is offered here exactly as it is on the Collections tabs.
+const buildSteps = (categories: string[]) => [
   {
     key: 'category',
     label: `Step 1 of ${TOTAL_STEPS}`,
     question: 'What are you looking for?',
-    options: ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Surprise Me!'],
+    options: [...categories, 'Surprise Me!'],
   },
   {
     key: 'occasion',
@@ -45,14 +48,6 @@ const STEPS = [
   },
 ];
 
-const CATEGORY_MAP: Record<string, string> = {
-  'Rings': 'rings',
-  'Necklaces': 'necklaces',
-  'Earrings': 'earrings',
-  'Bracelets': 'bracelets',
-  'Pendants': 'pendants',
-};
-
 export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps) {
   useOverlayGuard(isOpen);
 
@@ -60,13 +55,29 @@ export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps)
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<string[]>(() => deriveCategories([]));
+
+  // Refreshed each time the quiz opens so a newly added category shows up without a reload.
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetch('/api/products')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!cancelled && Array.isArray(data) && data.length > 0) setCategories(deriveCategories(data));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
+  const steps = useMemo(() => buildSteps(categories), [categories]);
 
   const positionClass = position === 'bottom'
     ? 'fixed bottom-24 right-4 md:right-6 z-50'
     : 'fixed top-24 right-4 md:right-6 lg:right-8 z-50';
 
   const handleAnswer = (value: string) => {
-    const key = STEPS[step].key;
+    const key = steps[step].key;
     const newAnswers = { ...answers, [key]: value };
     setAnswers(newAnswers);
 
@@ -76,8 +87,8 @@ export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps)
       // Build URL params
       const params = new URLSearchParams();
       const cat = newAnswers.category;
-      if (cat && cat !== 'Surprise Me!' && CATEGORY_MAP[cat]) {
-        params.set('category', CATEGORY_MAP[cat]);
+      if (cat && cat !== 'Surprise Me!') {
+        params.set('category', cat);
       }
       if (newAnswers.karatage && newAnswers.karatage !== 'Any') params.set('karatage', newAnswers.karatage);
       if (newAnswers.stones && newAnswers.stones !== 'Any') params.set('stones', newAnswers.stones);
@@ -164,13 +175,13 @@ export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps)
                       </button>
                     )}
                     <span className="text-[9px] uppercase tracking-[0.2em] text-[var(--color-gold-dark)] font-bold mb-1.5 block">
-                      {STEPS[step].label}
+                      {steps[step].label}
                     </span>
                     <h4 className="font-serif text-[18px] mb-4 text-[var(--color-ink)] leading-snug">
-                      {STEPS[step].question}
+                      {steps[step].question}
                     </h4>
                     <div className="space-y-2">
-                      {STEPS[step].options.map(opt => (
+                      {steps[step].options.map(opt => (
                         <button
                           key={opt}
                           onClick={() => handleAnswer(opt)}
@@ -192,7 +203,7 @@ export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps)
             {/* Step dots */}
             {!done && (
               <div className="flex justify-center gap-1.5 py-3 bg-[var(--color-paper)] border-t border-gray-100">
-                {STEPS.map((_, i) => (
+                {steps.map((_, i) => (
                   <div
                     key={i}
                     className={`rounded-full transition-all duration-300 ${

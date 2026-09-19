@@ -8,6 +8,9 @@ import { newestFirst } from '../utils/sort.js';
 import {
   sendAvailabilityConfirmedEmail,
   sendInquiryDeclinedEmail,
+  sendOrderPlacedEmail,
+  sendCraftingEmail,
+  sendOrderAwaitingCollectionEmail,
   sendOrderReadyEmail,
   sendInquiryMessageEmail,
 } from '../utils/email.js';
@@ -244,10 +247,14 @@ const STATUS_LABELS: Record<string, string> = {
  * Delivery method is encoded in shippingAddress.country ('In-Store Pickup' | 'Home Delivery').
  */
 const sendStatusEmail = async (order: any, note?: string): Promise<void> => {
-  if (!['availability_confirmed', 'declined', 'completed'].includes(order.status)) return;
+  // Every status except `pending` (the state an inquiry is created in, which the
+  // customer just submitted themselves) is worth an email.
+  if (!['availability_confirmed', 'declined', 'ordered', 'crafting', 'ready', 'completed'].includes(order.status)) return;
 
   const user = await User.findById(order.user).select('name email');
   if (!user?.email) return;
+
+  const isPickup = /pickup/i.test(order.shippingAddress?.country || '');
 
   if (order.status === 'availability_confirmed') {
     await sendAvailabilityConfirmedEmail(
@@ -260,8 +267,13 @@ const sendStatusEmail = async (order: any, note?: string): Promise<void> => {
     );
   } else if (order.status === 'declined') {
     await sendInquiryDeclinedEmail(user.email, user.name, order.inquiryRef, note);
+  } else if (order.status === 'ordered') {
+    await sendOrderPlacedEmail(user.email, user.name, order.inquiryRef, note);
+  } else if (order.status === 'crafting') {
+    await sendCraftingEmail(user.email, user.name, order.inquiryRef, note);
+  } else if (order.status === 'ready') {
+    await sendOrderAwaitingCollectionEmail(user.email, user.name, order.inquiryRef, isPickup, note);
   } else {
-    const isPickup = /pickup/i.test(order.shippingAddress?.country || '');
     await sendOrderReadyEmail(user.email, user.name, order.inquiryRef, isPickup, note);
   }
 };

@@ -12,6 +12,7 @@ import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { PricingProvider } from './context/PricingContext';
+import { ToastProvider } from './context/ToastContext';
 
 // Pages
 import Home from './pages/Home';
@@ -143,16 +144,18 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <WishlistProvider>
-        <CartProvider>
-          <PricingProvider>
-            <Router>
-              <AnimatedRoutes />
-            </Router>
-          </PricingProvider>
-        </CartProvider>
-      </WishlistProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <PricingProvider>
+              <Router>
+                <AnimatedRoutes />
+              </Router>
+            </PricingProvider>
+          </CartProvider>
+        </WishlistProvider>
+      </AuthProvider>
+    </ToastProvider>
   );
 }
