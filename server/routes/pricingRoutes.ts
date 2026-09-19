@@ -64,6 +64,25 @@ const FALLBACK_STONE_COLOR = '#cccccc';
 
 const DEFAULT_ENGRAVING = 5000;
 
+/**
+ * Pins which document an unqualified `findOne()` resolves to: oldest first, so
+ * the semantic is "the first pricing document ever created wins".
+ *
+ * The collection is meant to hold exactly one document, but it held two for
+ * months (the live one plus a pre-migration flat-field leftover, since deleted
+ * by scripts/deletePricingLegacyDoc.ts). An unsorted findOne() returns natural
+ * order, which is not a guarantee — had it flipped, the GET handler would have
+ * read a document with no metals array, judged it old-format, and reset every
+ * pricePerGram to 0.
+ *
+ * Sorted on `_id` rather than `createdAt`: an ObjectId leads with a creation
+ * timestamp so it orders the same way, but it is always present and unique,
+ * giving a total order with no ties. `createdAt` comes from the timestamps
+ * option and the root schema is strict:false, so a hand-inserted or legacy
+ * document can lack it entirely and sort unpredictably.
+ */
+const PRICING_DOC_SORT = { _id: 1 } as const;
+
 export const DEFAULT_UPGRADES = [
   { key: 'engraving', name: 'Engraving', price: DEFAULT_ENGRAVING },
 ];
@@ -177,8 +196,9 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // Use lean() so we can read old flat fields even if they're not in the current schema
-    const raw = await Pricing.findOne().lean() as Record<string, any> | null;
+    // Use lean() so we can read old flat fields even if they're not in the current schema.
+    // Sorted — see PRICING_DOC_SORT.
+    const raw = await Pricing.findOne().sort(PRICING_DOC_SORT).lean() as Record<string, any> | null;
 
     if (!raw) {
       const created = await Pricing.create({
@@ -268,7 +288,9 @@ router.put('/', protect, admin, async (req, res) => {
       engravingPrice?: number;
     };
 
-    let pricing = await Pricing.findOne();
+    // Same sort as the GET, so a read and a write can never pick different
+    // documents — see PRICING_DOC_SORT.
+    let pricing = await Pricing.findOne().sort(PRICING_DOC_SORT);
 
     if (!pricing) {
       const nextUpgrades = withUpgrades(upgrades, engravingPrice ?? DEFAULT_ENGRAVING);

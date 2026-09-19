@@ -10,3 +10,6 @@ uploads/
 demo-upload/
 scripts/fonts-ttf/
 public/glb-models-compressed/
+
+# Local DB backups taken by one-off scripts
+_backup_*/
