@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
 import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, X, ChevronDown, ChevronRight, Wand2, Gem, Package, Star, CheckCircle, Mail } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import PasswordInput from '../components/PasswordInput';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAdminGuard } from '../hooks/useAdminGuard';
@@ -983,8 +984,7 @@ export default function Profile() {
                     <div className="space-y-6 max-w-md">
                       <div>
                         <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">New Password</label>
-                        <input 
-                          type="password" 
+                        <PasswordInput
                           required
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
@@ -994,8 +994,7 @@ export default function Profile() {
                       </div>
                       <div>
                         <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Confirm New Password</label>
-                        <input 
-                          type="password" 
+                        <PasswordInput
                           required
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}

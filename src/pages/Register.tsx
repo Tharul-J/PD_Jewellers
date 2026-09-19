@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import PasswordInput from '../components/PasswordInput';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -96,8 +97,7 @@ export default function Register() {
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--color-ink)] mb-2">Password</label>
-            <input 
-              type="password" 
+            <PasswordInput
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -108,8 +108,7 @@ export default function Register() {
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-widest text-[var(--color-ink)] mb-2">Confirm Password</label>
-            <input 
-              type="password" 
+            <PasswordInput
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
