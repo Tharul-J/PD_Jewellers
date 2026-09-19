@@ -113,7 +113,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       res.status(503).json({ message: 'Database required for product management' });
       return;
     }
-    const { name, category, description, price, image, karatage, metalWeight, hasStones } = req.body;
+    const { name, category, description, price, image, karatage, metalWeight, weight, hasStones } = req.body;
     const prefix = CATEGORY_PREFIX[category] || 'PR';
     const id = `${prefix}${Date.now()}`;
     const product = new Product({
@@ -125,6 +125,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       image: image || '',
       karatage: karatage || '',
       metalWeight: metalWeight || '',
+      weight: Number(weight) || 0,
       hasStones: !!hasStones,
       dateAdded: new Date().toISOString().split('T')[0],
     });
@@ -149,7 +150,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
       res.status(404).json({ message: 'Product not found' });
       return;
     }
-    const { name, category, description, price, image, karatage, metalWeight, hasStones } = req.body;
+    const { name, category, description, price, image, karatage, metalWeight, weight, hasStones } = req.body;
     if (name !== undefined) product.name = name;
     if (category !== undefined) product.category = category;
     if (description !== undefined) product.description = description;
@@ -157,6 +158,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     if (image !== undefined) product.image = image;
     if (karatage !== undefined) product.karatage = karatage;
     if (metalWeight !== undefined) product.metalWeight = metalWeight;
+    if (weight !== undefined) product.weight = Number(weight) || 0;
     if (hasStones !== undefined) product.hasStones = hasStones;
     const updated = await product.save();
     res.json(updated);

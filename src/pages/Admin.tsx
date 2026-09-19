@@ -616,7 +616,7 @@ export default function Admin() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [productForm, setProductForm] = useState({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', hasStones: false });
+  const [productForm, setProductForm] = useState({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', weight: '', hasStones: false });
   const [productFile, setProductFile] = useState<File | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
@@ -681,7 +681,7 @@ export default function Admin() {
   const [metalsList,          setMetalsList]          = useState<IMetalEntry[]>([]);
   const [stonesList,          setStonesList]          = useState<IStoneEntry[]>([]);
   const [upgradesList,        setUpgradesList]        = useState<IUpgradeEntry[]>([]);
-  const [newMetal,            setNewMetal]            = useState({ displayName: '', multiplier: 1, color: '#cccccc' });
+  const [newMetal,            setNewMetal]            = useState({ displayName: '', pricePerGram: 0, color: '#cccccc' });
   const [newStone,            setNewStone]            = useState({ displayName: '', price: 0, color: '#cccccc' });
   const [showAddMetal,        setShowAddMetal]        = useState(false);
   const [showAddStone,        setShowAddStone]        = useState(false);
@@ -1322,7 +1322,14 @@ export default function Admin() {
         const upData = await upRes.json();
         imageUrl = upData.url;
       }
-      const body = { ...productForm, price: Number(productForm.price), image: imageUrl };
+      // weight is a text input, so an empty field must send 0 ("unknown") rather
+      // than NaN from Number('').
+      const body = {
+        ...productForm,
+        price: Number(productForm.price),
+        weight: Number(productForm.weight) || 0,
+        image: imageUrl,
+      };
       const url = editingProduct ? `/api/products/${editingProduct._id}` : '/api/products';
       const method = editingProduct ? 'PUT' : 'POST';
       const res = await fetch(url, {
@@ -1338,7 +1345,7 @@ export default function Admin() {
       await fetchCatalog();
       setShowProductForm(false);
       setEditingProduct(null);
-      setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', hasStones: false });
+      setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', weight: '', hasStones: false });
       setProductFile(null);
     } catch (err: any) {
       showToast(err.message, 'error');
@@ -1375,6 +1382,9 @@ export default function Admin() {
       image: product.image || '',
       karatage: product.karatage || '',
       metalWeight: product.metalWeight || '',
+      // 0 is the "unknown" sentinel, so show it as an empty field rather than a
+      // literal 0 an admin would have to clear before typing a real weight.
+      weight: product.weight ? String(product.weight) : '',
       hasStones: !!product.hasStones,
     });
     setProductFile(null);
@@ -1384,7 +1394,7 @@ export default function Admin() {
 
   const handleCancelProductForm = () => {
     setEditingProduct(null);
-    setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', hasStones: false });
+    setProductForm({ name: '', category: 'Rings', description: '', price: '', image: '', karatage: '', metalWeight: '', weight: '', hasStones: false });
     setProductFile(null);
     setShowProductForm(false);
   };
@@ -2339,6 +2349,18 @@ export default function Admin() {
                           placeholder="e.g. 7.03g or Bespoke (4.50g - 14.50g average)"
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Weight (grams)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={productForm.weight}
+                          onChange={e => setProductForm({ ...productForm, weight: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                          placeholder="0"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">Used for metal cost calculation. Leave 0 to use category default.</p>
+                      </div>
                       <div className="flex items-end">
                         <label className="flex items-center gap-2.5 cursor-pointer select-none pb-1">
                           <input
@@ -3050,8 +3072,8 @@ export default function Admin() {
                 <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
                   <div className="w-2 h-5 bg-amber-400 rounded-full" />
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Metal Multipliers</h3>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Applied as: Base Price × Multiplier</p>
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-[var(--color-ink)]">Metal Prices</h3>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Price per gram in LKR — added on top of making charge</p>
                   </div>
                 </div>
 
@@ -3070,16 +3092,16 @@ export default function Admin() {
                         title={`Metal colour — ${m.displayName}`}
                       />
                       <span className="flex-1 text-xs text-gray-700 font-medium truncate min-w-0">{m.displayName}</span>
-                      <span className="text-xs text-gray-400 shrink-0">×</span>
+                      <span className="text-xs text-gray-400 shrink-0">LKR</span>
                       <input
-                        type="number" step="0.01" min="0"
-                        value={m.multiplier}
+                        type="number" step="1" min="0"
+                        value={m.pricePerGram}
                         onChange={e => {
                           const updated = [...metalsList];
-                          updated[i] = { ...m, multiplier: Number(e.target.value) };
+                          updated[i] = { ...m, pricePerGram: Number(e.target.value) };
                           setMetalsList(updated);
                         }}
-                        className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                        className="w-28 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
                       />
                       <button
                         type="button"
@@ -3112,24 +3134,24 @@ export default function Admin() {
                       onChange={e => setNewMetal({ ...newMetal, displayName: e.target.value })}
                       className="flex-1 min-w-[160px] p-2 border border-amber-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
                     />
-                    <span className="text-xs text-gray-400 shrink-0">×</span>
+                    <span className="text-xs text-gray-400 shrink-0">LKR</span>
                     <input
-                      type="number" step="0.01" min="0" placeholder="Multiplier"
-                      value={newMetal.multiplier || ''}
-                      onChange={e => setNewMetal({ ...newMetal, multiplier: Number(e.target.value) })}
-                      className="w-24 p-2 border border-amber-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
+                      type="number" step="1" min="0" placeholder="Per gram"
+                      value={newMetal.pricePerGram || ''}
+                      onChange={e => setNewMetal({ ...newMetal, pricePerGram: Number(e.target.value) })}
+                      className="w-28 p-2 border border-amber-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
                     />
                     <button
                       type="button"
                       onClick={() => {
                         if (!newMetal.displayName.trim()) return;
-                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), pricePerGram: 0, multiplier: newMetal.multiplier || 1, color: newMetal.color }]);
-                        setNewMetal({ displayName: '', multiplier: 1, color: '#cccccc' });
+                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), pricePerGram: newMetal.pricePerGram || 0, color: newMetal.color }]);
+                        setNewMetal({ displayName: '', pricePerGram: 0, color: '#cccccc' });
                         setShowAddMetal(false);
                       }}
                       className="px-3 py-2 bg-amber-500 text-white text-xs rounded hover:bg-amber-600 transition-colors shrink-0"
                     >Add</button>
-                    <button type="button" onClick={() => { setShowAddMetal(false); setNewMetal({ displayName: '', multiplier: 1, color: '#cccccc' }); }}
+                    <button type="button" onClick={() => { setShowAddMetal(false); setNewMetal({ displayName: '', pricePerGram: 0, color: '#cccccc' }); }}
                       className="p-1.5 text-gray-400 hover:text-gray-600 rounded text-sm">✕</button>
                   </div>
                 ) : (
