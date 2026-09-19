@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry, IUpgradeEntry } from '../context/PricingContext';
@@ -686,10 +686,44 @@ export default function Admin() {
   const [showAddMetal,        setShowAddMetal]        = useState(false);
   const [showAddStone,        setShowAddStone]        = useState(false);
 
+  /**
+   * True once the admin has edited a pricing list, until the next successful save.
+   *
+   * These three lists are an edit buffer, and the effect below seeds them from
+   * server state. `pricing` gets a fresh object identity on every fetch — even
+   * for byte-identical data — and PricingContext refetches on window focus, so
+   * without this guard a refetch mid-edit silently replaced typed values with
+   * the stored ones and the next save wrote those back, reporting success.
+   *
+   * A ref, not state: marking the buffer dirty must not itself trigger a render.
+   */
+  const metalsListDirty   = useRef(false);
+  const stonesListDirty   = useRef(false);
+  const upgradesListDirty = useRef(false);
+
+  // Wrapped rather than flagging at each of the twelve call sites: the flag
+  // cannot then be forgotten when another edit control is added later.
+  const editMetalsList = useCallback((next: IMetalEntry[]) => {
+    metalsListDirty.current = true;
+    setMetalsList(next);
+  }, []);
+  const editStonesList = useCallback((next: IStoneEntry[]) => {
+    stonesListDirty.current = true;
+    setStonesList(next);
+  }, []);
+  const editUpgradesList = useCallback((next: IUpgradeEntry[]) => {
+    upgradesListDirty.current = true;
+    setUpgradesList(next);
+  }, []);
+
+  // Seeds each list from server state, but only while it holds no unsaved edits.
+  // Each list is tracked separately so editing metals does not freeze incoming
+  // stone or upgrade changes.
   useEffect(() => {
-    if (pricing) {
-      setMetalsList([...(pricing.metals ?? [])]);
-      setStonesList([...(pricing.stones ?? [])]);
+    if (!pricing) return;
+    if (!metalsListDirty.current) setMetalsList([...(pricing.metals ?? [])]);
+    if (!stonesListDirty.current) setStonesList([...(pricing.stones ?? [])]);
+    if (!upgradesListDirty.current) {
       setUpgradesList(
         (pricing.upgrades ?? []).length > 0
           ? [...pricing.upgrades]
@@ -3110,7 +3144,7 @@ export default function Admin() {
                         onChange={e => {
                           const updated = [...metalsList];
                           updated[i] = { ...m, color: e.target.value };
-                          setMetalsList(updated);
+                          editMetalsList(updated);
                         }}
                         className="w-7 h-7 rounded cursor-pointer border border-gray-200 bg-white p-0.5 shrink-0"
                         title={`Metal colour — ${m.displayName}`}
@@ -3123,7 +3157,7 @@ export default function Admin() {
                         onChange={e => {
                           const updated = [...metalsList];
                           updated[i] = { ...m, pricePerGram: Number(e.target.value) };
-                          setMetalsList(updated);
+                          editMetalsList(updated);
                         }}
                         className="w-28 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-amber-400"
                       />
@@ -3131,7 +3165,7 @@ export default function Admin() {
                         type="button"
                         onClick={() => {
                           if (window.confirm(`Delete "${m.displayName}"? This will remove it from pricing.`)) {
-                            setMetalsList(metalsList.filter((_, idx) => idx !== i));
+                            editMetalsList(metalsList.filter((_, idx) => idx !== i));
                           }
                         }}
                         className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0"
@@ -3169,7 +3203,7 @@ export default function Admin() {
                       type="button"
                       onClick={() => {
                         if (!newMetal.displayName.trim()) return;
-                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), pricePerGram: newMetal.pricePerGram || 0, color: newMetal.color }]);
+                        editMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), pricePerGram: newMetal.pricePerGram || 0, color: newMetal.color }]);
                         setNewMetal({ displayName: '', pricePerGram: 0, color: '#cccccc' });
                         setShowAddMetal(false);
                       }}
@@ -3205,7 +3239,7 @@ export default function Admin() {
                         onChange={e => {
                           const updated = [...stonesList];
                           updated[i] = { ...s, color: e.target.value };
-                          setStonesList(updated);
+                          editStonesList(updated);
                         }}
                         className="w-7 h-7 rounded cursor-pointer border border-gray-200 bg-white p-0.5 shrink-0"
                         title={`Stone colour — ${s.displayName}`}
@@ -3218,7 +3252,7 @@ export default function Admin() {
                         onChange={e => {
                           const updated = [...stonesList];
                           updated[i] = { ...s, price: Number(e.target.value) };
-                          setStonesList(updated);
+                          editStonesList(updated);
                         }}
                         className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-blue-300"
                       />
@@ -3226,7 +3260,7 @@ export default function Admin() {
                         type="button"
                         onClick={() => {
                           if (window.confirm(`Delete "${s.displayName}"? This will remove it from pricing.`)) {
-                            setStonesList(stonesList.filter((_, idx) => idx !== i));
+                            editStonesList(stonesList.filter((_, idx) => idx !== i));
                           }
                         }}
                         className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0"
@@ -3264,7 +3298,7 @@ export default function Admin() {
                       type="button"
                       onClick={() => {
                         if (!newStone.displayName.trim()) return;
-                        setStonesList([...stonesList, { key: genKey(newStone.displayName), displayName: newStone.displayName.trim(), price: newStone.price || 0, color: newStone.color }]);
+                        editStonesList([...stonesList, { key: genKey(newStone.displayName), displayName: newStone.displayName.trim(), price: newStone.price || 0, color: newStone.color }]);
                         setNewStone({ displayName: '', price: 0, color: '#cccccc' });
                         setShowAddStone(false);
                       }}
@@ -3300,7 +3334,7 @@ export default function Admin() {
                         onChange={e => {
                           const updated = [...upgradesList];
                           updated[i] = { ...u, name: e.target.value };
-                          setUpgradesList(updated);
+                          editUpgradesList(updated);
                         }}
                         className="flex-1 min-w-0 p-2 border border-gray-200 text-xs rounded bg-white focus:outline-none focus:border-green-400"
                       />
@@ -3311,7 +3345,7 @@ export default function Admin() {
                         onChange={e => {
                           const updated = [...upgradesList];
                           updated[i] = { ...u, price: Number(e.target.value) };
-                          setUpgradesList(updated);
+                          editUpgradesList(updated);
                         }}
                         className="w-24 p-2 border border-gray-200 text-sm rounded bg-white focus:outline-none focus:border-green-400"
                       />
@@ -3319,7 +3353,7 @@ export default function Admin() {
                         type="button"
                         onClick={() => {
                           if (window.confirm(`Delete "${u.name || 'this upgrade'}"? This will remove it from pricing.`)) {
-                            setUpgradesList(upgradesList.filter((_, idx) => idx !== i));
+                            editUpgradesList(upgradesList.filter((_, idx) => idx !== i));
                           }
                         }}
                         className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0"
@@ -3333,7 +3367,7 @@ export default function Admin() {
 
                 <button
                   type="button"
-                  onClick={() => setUpgradesList([...upgradesList, { key: `upgrade_${Date.now()}_${upgradesList.length}`, name: '', price: 0 }])}
+                  onClick={() => editUpgradesList([...upgradesList, { key: `upgrade_${Date.now()}_${upgradesList.length}`, name: '', price: 0 }])}
                   className="text-xs text-green-600 hover:text-green-700 font-semibold flex items-center gap-1 mt-1"
                 >
                   + Add New Upgrade
@@ -3365,7 +3399,7 @@ export default function Admin() {
                       u => u.key === 'engraving' || /engrav/i.test(u.name)
                     );
 
-                    const success = await updatePricing(
+                    const saved = await updatePricing(
                       {
                         metals: metalsList,
                         stones: stonesList,
@@ -3374,9 +3408,29 @@ export default function Admin() {
                       },
                       user.token
                     );
-                    setPricingSaveStatus(success ? 'success' : 'error');
+
+                    // A save is the one moment a reseed is right: the response is
+                    // what was actually stored (colours backfilled, blank upgrade
+                    // rows dropped), so adopt it and drop the dirty flags. Raw
+                    // setters here — the wrappers would re-dirty the buffer.
+                    // On failure the flags stay set, so the admin's unsaved values
+                    // survive for a retry instead of being replaced by a refetch.
+                    if (saved) {
+                      setMetalsList([...(saved.metals ?? [])]);
+                      setStonesList([...(saved.stones ?? [])]);
+                      setUpgradesList(
+                        (saved.upgrades ?? []).length > 0
+                          ? [...saved.upgrades]
+                          : [{ key: 'engraving', name: 'Engraving', price: saved.engravingPrice ?? 5000 }]
+                      );
+                      metalsListDirty.current = false;
+                      stonesListDirty.current = false;
+                      upgradesListDirty.current = false;
+                    }
+
+                    setPricingSaveStatus(saved ? 'success' : 'error');
                     setSavingPricing(false);
-                    if (success) setTimeout(() => setPricingSaveStatus('idle'), 3000);
+                    if (saved) setTimeout(() => setPricingSaveStatus('idle'), 3000);
                   }}
                   className="px-6 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest rounded-sm transition-colors disabled:opacity-50"
                 >

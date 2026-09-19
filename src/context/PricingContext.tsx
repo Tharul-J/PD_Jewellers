@@ -134,7 +134,8 @@ interface PricingContextType {
    */
   pricingLoaded: boolean;
   refreshPricing: () => Promise<void>;
-  updatePricing: (newPricing: Partial<IPricing>, token: string) => Promise<boolean>;
+  /** Resolves to the saved pricing document, or null if the save failed. */
+  updatePricing: (newPricing: Partial<IPricing>, token: string) => Promise<IPricing | null>;
 }
 
 const defaultPricing: IPricing = {
@@ -293,7 +294,7 @@ const PricingContext = createContext<PricingContextType>({
   configuratorStones: buildConfiguratorStones(defaultPricing.stones),
   pricingLoaded: false,
   refreshPricing: async () => {},
-  updatePricing: async () => false,
+  updatePricing: async () => null,
 });
 
 export const usePricing = () => useContext(PricingContext);
@@ -318,7 +319,14 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const updatePricing = async (newPricing: Partial<IPricing>, token: string) => {
+  /**
+   * Returns the saved document on success, null on failure.
+   *
+   * The caller needs the body, not just a boolean: the admin form reseeds its
+   * edit buffer from the server's own response after a save, which is the one
+   * moment a reseed is correct.
+   */
+  const updatePricing = async (newPricing: Partial<IPricing>, token: string): Promise<IPricing | null> => {
     try {
       const res = await fetch('/api/pricing', {
         method: 'PUT',
@@ -327,13 +335,14 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       if (res.ok) {
         const data = await res.json();
-        setPricing(normalisePricing(data));
-        return true;
+        const normalised = normalisePricing(data);
+        setPricing(normalised);
+        return normalised;
       }
     } catch {
       console.error('Failed to update pricing');
     }
-    return false;
+    return null;
   };
 
   useEffect(() => { refreshPricing(); }, []);
