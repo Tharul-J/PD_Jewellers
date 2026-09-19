@@ -40,6 +40,36 @@ const RING_SIZE_SCALE: Record<string, number> = {
   'US 9': 1.10,
 };
 
+// --- Size price adjustment -------------------------------------------------
+// Deliberately separate from the geometry/AR scale maps above: those size a mesh
+// on screen, these price the extra metal a larger piece takes. Index-based, so
+// the default size is the anchor and lands on exactly 1.00 by construction.
+
+const RING_SIZES = ['US 4', 'US 5', 'US 6', 'US 7', 'US 8', 'US 9'] as const;
+const DEFAULT_RING_SIZE = 'US 7';
+
+const PENDANT_SIZES = ['small', 'medium', 'large'] as const;
+const DEFAULT_PENDANT_SIZE = 'medium';
+
+const RING_PRICE_STEP = 0.025;    // 2.5% per size step
+const PENDANT_PRICE_STEP = 0.05;  // 5% per size step
+
+/** US 4 .925 · US 5 .950 · US 6 .975 · US 7 1.000 · US 8 1.025 · US 9 1.050 */
+export function ringSizePriceMultiplier(size: string): number {
+  const index = RING_SIZES.indexOf(size as typeof RING_SIZES[number]);
+  const anchor = RING_SIZES.indexOf(DEFAULT_RING_SIZE);
+  if (index < 0) return 1;
+  return 1 + (index - anchor) * RING_PRICE_STEP;
+}
+
+/** Small .95 · Medium 1.00 · Large 1.05 */
+export function pendantSizePriceMultiplier(size: string): number {
+  const index = PENDANT_SIZES.indexOf(size as typeof PENDANT_SIZES[number]);
+  const anchor = PENDANT_SIZES.indexOf(DEFAULT_PENDANT_SIZE);
+  if (index < 0) return 1;
+  return 1 + (index - anchor) * PENDANT_PRICE_STEP;
+}
+
 // Camera FOV compensates for body scale so Large stays framed and Small doesn't look lost.
 const PENDANT_SIZE_FOV: Record<'small' | 'medium' | 'large', number> = {
   small: 38,
@@ -98,7 +128,7 @@ export default function Configurator() {
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [customText, setCustomText] = useState(() => localStorage.getItem('cfg_customText') || 'PD');
   const [pendantShape, setPendantShape] = useState<'standard'|'heart'|'tag'>(() => { const s = localStorage.getItem('cfg_pendantShape'); return (s === 'standard' || s === 'heart' || s === 'tag') ? s : 'standard'; });
-  const [pendantSize, setPendantSize] = useState<'small'|'medium'|'large'>(() => { const s = localStorage.getItem('cfg_pendantSize'); return (s === 'small' || s === 'medium' || s === 'large') ? s : 'medium'; });
+  const [pendantSize, setPendantSize] = useState<'small'|'medium'|'large'>(() => { const s = localStorage.getItem('cfg_pendantSize'); return (s === 'small' || s === 'medium' || s === 'large') ? s : DEFAULT_PENDANT_SIZE; });
   const prevPendantShapeRef = useRef(pendantShape);
   // Metal/stone are addressed by key, which now comes from the Pricing API rather
   // than from constants.ts. The saved key is trusted on load and only corrected
@@ -121,7 +151,7 @@ export default function Configurator() {
   });
   const [fontBold, setFontBold] = useState(() => localStorage.getItem('cfg_fontBold') === 'true');
   const [fontItalic, setFontItalic] = useState(() => localStorage.getItem('cfg_fontItalic') === 'true');
-  const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || 'US 7');
+  const [ringSize, setRingSize] = useState(() => localStorage.getItem('cfg_ringSize') || DEFAULT_RING_SIZE);
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const { user } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
@@ -163,7 +193,7 @@ export default function Configurator() {
   // so a persisted size survives a page reload).
   useEffect(() => {
     if (prevPendantShapeRef.current !== pendantShape) {
-      setPendantSize('medium');
+      setPendantSize(DEFAULT_PENDANT_SIZE);
       prevPendantShapeRef.current = pendantShape;
     }
   }, [pendantShape]);
@@ -381,13 +411,21 @@ export default function Configurator() {
       }
     }
 
+    // A larger piece takes more metal, so the whole indicative figure moves with the
+    // selected size. Anchored on the default size, which multiplies out to exactly 1.
+    const sizeMultiplier = modelType === 'ring'
+      ? ringSizePriceMultiplier(ringSize)
+      : pendantSizePriceMultiplier(pendantSize);
+
+    // LKR is whole-number: round each line, then total the rounded lines so the
+    // breakdown always adds up to the total shown above it.
+    const metal     = Math.round(metalPart * sizeMultiplier);
+    const stone     = Math.round(stonePart * sizeMultiplier);
+    const engraving = Math.round(engravingPart * sizeMultiplier);
+
     return {
-      total: Math.round(metalPart + stonePart + engravingPart),
-      breakdown: {
-        metal:    Math.round(metalPart),
-        stone:    Math.round(stonePart),
-        engraving:Math.round(engravingPart),
-      },
+      total: metal + stone + engraving,
+      breakdown: { metal, stone, engraving },
     };
   };
 
