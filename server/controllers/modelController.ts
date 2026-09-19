@@ -9,7 +9,7 @@ const extractCloudinaryPublicId = (url: string): string | null => {
   return match[1].replace(/\.[^/.]+$/, '');
 };
 
-let mockModelsSeed: Array<{ _id: string; name: string; category: string; basePrice: number; glbUrl: string; isActive: boolean; createdAt?: string }> = [];
+let mockModelsSeed: Array<{ _id: string; name: string; category: string; basePrice: number; weight?: number; glbUrl: string; isActive: boolean; createdAt?: string }> = [];
 
 // Local files that ship with the project — seeded to DB on first startup
 const LOCAL_RING_SEEDS = [
@@ -53,7 +53,7 @@ export const getModels = async (req: Request, res: Response): Promise<void> => {
 // @access  Private/Admin
 export const createModel = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, glbUrl, category, basePrice } = req.body;
+    const { name, glbUrl, category, basePrice, weight } = req.body;
 
     if (mongoose.connection.readyState !== 1) {
       const newM = {
@@ -62,6 +62,7 @@ export const createModel = async (req: Request, res: Response): Promise<void> =>
         glbUrl: glbUrl || '',
         category,
         basePrice,
+        weight: Number(weight) || 0,
         isActive: true,
         createdAt: new Date().toISOString(),
       };
@@ -75,6 +76,9 @@ export const createModel = async (req: Request, res: Response): Promise<void> =>
       glbUrl,
       category,
       basePrice,
+      // 0 is the "unknown" sentinel — the configurator falls back to the
+      // category default weight at price time.
+      weight: Number(weight) || 0,
     });
 
     const createdModel = await model.save();
@@ -89,13 +93,14 @@ export const createModel = async (req: Request, res: Response): Promise<void> =>
 // @access  Private/Admin
 export const updateModel = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, category, basePrice, glbUrl } = req.body;
+    const { name, category, basePrice, weight, glbUrl } = req.body;
     if (mongoose.connection.readyState !== 1) {
       const idx = mockModelsSeed.findIndex(m => m._id === req.params.id);
       if (idx === -1) { res.status(404).json({ message: 'Model not found' }); return; }
       if (name !== undefined) mockModelsSeed[idx].name = name;
       if (category !== undefined) mockModelsSeed[idx].category = category;
       if (basePrice !== undefined) mockModelsSeed[idx].basePrice = basePrice;
+      if (weight !== undefined) mockModelsSeed[idx].weight = Number(weight) || 0;
       if (glbUrl !== undefined) mockModelsSeed[idx].glbUrl = glbUrl;
       res.json(mockModelsSeed[idx]);
       return;
@@ -105,6 +110,7 @@ export const updateModel = async (req: Request, res: Response): Promise<void> =>
     if (name !== undefined) model.name = name;
     if (category !== undefined) model.category = category;
     if (basePrice !== undefined) model.basePrice = Number(basePrice);
+    if (weight !== undefined) model.weight = Number(weight) || 0;
     if (glbUrl !== undefined) model.glbUrl = glbUrl;
     const updated = await model.save();
     res.json(updated);

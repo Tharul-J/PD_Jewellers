@@ -598,7 +598,7 @@ export default function Admin() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [savingPricing, setSavingPricing] = useState(false);
-  const [newModel, setNewModel] = useState({ name: '', category: 'ring', basePrice: 1000 });
+  const [newModel, setNewModel] = useState({ name: '', category: 'ring', basePrice: 1000, weight: '' });
   const [file, setFile] = useState<File | null>(null);
 
   // Blog CRUD state
@@ -635,7 +635,7 @@ export default function Admin() {
   const [deleteModelId, setDeleteModelId] = useState<string | null>(null);
   const [editingModel, setEditingModel] = useState<any>(null);
   const [showModelEditForm, setShowModelEditForm] = useState(false);
-  const [modelForm, setModelForm] = useState({ name: '', category: 'ring', basePrice: 1000, glbUrl: '' });
+  const [modelForm, setModelForm] = useState({ name: '', category: 'ring', basePrice: 1000, weight: '', glbUrl: '' });
   const [savingModel, setSavingModel] = useState(false);
   const [modelCategoryFilter, setModelCategoryFilter] = useState<string>('all');
   const [modelCategories, setModelCategories] = useState<string[]>(() => {
@@ -1061,13 +1061,13 @@ export default function Admin() {
       const modelRes = await fetch('/api/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-        body: JSON.stringify({ ...newModel, glbUrl: uploadData.url }),
+        body: JSON.stringify({ ...newModel, weight: Number(newModel.weight) || 0, glbUrl: uploadData.url }),
       });
       const createdModel = await modelRes.json();
       if (!modelRes.ok) throw new Error(createdModel.message || 'Failed to save model record');
 
       setModelsList(prev => [...prev, createdModel]);
-      setNewModel({ name: '', category: 'ring', basePrice: 1000 });
+      setNewModel({ name: '', category: 'ring', basePrice: 1000, weight: '' });
       setFile(null);
       showToast('Model uploaded successfully', 'success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1100,14 +1100,16 @@ export default function Admin() {
 
   const handleEditModel = (model: any) => {
     setEditingModel(model);
-    setModelForm({ name: model.name, category: model.category, basePrice: model.basePrice, glbUrl: model.glbUrl || '' });
+    // 0 is the "unknown" sentinel, so show it as an empty field rather than a
+    // literal 0 an admin would have to clear before typing a real weight.
+    setModelForm({ name: model.name, category: model.category, basePrice: model.basePrice, weight: model.weight ? String(model.weight) : '', glbUrl: model.glbUrl || '' });
     setShowModelEditForm(true);
     setDeleteModelId(null);
   };
 
   const handleCancelModelForm = () => {
     setEditingModel(null);
-    setModelForm({ name: '', category: 'ring', basePrice: 1000, glbUrl: '' });
+    setModelForm({ name: '', category: 'ring', basePrice: 1000, weight: '', glbUrl: '' });
     setShowModelEditForm(false);
   };
 
@@ -1119,7 +1121,7 @@ export default function Admin() {
       const res = await fetch(`/api/models/${editingModel._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify(modelForm),
+        body: JSON.stringify({ ...modelForm, weight: Number(modelForm.weight) || 0 }),
       });
       if (!res.ok) {
         let message = `Server error (${res.status})`;
@@ -2045,6 +2047,17 @@ export default function Admin() {
                         />
                       </div>
                       <div>
+                        <label className="block text-xs text-gray-500 mb-1">Weight (grams)</label>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={modelForm.weight}
+                          onChange={e => setModelForm({ ...modelForm, weight: e.target.value })}
+                          className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                          placeholder="0"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">Used for metal cost calculation. Leave 0 to use category default.</p>
+                      </div>
+                      <div>
                         <label className="block text-xs text-gray-500 mb-1">GLB File URL (optional override)</label>
                         <input
                           type="text"
@@ -2144,6 +2157,17 @@ export default function Admin() {
                         onChange={e => setNewModel({ ...newModel, basePrice: Number(e.target.value) })}
                         className="w-full p-2 border border-gray-200 text-sm"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Weight (grams)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={newModel.weight}
+                        onChange={e => setNewModel({ ...newModel, weight: e.target.value })}
+                        className="w-full p-2 border border-gray-200 text-sm"
+                        placeholder="0"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">Used for metal cost calculation. Leave 0 to use category default.</p>
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">GLB / GLTF File</label>
