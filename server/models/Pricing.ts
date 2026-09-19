@@ -3,7 +3,14 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IMetalEntry {
   key: string;
   displayName: string;
-  multiplier: number;
+  /** LKR per gram. 0 until an admin sets a real rate. */
+  pricePerGram: number;
+  /**
+   * @deprecated Ratio-against-silver multiplier, replaced by `pricePerGram`.
+   * Legacy documents still carry it; `withPricePerGram` in pricingRoutes strips
+   * it on read. Removed from the type in the final cleanup step.
+   */
+  multiplier?: number;
   color?: string;
 }
 
@@ -31,7 +38,7 @@ export interface IPricing {
 export interface IPricingDoc extends IPricing, Document {}
 
 const metalEntrySchema = new Schema<IMetalEntry>(
-  { key: String, displayName: String, multiplier: { type: Number, default: 1 }, color: String },
+  { key: String, displayName: String, pricePerGram: { type: Number, default: 0 }, color: String },
   { _id: false }
 );
 

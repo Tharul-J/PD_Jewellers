@@ -5,7 +5,14 @@ import { shouldPausePolling } from '../lib/pollGuard';
 export interface IMetalEntry {
   key: string;
   displayName: string;
-  multiplier: number;
+  /** LKR per gram. 0 until an admin sets a real rate. */
+  pricePerGram: number;
+  /**
+   * @deprecated Ratio-against-silver multiplier, replaced by `pricePerGram`.
+   * Kept optional only so the consumers still being migrated keep compiling;
+   * the server strips it on read and it is removed in the final cleanup step.
+   */
+  multiplier?: number;
   color?: string;
 }
 
@@ -57,7 +64,9 @@ export interface ConfiguratorMetal {
   key: string;
   name: string;
   color: string;
-  multiplier: number;
+  pricePerGram: number;
+  /** @deprecated See IMetalEntry.multiplier — removed in the final cleanup step. */
+  multiplier?: number;
   material: MetalMaterial;
 }
 
@@ -137,13 +146,16 @@ interface PricingContextType {
 }
 
 const defaultPricing: IPricing = {
+  // Only reached when /api/pricing is unreachable. Per-gram rates are admin-set
+  // and change with the market, so there is no sensible hardcoded figure — 0
+  // shows a zero metal line and keeps the page rendering.
   metals: [
-    { key: 'silver',     displayName: '925 Sterling Silver',        multiplier: METALS.silver.priceMultiplier,    color: METALS.silver.color    },
-    { key: 'white',      displayName: '18K White Gold',              multiplier: METALS.white.priceMultiplier,     color: METALS.white.color     },
-    { key: 'gold',       displayName: '22K Yellow Gold (916 Gold)',  multiplier: METALS.gold.priceMultiplier,      color: METALS.gold.color      },
-    { key: 'gold18k', displayName: '18K Yellow Gold', multiplier: METALS.gold18k.priceMultiplier, color: METALS.gold18k.color },
-    { key: 'rose',       displayName: '18K Rose Gold',               multiplier: METALS.rose.priceMultiplier,      color: METALS.rose.color      },
-    { key: 'platinum',   displayName: 'Platinum (Pt950)',             multiplier: METALS.platinum.priceMultiplier,  color: METALS.platinum.color  },
+    { key: 'silver',     displayName: '925 Sterling Silver',        pricePerGram: METALS.silver.pricePerGram,    color: METALS.silver.color    },
+    { key: 'white',      displayName: '18K White Gold',              pricePerGram: METALS.white.pricePerGram,     color: METALS.white.color     },
+    { key: 'gold',       displayName: '22K Yellow Gold (916 Gold)',  pricePerGram: METALS.gold.pricePerGram,      color: METALS.gold.color      },
+    { key: 'gold18k', displayName: '18K Yellow Gold', pricePerGram: METALS.gold18k.pricePerGram, color: METALS.gold18k.color },
+    { key: 'rose',       displayName: '18K Rose Gold',               pricePerGram: METALS.rose.pricePerGram,      color: METALS.rose.color      },
+    { key: 'platinum',   displayName: 'Platinum (Pt950)',             pricePerGram: METALS.platinum.pricePerGram,  color: METALS.platinum.color  },
   ],
   stones: [
     { key: 'aquamarine',     displayName: 'Cornflower / Sky Blue Sapphire', price: STONES.aquamarine.price,     color: STONES.aquamarine.color     },
@@ -249,7 +261,8 @@ function buildConfiguratorMetals(metals: IMetalEntry[]): ConfiguratorMetal[] {
       key,
       name: m.displayName,
       color,
-      multiplier: m.multiplier ?? 1,
+      pricePerGram: m.pricePerGram ?? 0,
+      multiplier: m.multiplier,
       material: {
         color,
         metalness:          c.metalness          ?? DEFAULT_METAL_3D.metalness,

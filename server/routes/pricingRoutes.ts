@@ -6,12 +6,16 @@ import mongoose from 'mongoose';
 const router = express.Router();
 
 // ── Phase 2 canonical defaults ────────────────────────────────────────────────
+// pricePerGram is LKR per gram and starts at 0 for every metal: a live gold rate
+// is the admin's to enter, and the old ratio multipliers carried no absolute rate
+// to convert from, so there is nothing to derive. 0 renders a zero metal line
+// rather than a wrong one.
 export const DEFAULT_METALS = [
-  { key: 'silver',    displayName: '925 Sterling Silver',        multiplier: 1,  color: '#e4e4e4' },
-  { key: 'white',     displayName: '18K White Gold',              multiplier: 13, color: '#eeecea' },
-  { key: 'gold',      displayName: '22K Yellow Gold (916 Gold)',  multiplier: 18, color: '#d4a820' },
-  { key: 'rose',      displayName: '18K Rose Gold',               multiplier: 13, color: '#e89080' },
-  { key: 'platinum',  displayName: 'Platinum (Pt950)',             multiplier: 22, color: '#b8b8b4' },
+  { key: 'silver',    displayName: '925 Sterling Silver',        pricePerGram: 0, color: '#e4e4e4' },
+  { key: 'white',     displayName: '18K White Gold',              pricePerGram: 0, color: '#eeecea' },
+  { key: 'gold',      displayName: '22K Yellow Gold (916 Gold)',  pricePerGram: 0, color: '#d4a820' },
+  { key: 'rose',      displayName: '18K Rose Gold',               pricePerGram: 0, color: '#e89080' },
+  { key: 'platinum',  displayName: 'Platinum (Pt950)',             pricePerGram: 0, color: '#b8b8b4' },
 ];
 
 // Mirrors src/constants.ts METALS, so an admin swatch matches the 3D material.
@@ -87,6 +91,32 @@ function withMetalColors(metals: any[]): any[] {
   });
 }
 
+/**
+ * Read-time migration of a metals array from the ratio `multiplier` to an LKR
+ * `pricePerGram`, mirroring the flat-field migration above.
+ *
+ * An entry carrying the old field gets `pricePerGram: 0` and loses `multiplier`
+ * entirely. Nothing is derived from the old value — see DEFAULT_METALS. Entries
+ * already migrated are returned untouched, so this is idempotent and safe to run
+ * on every GET.
+ */
+function withPricePerGram(metals: any[]): any[] {
+  return (metals ?? []).map(m => {
+    const { multiplier: _legacy, ...rest } = m ?? {};
+    return {
+      ...rest,
+      pricePerGram: typeof m?.pricePerGram === 'number' ? m.pricePerGram : 0,
+    };
+  });
+}
+
+/** True when any entry still carries `multiplier`, or lacks a numeric `pricePerGram`. */
+function metalsNeedPriceMigration(metals: any[]): boolean {
+  return (metals ?? []).some(
+    m => m?.multiplier !== undefined || typeof m?.pricePerGram !== 'number'
+  );
+}
+
 /** Seeds the upgrades array from the legacy flat engravingPrice when it's empty. */
 function withUpgrades(upgrades: any[] | undefined, engravingPrice: number): any[] {
   if (Array.isArray(upgrades) && upgrades.length > 0) return upgrades;
@@ -102,12 +132,13 @@ function engravingFromUpgrades(upgrades: any[], fallback: number): number {
 // Migrates an old flat-field document to the new array format.
 // Preserves any admin-edited values that are valid, corrects known stale values.
 function migrateFromFlatFields(old: Record<string, any>) {
+  // The legacy flat metalMultiplier_* fields are deliberately dropped, not
+  // converted: they were ratios against silver with no absolute per-gram rate
+  // behind them, so there is no arithmetic that turns one into an LKR/g figure.
   const metals = DEFAULT_METALS.map(m => ({
     key: m.key,
     displayName: m.displayName,
-    multiplier: typeof old[`metalMultiplier_${m.key}`] === 'number'
-      ? old[`metalMultiplier_${m.key}`]
-      : m.multiplier,
+    pricePerGram: m.pricePerGram,
     color: m.color,
   }));
 
@@ -196,7 +227,7 @@ router.get('/', async (req, res) => {
     // Already new format — backfill colours and the upgrades array if this
     // document predates them, then persist the backfill so it happens once.
     const stones   = withStoneColors(raw.stones);
-    const metals   = withMetalColors(raw.metals);
+    const metals   = withMetalColors(withPricePerGram(raw.metals));
     const upgrades = withUpgrades(raw.upgrades, raw.engravingPrice);
 
     // Compare against the resolved values so a stone stuck on the grey fallback
@@ -207,9 +238,12 @@ router.get('/', async (req, res) => {
     const needsBackfill =
       !Array.isArray(raw.upgrades) || raw.upgrades.length === 0 ||
       changed(raw.stones, stones) ||
-      changed(raw.metals, metals);
+      changed(raw.metals, metals) ||
+      metalsNeedPriceMigration(raw.metals);
 
     if (needsBackfill) {
+      // $set on the whole metals array replaces the subdocuments outright, so the
+      // legacy `multiplier` key is gone from the stored doc, not just the response.
       await Pricing.updateOne({ _id: raw._id }, { $set: { stones, metals, upgrades } });
     }
 
@@ -239,13 +273,13 @@ router.put('/', protect, admin, async (req, res) => {
     if (!pricing) {
       const nextUpgrades = withUpgrades(upgrades, engravingPrice ?? DEFAULT_ENGRAVING);
       pricing = new Pricing({
-        metals:         withMetalColors(metals ?? DEFAULT_METALS),
+        metals:         withMetalColors(withPricePerGram(metals ?? DEFAULT_METALS)),
         stones:         withStoneColors(stones ?? DEFAULT_STONES),
         upgrades:       nextUpgrades,
         engravingPrice: engravingFromUpgrades(nextUpgrades, engravingPrice ?? DEFAULT_ENGRAVING),
       });
     } else {
-      if (metals         != null) pricing.metals         = withMetalColors(metals);
+      if (metals         != null) pricing.metals         = withMetalColors(withPricePerGram(metals));
       if (stones         != null) pricing.stones         = withStoneColors(stones);
       if (engravingPrice != null) pricing.engravingPrice = engravingPrice;
       if (upgrades       != null) {

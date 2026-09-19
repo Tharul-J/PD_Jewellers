@@ -1,10 +1,14 @@
+// pricePerGram is LKR per gram, and is 0 here by design: these entries are only
+// the offline fallback for an unreachable /api/pricing, and a stale hardcoded
+// gold rate would quote a wrong price rather than an obviously absent one. The
+// admin-managed Pricing document is the single source of real rates.
 export const METALS = {
-  silver:   { name: '925 Sterling Silver',       color: '#e4e4e4', metalness: 0.9,  roughness: 0.15, clearcoat: 0.3,  clearcoatRoughness: 0.2,  priceMultiplier: 1  },
-  white:    { name: '18K White Gold',             color: '#eeecea', metalness: 1,    roughness: 0.04, clearcoat: 0.8,  clearcoatRoughness: 0.05, priceMultiplier: 13 },
-  gold:     { name: '22K Yellow Gold (916 Gold)', color: '#d4a820', metalness: 1,    roughness: 0.04, clearcoat: 0.6,  clearcoatRoughness: 0.08, priceMultiplier: 18 },
-  gold18k: { name: '18K Yellow Gold', color: '#F5C842', metalness: 1, roughness: 0.03, clearcoat: 0.85, clearcoatRoughness: 0.04, priceMultiplier: 13 },
-  rose:     { name: '18K Rose Gold',              color: '#e89080', metalness: 1,    roughness: 0.05, clearcoat: 0.5,  clearcoatRoughness: 0.1,  priceMultiplier: 13 },
-  platinum: { name: 'Platinum (Pt950)',            color: '#b8b8b4', metalness: 1,    roughness: 0.03, clearcoat: 1.0,  clearcoatRoughness: 0.03, priceMultiplier: 22 },
+  silver:   { name: '925 Sterling Silver',       color: '#e4e4e4', metalness: 0.9,  roughness: 0.15, clearcoat: 0.3,  clearcoatRoughness: 0.2,  pricePerGram: 0 },
+  white:    { name: '18K White Gold',             color: '#eeecea', metalness: 1,    roughness: 0.04, clearcoat: 0.8,  clearcoatRoughness: 0.05, pricePerGram: 0 },
+  gold:     { name: '22K Yellow Gold (916 Gold)', color: '#d4a820', metalness: 1,    roughness: 0.04, clearcoat: 0.6,  clearcoatRoughness: 0.08, pricePerGram: 0 },
+  gold18k: { name: '18K Yellow Gold', color: '#F5C842', metalness: 1, roughness: 0.03, clearcoat: 0.85, clearcoatRoughness: 0.04, pricePerGram: 0 },
+  rose:     { name: '18K Rose Gold',              color: '#e89080', metalness: 1,    roughness: 0.05, clearcoat: 0.5,  clearcoatRoughness: 0.1,  pricePerGram: 0 },
+  platinum: { name: 'Platinum (Pt950)',            color: '#b8b8b4', metalness: 1,    roughness: 0.03, clearcoat: 1.0,  clearcoatRoughness: 0.03, pricePerGram: 0 },
 };
 
 export const STONES = {
@@ -24,16 +28,16 @@ export const STONES = {
   zircon:      { name: 'Blue Zircon',                  color: '#0098C9', transmission: 0.9,  ior: 1.930, thickness: 2, roughness: 0,    clearcoat: 1, price: 60000  },
 };
 
-// METALS and STONES double as pricing/display config: `priceMultiplier`, `price` and the
+// METALS and STONES double as pricing/display config: `pricePerGram`, `price` and the
 // human-readable `name` sit alongside the PBR fields. Spreading an entry straight onto a
-// Three.js material makes it log "'priceMultiplier' is not a property of
+// Three.js material makes it log "'pricePerGram' is not a property of
 // THREE.MeshPhysicalMaterial" on every build of the material, and quietly overwrites
 // material.name with the display string. Strip them at the material boundary instead —
 // the fields stay in the tables above, where PricingContext and the UI read them.
-type NonMaterialKey = 'name' | 'price' | 'priceMultiplier';
+type NonMaterialKey = 'name' | 'price' | 'pricePerGram';
 
 export function materialProps<T extends object>(config: T): Omit<T, NonMaterialKey> {
-  const { name: _name, price: _price, priceMultiplier: _priceMultiplier, ...rest } =
+  const { name: _name, price: _price, pricePerGram: _pricePerGram, ...rest } =
     config as Record<string, unknown>;
   return rest as Omit<T, NonMaterialKey>;
 }

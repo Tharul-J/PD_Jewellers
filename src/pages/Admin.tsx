@@ -3123,7 +3123,7 @@ export default function Admin() {
                       type="button"
                       onClick={() => {
                         if (!newMetal.displayName.trim()) return;
-                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), multiplier: newMetal.multiplier || 1, color: newMetal.color }]);
+                        setMetalsList([...metalsList, { key: genKey(newMetal.displayName), displayName: newMetal.displayName.trim(), pricePerGram: 0, multiplier: newMetal.multiplier || 1, color: newMetal.color }]);
                         setNewMetal({ displayName: '', multiplier: 1, color: '#cccccc' });
                         setShowAddMetal(false);
                       }}

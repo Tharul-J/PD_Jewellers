@@ -9,6 +9,8 @@ export interface IProduct extends Document {
   description: string;
   karatage: string;
   metalWeight: string;
+  /** Grams. 0 means "unknown, use category default". */
+  weight: number;
   hasStones: boolean;
   dateAdded: string;
   views: number;
@@ -24,6 +26,7 @@ const productSchema = new Schema<IProduct>(
     description: { type: String, default: '' },
     karatage: { type: String, default: '' },
     metalWeight: { type: String, default: '' },
+    weight: { type: Number, default: 0, min: 0 },
     hasStones: { type: Boolean, default: false },
     dateAdded: { type: String, default: '' },
     views: { type: Number, default: 0 },
