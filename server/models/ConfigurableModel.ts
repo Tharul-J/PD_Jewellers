@@ -5,6 +5,8 @@ export interface IConfigurableModel extends Document {
   glbUrl: string;
   category: string;
   basePrice: number;
+  /** Grams of metal at the default size; 0 means "use the category default". */
+  weight: number;
   isActive: boolean;
 }
 
@@ -26,6 +28,11 @@ const configurableModelSchema = new Schema(
       type: Number,
       required: true,
       default: 1000,
+    },
+    weight: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     isActive: {
       type: Boolean,

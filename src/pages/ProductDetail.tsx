@@ -13,7 +13,10 @@ import { useWishlist } from '../context/WishlistContext';
 import { usePricing, findCatalogEntry } from '../context/PricingContext';
 import { useAuth } from '../context/AuthContext';
 import { MOCK_PRODUCTS } from '../data/products';
-import { formatPrice, formatIndicative, INDICATIVE_NOTE } from '../lib/price';
+import {
+  formatPrice, formatIndicative, INDICATIVE_NOTE,
+  computeConfiguratorPrice, sizePriceMultiplier,
+} from '../lib/price';
 // Metals and stones come from the Pricing API via usePricing(); constants.ts still
 // supplies their 3D material properties (merged in PricingContext) and, here,
 // doubles as the legacy-key translation table findCatalogEntry falls back to.
@@ -171,29 +174,31 @@ export default function ProductDetail() {
   // Calculate pricing based on options
   const computedPrice = useMemo(() => {
     if (isCustomProduct) {
-      let base = queryType === 'pendant' ? 12000 : 25000;
-
-      // Previously read pricing.metalMultiplier_<key> / stonePrice_<key>. Those flat
-      // fields were replaced by the metals/stones arrays, so the lookup always missed
-      // and every admin price edit was ignored here. The merged catalogue carries the
-      // API value already.
-      const metalPart = base * (currentMetal?.multiplier ?? 1);
-      const stonePart = queryType === 'ring' ? (currentStone?.price ?? 0) : 0;
-
       // Engraving is a pendant-only add-on now; rings never include an engraving charge.
-      let engravingPart = 0;
-      if (queryType !== 'ring' && (wantEngraving || queryType === 'pendant')) {
-        engravingPart = pricing?.engravingPrice || 5000;
-      }
+      const engravingPrice = queryType !== 'ring' && (wantEngraving || queryType === 'pendant')
+        ? (pricing?.engravingPrice || 5000)
+        : 0;
 
-      return Math.round(metalPart + stonePart + engravingPart);
+      // Shared with the configurator via lib/price, which also applies the size
+      // multiplier this page used to omit — the two quoted different totals for
+      // the same configuration.
+      return computeConfiguratorPrice({
+        modelType: queryType,
+        basePrice: queryType === 'pendant' ? 12000 : 25000,
+        // A custom piece has no catalogue record, so weight is the category default.
+        weight: 0,
+        sizeMultiplier: sizePriceMultiplier(queryType, selectedSize),
+        pricePerGram: currentMetal?.pricePerGram ?? 0,
+        stonePrice: currentStone?.price ?? 0,
+        engravingPrice,
+      }).total;
     } else if (product) {
       // Catalog products are ready-to-wear with no customization options exposed,
       // so the displayed price is exactly the admin-entered catalog price.
       return Math.round(product.price);
     }
     return 0;
-  }, [product, isCustomProduct, currentMetal, currentStone, wantEngraving, queryType, pricing]);
+  }, [product, isCustomProduct, currentMetal, currentStone, wantEngraving, queryType, selectedSize, pricing]);
 
   const metalName = currentMetal?.name ?? '';
   const stoneName = currentStone?.name ?? '';

@@ -15,7 +15,10 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { FONTS, visibleFontKeys, fontHasBoldFace, METALS, STONES } from '../constants';
 import { CustomGLBRingModel } from '../components/RingModels';
 import { prefetchModel } from '../utils/modelLoader';
-import { formatPrice, formatEstimate, INDICATIVE_NOTE } from '../lib/price';
+import {
+  formatPrice, formatEstimate, INDICATIVE_NOTE,
+  computeConfiguratorPrice, sizePriceMultiplier, DEFAULT_RING_SIZE, DEFAULT_PENDANT_SIZE,
+} from '../lib/price';
 
 import { PendantModel } from '../components/PendantModel';
 import { Scene3DErrorBoundary } from '../components/Scene3DErrorBoundary';
@@ -40,35 +43,8 @@ const RING_SIZE_SCALE: Record<string, number> = {
   'US 9': 1.10,
 };
 
-// --- Size price adjustment -------------------------------------------------
-// Deliberately separate from the geometry/AR scale maps above: those size a mesh
-// on screen, these price the extra metal a larger piece takes. Index-based, so
-// the default size is the anchor and lands on exactly 1.00 by construction.
-
-const RING_SIZES = ['US 4', 'US 5', 'US 6', 'US 7', 'US 8', 'US 9'] as const;
-const DEFAULT_RING_SIZE = 'US 7';
-
-const PENDANT_SIZES = ['small', 'medium', 'large'] as const;
-const DEFAULT_PENDANT_SIZE = 'medium';
-
-const RING_PRICE_STEP = 0.025;    // 2.5% per size step
-const PENDANT_PRICE_STEP = 0.05;  // 5% per size step
-
-/** US 4 .925 · US 5 .950 · US 6 .975 · US 7 1.000 · US 8 1.025 · US 9 1.050 */
-export function ringSizePriceMultiplier(size: string): number {
-  const index = RING_SIZES.indexOf(size as typeof RING_SIZES[number]);
-  const anchor = RING_SIZES.indexOf(DEFAULT_RING_SIZE);
-  if (index < 0) return 1;
-  return 1 + (index - anchor) * RING_PRICE_STEP;
-}
-
-/** Small .95 · Medium 1.00 · Large 1.05 */
-export function pendantSizePriceMultiplier(size: string): number {
-  const index = PENDANT_SIZES.indexOf(size as typeof PENDANT_SIZES[number]);
-  const anchor = PENDANT_SIZES.indexOf(DEFAULT_PENDANT_SIZE);
-  if (index < 0) return 1;
-  return 1 + (index - anchor) * PENDANT_PRICE_STEP;
-}
+// The size price steps and the indicative-price formula now live in lib/price.ts,
+// shared with ProductDetail so the two pages cannot drift apart.
 
 // Camera FOV compensates for body scale so Large stays framed and Small doesn't look lost.
 const PENDANT_SIZE_FOV: Record<'small' | 'medium' | 'large', number> = {
@@ -97,12 +73,14 @@ function PendantCameraFov({ fov }: { fov: number }) {
   return null;
 }
 
+// weight is grams of metal in the piece at the default size, and drives the
+// metal cost line. 0 falls back to DEFAULT_WEIGHT_G at price time.
 const DEFAULT_RING_STYLES = [
-  { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000, hasRealStone: false },
-  { id: 'ring-style-2', name: 'Ring Style 2', fileUrl: '/glb-models/rings/ring2.glb', basePrice: 25000, hasRealStone: false },
-  { id: 'ring-style-3', name: 'Ring Style 3', fileUrl: '/glb-models/rings/ring3.glb', basePrice: 30000, hasRealStone: false },
-  { id: 'ring-style-4', name: 'Ring Style 4', fileUrl: '/glb-models/rings/ring4.glb', basePrice: 25000, hasRealStone: false },
-  { id: 'ring-style-5', name: 'Ring Style 5', fileUrl: '/glb-models/rings/ring5.glb', basePrice: 25000, hasRealStone: false },
+  { id: 'ring-style-1', name: 'Ring Style 1', fileUrl: '/glb-models/rings/ring1.glb', basePrice: 25000, weight: 0, hasRealStone: false },
+  { id: 'ring-style-2', name: 'Ring Style 2', fileUrl: '/glb-models/rings/ring2.glb', basePrice: 25000, weight: 0, hasRealStone: false },
+  { id: 'ring-style-3', name: 'Ring Style 3', fileUrl: '/glb-models/rings/ring3.glb', basePrice: 30000, weight: 0, hasRealStone: false },
+  { id: 'ring-style-4', name: 'Ring Style 4', fileUrl: '/glb-models/rings/ring4.glb', basePrice: 25000, weight: 0, hasRealStone: false },
+  { id: 'ring-style-5', name: 'Ring Style 5', fileUrl: '/glb-models/rings/ring5.glb', basePrice: 25000, weight: 0, hasRealStone: false },
 ];
 
 // The models endpoint returns Mongo's natural order, which reshuffles whenever a document
@@ -122,7 +100,7 @@ function byStyleNumber<T extends { name?: string }>(list: T[]): T[] {
 export default function Configurator() {
   const navigate = useNavigate();
   const [modelType, setModelType] = useState<'ring' | 'pendant'>(() => (localStorage.getItem('cfg_modelType') as 'ring' | 'pendant') || 'ring');
-  const [dynamicStyles, setDynamicStyles] = useState<{id: string, name: string, fileUrl?: string, basePrice?: number, hasRealStone?: boolean}[]>(DEFAULT_RING_STYLES);
+  const [dynamicStyles, setDynamicStyles] = useState<{id: string, name: string, fileUrl?: string, basePrice?: number, weight?: number, hasRealStone?: boolean}[]>(DEFAULT_RING_STYLES);
   const [ringStyle, setRingStyle] = useState(() => localStorage.getItem('cfg_ringStyle') || DEFAULT_RING_STYLES[0].id);
   const [isARModalOpen, setIsARModalOpen] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
@@ -273,6 +251,7 @@ export default function Configurator() {
         name: m.name,
         category: m.category,
         basePrice: m.basePrice,
+        weight: m.weight ?? 0,
         fileUrl: m.glbUrl,
         hasRealStone: m.hasRealStone ?? false,
       }));
@@ -395,38 +374,27 @@ export default function Configurator() {
   }, [pricingLoaded, configuratorStones, stone]);
 
   const calculatePrice = () => {
+    // basePrice is the making charge; metal is now priced separately by weight.
     const basePrice = currentStyleDef?.basePrice || (modelType === 'pendant' ? 12000 : 25000);
 
-    // The merged catalogue already prefers the API value over constants.ts.
-    const metalPart = basePrice * (currentMetal?.multiplier ?? 1);
-
-    // Stone price — rings only
-    const stonePart = modelType === 'ring' ? (currentStone?.price ?? 0) : 0;
+    // Pendants have no per-style weight, so they always take the category default.
+    const weight = modelType === 'ring' ? (currentStyleDef?.weight ?? 0) : 0;
 
     // Engraving fee — pendant only (rings no longer offer engraving)
-    let engravingPart = 0;
-    if (modelType === 'pendant') {
-      if (customText.length > 0) {
-        engravingPart = pricing?.engravingPrice ?? 5000;
-      }
-    }
+    const engravingPrice = modelType === 'pendant' && customText.length > 0
+      ? (pricing?.engravingPrice ?? 5000)
+      : 0;
 
-    // A larger piece takes more metal, so the whole indicative figure moves with the
-    // selected size. Anchored on the default size, which multiplies out to exactly 1.
-    const sizeMultiplier = modelType === 'ring'
-      ? ringSizePriceMultiplier(ringSize)
-      : pendantSizePriceMultiplier(pendantSize);
-
-    // LKR is whole-number: round each line, then total the rounded lines so the
-    // breakdown always adds up to the total shown above it.
-    const metal     = Math.round(metalPart * sizeMultiplier);
-    const stone     = Math.round(stonePart * sizeMultiplier);
-    const engraving = Math.round(engravingPart * sizeMultiplier);
-
-    return {
-      total: metal + stone + engraving,
-      breakdown: { metal, stone, engraving },
-    };
+    return computeConfiguratorPrice({
+      modelType,
+      basePrice,
+      weight,
+      sizeMultiplier: sizePriceMultiplier(modelType, modelType === 'ring' ? ringSize : pendantSize),
+      // The merged catalogue already prefers the API value over constants.ts.
+      pricePerGram: currentMetal?.pricePerGram ?? 0,
+      stonePrice: currentStone?.price ?? 0,
+      engravingPrice,
+    });
   };
 
   const handleSaveConfiguration = async () => {
@@ -936,8 +904,12 @@ export default function Configurator() {
         <div className="px-5 py-4 lg:p-6 border-t border-[rgba(26,26,26,0.1)] bg-[var(--color-paper)] shrink-0">
           <div className="flex flex-col mb-4">
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
-               <span>Base + Metal:</span>
+               <span>Metal:</span>
                <span>{formatEstimate(price.breakdown.metal)}</span>
+            </div>
+            <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
+               <span>Making:</span>
+               <span>{formatEstimate(price.breakdown.making)}</span>
             </div>
             {modelType === 'ring' && (
               <div className="flex justify-between text-[10px] uppercase tracking-widest text-gray-500 mb-1 border-b border-black/5 pb-1">
