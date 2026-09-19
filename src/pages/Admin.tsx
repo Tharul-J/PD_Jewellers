@@ -10,6 +10,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useMarketRates } from '../hooks/useMarketRates';
 import { MarketRateCard } from '../components/admin/MarketRateCard';
 import { GoldPriceChart } from '../components/admin/GoldPriceChart';
+import { DashboardHighlights } from '../components/admin/DashboardHighlights';
 import { ExportDashboardButton } from '../components/admin/ExportDashboardButton';
 import { exportDashboardCsv, exportDashboardPdf } from '../lib/dashboardExport';
 import { formatExact } from '../lib/price';
@@ -1722,6 +1723,8 @@ export default function Admin() {
                   </motion.div>
                 ))}
               </div>
+
+              <DashboardHighlights token={user?.token} />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Inquiry Status Breakdown */}

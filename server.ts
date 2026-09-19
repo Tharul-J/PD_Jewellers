@@ -17,6 +17,7 @@ import reviewRoutes from "./server/routes/reviewRoutes.js";
 import modelRoutes from "./server/routes/modelRoutes.js";
 import uploadRoutes from "./server/routes/uploadRoutes.js";
 import pricingRoutes from "./server/routes/pricingRoutes.js";
+import adminRoutes from "./server/routes/adminRoutes.js";
 import productRoutes from "./server/routes/productRoutes.js";
 import blogRoutes from "./server/routes/blogRoutes.js";
 import configRoutes from "./server/routes/configRoutes.js";
@@ -133,6 +134,7 @@ async function startServer() {
   app.use("/api/models", modelRoutes);
   app.use("/api/upload", uploadRoutes);
   app.use("/api/pricing", pricingRoutes);
+  app.use("/api/admin", adminRoutes);
   app.use("/api/products", productRoutes);
   app.use("/api/blog", blogRoutes);
   app.use("/api/config", configRoutes);
