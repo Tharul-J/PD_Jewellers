@@ -7,12 +7,6 @@ export interface IMetalEntry {
   displayName: string;
   /** LKR per gram. 0 until an admin sets a real rate. */
   pricePerGram: number;
-  /**
-   * @deprecated Ratio-against-silver multiplier, replaced by `pricePerGram`.
-   * Kept optional only so the consumers still being migrated keep compiling;
-   * the server strips it on read and it is removed in the final cleanup step.
-   */
-  multiplier?: number;
   color?: string;
 }
 
@@ -40,7 +34,7 @@ export interface IPricing {
 /**
  * PBR fields handed straight to a THREE.MeshPhysicalMaterial. Kept in a nested
  * `material` object rather than flattened onto the entry: constants.ts warns that
- * spreading non-material keys (key, price, multiplier…) onto a material logs
+ * spreading non-material keys (key, price, pricePerGram…) onto a material logs
  * "'x' is not a property of THREE.MeshPhysicalMaterial" on every rebuild.
  */
 export interface MetalMaterial {
@@ -65,8 +59,6 @@ export interface ConfiguratorMetal {
   name: string;
   color: string;
   pricePerGram: number;
-  /** @deprecated See IMetalEntry.multiplier — removed in the final cleanup step. */
-  multiplier?: number;
   material: MetalMaterial;
 }
 
@@ -262,7 +254,6 @@ function buildConfiguratorMetals(metals: IMetalEntry[]): ConfiguratorMetal[] {
       name: m.displayName,
       color,
       pricePerGram: m.pricePerGram ?? 0,
-      multiplier: m.multiplier,
       material: {
         color,
         metalness:          c.metalness          ?? DEFAULT_METAL_3D.metalness,
