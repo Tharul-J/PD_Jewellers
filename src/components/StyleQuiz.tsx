@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useOverlayGuard } from '../lib/pollGuard';
-import { deriveCategories } from '../lib/categories';
+import { useCategories } from '../hooks/useCategories';
 
 interface StyleQuizProps {
   isOpen: boolean;
@@ -55,7 +55,8 @@ export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps)
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [categories, setCategories] = useState<string[]>(() => deriveCategories([]));
+  const [products, setProducts] = useState<{ category?: string }[]>([]);
+  const { categories } = useCategories(products);
 
   // Refreshed each time the quiz opens so a newly added category shows up without a reload.
   useEffect(() => {
@@ -64,7 +65,7 @@ export function StyleQuiz({ isOpen, onClose, position = 'top' }: StyleQuizProps)
     fetch('/api/products')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (!cancelled && Array.isArray(data) && data.length > 0) setCategories(deriveCategories(data));
+        if (!cancelled && Array.isArray(data) && data.length > 0) setProducts(data);
       })
       .catch(() => {});
     return () => { cancelled = true; };

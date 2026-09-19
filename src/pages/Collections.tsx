@@ -10,7 +10,8 @@ import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import DuplicateInquiryWarning from '../components/DuplicateInquiryWarning';
 import { formatPrice, formatIndicative } from '../lib/price';
-import { normalize, deriveCategories } from '../lib/categories';
+import { normalize } from '../lib/categories';
+import { useCategories } from '../hooks/useCategories';
 import { useToastContext } from '../context/ToastContext';
 export { MOCK_PRODUCTS };
 
@@ -49,7 +50,8 @@ export default function Collections() {
   const [isLoading, setIsLoading] = useState(false);
   const [allProducts, setAllProducts] = useState(MOCK_PRODUCTS);
 
-  const categories = useMemo(() => ['All', ...deriveCategories(allProducts)], [allProducts]);
+  const { categories: productCategories } = useCategories(allProducts);
+  const categories = useMemo(() => ['All', ...productCategories], [productCategories]);
 
   // New states for extended filtering and sorting
   const [showFilters, setShowFilters] = useState(false);

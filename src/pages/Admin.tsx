@@ -17,9 +17,9 @@ import InquiryMessages from '../components/InquiryMessages';
 import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
 import { mergeById, shouldPausePolling, useOverlayGuard, useResumeOnOverlayClose } from '../lib/pollGuard';
 import { useToastContext } from '../context/ToastContext';
+import { BASE_CATEGORIES, normalize } from '../lib/categories';
+import { useCategories } from '../hooks/useCategories';
 
-const DEFAULT_PRODUCT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 // Extend this list to add new 3D model categories without other code changes
 const MODEL_CATEGORIES_DEFAULT = ['ring', 'pendant'];
 
@@ -622,20 +622,14 @@ export default function Admin() {
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
   const [catalogSearch, setCatalogSearch] = useState('');
 
-  // Categories state
-  const [availableCategories, setAvailableCategories] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem('pd_product_categories');
-      if (stored) {
-        const parsed: string[] = JSON.parse(stored);
-        const merged = [...DEFAULT_PRODUCT_CATEGORIES];
-        parsed.forEach(c => { if (!merged.some(m => normalize(m) === normalize(c))) merged.push(c); });
-        return merged;
-      }
-    } catch {}
-    return DEFAULT_PRODUCT_CATEGORIES;
-  });
+  // Categories — the app-wide shared list, derived from the live catalog so
+  // anything an admin tagged a product with (Mens, Teen, …) lists here too.
+  const { categories: availableCategories, addCategory, removeCategory } = useCategories(productsList);
   const [newCategoryName, setNewCategoryName] = useState('');
+  // Inline "+ Add New Category" on the product form, so a category can still be
+  // created at the moment of tagging a product with it.
+  const [addingProductCat, setAddingProductCat] = useState(false);
+  const [newProductCatInput, setNewProductCatInput] = useState('');
 
   // 3D Model edit/delete state
   const [deleteModelId, setDeleteModelId] = useState<string | null>(null);
@@ -1395,24 +1389,37 @@ export default function Admin() {
     setShowProductForm(false);
   };
 
-  // Category management
-  const saveCategories = (cats: string[]) => {
-    setAvailableCategories(cats);
-    localStorage.setItem('pd_product_categories', JSON.stringify(cats));
+  /** Creates the category if it is new, then selects it on the product being edited. */
+  const handleAddProductCat = () => {
+    const name = newProductCatInput.trim();
+    if (!name) return;
+    const label = name.charAt(0).toUpperCase() + name.slice(1);
+    addCategory(label);
+    const existing = availableCategories.find(c => normalize(c) === normalize(label));
+    setProductForm(f => ({ ...f, category: existing ?? label }));
+    setAddingProductCat(false);
+    setNewProductCatInput('');
   };
 
+  // Category management
   const handleAddCategory = () => {
-    const name = newCategoryName.trim();
-    if (!name) return;
-    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-    if (availableCategories.some(c => normalize(c) === normalize(capitalized))) return;
-    saveCategories([...availableCategories, capitalized]);
-    setNewCategoryName('');
+    if (addCategory(newCategoryName)) {
+      setNewCategoryName('');
+    } else if (newCategoryName.trim()) {
+      showToast(`"${newCategoryName.trim()}" already exists`, 'info');
+    }
   };
 
   const handleRemoveCategory = (cat: string) => {
-    if (DEFAULT_PRODUCT_CATEGORIES.includes(cat)) return;
-    saveCategories(availableCategories.filter(c => c !== cat));
+    if (BASE_CATEGORIES.includes(cat)) return;
+    // A category still tagged on products is re-derived from them, so removing it
+    // here would silently do nothing — block it and say why instead.
+    const inUse = productsList.filter(p => normalize(p.category ?? '') === normalize(cat)).length;
+    if (inUse > 0) {
+      showToast(`"${cat}" is used by ${inUse} product${inUse === 1 ? '' : 's'} — reassign them first`, 'error');
+      return;
+    }
+    removeCategory(cat);
   };
 
   // Dashboard computed values
@@ -1445,7 +1452,7 @@ export default function Admin() {
   }));
 
   const categoryCounts = availableCategories
-    .map(cat => ({ name: cat, count: productsList.filter(p => p.category === cat).length }))
+    .map(cat => ({ name: cat, count: productsList.filter(p => normalize(p.category ?? '') === normalize(cat)).length }))
     .filter(c => c.count > 0);
 
   const handleExportDashboardCsv = () => {
@@ -1502,7 +1509,7 @@ export default function Admin() {
   // Catalog filtered list
   const catalogSearchQuery = catalogSearch.trim().toLowerCase();
   const filteredProducts = productsList
-    .filter(p => catalogFilter === 'all' || p.category === catalogFilter)
+    .filter(p => catalogFilter === 'all' || normalize(p.category ?? '') === normalize(catalogFilter))
     .filter(p => !catalogSearchQuery ||
       p.name?.toLowerCase().includes(catalogSearchQuery) ||
       p.id?.toLowerCase().includes(catalogSearchQuery)
@@ -2240,18 +2247,38 @@ export default function Admin() {
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Category *</label>
-                        <div className="relative">
-                          <select
-                            value={productForm.category}
-                            onChange={e => setProductForm({ ...productForm, category: e.target.value })}
-                            className="w-full appearance-none p-2.5 pr-9 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400 cursor-pointer"
-                          >
-                            {availableCategories.map(c => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
-                        </div>
+                        {addingProductCat ? (
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={newProductCatInput}
+                              onChange={e => setNewProductCatInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') { e.preventDefault(); handleAddProductCat(); }
+                                if (e.key === 'Escape') { setAddingProductCat(false); setNewProductCatInput(''); }
+                              }}
+                              className="flex-1 p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                              placeholder="New category name"
+                            />
+                            <button type="button" onClick={handleAddProductCat} className="px-3 py-1 btn-richbrown text-white text-xs rounded-sm">Add</button>
+                            <button type="button" onClick={() => { setAddingProductCat(false); setNewProductCatInput(''); }} className="px-2 py-1 text-gray-400 text-xs hover:text-gray-600">Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <select
+                              value={productForm.category}
+                              onChange={e => e.target.value === '__new__' ? setAddingProductCat(true) : setProductForm({ ...productForm, category: e.target.value })}
+                              className="w-full appearance-none p-2.5 pr-9 border border-gray-200 text-sm bg-white rounded focus:outline-none focus:border-amber-400 cursor-pointer"
+                            >
+                              {availableCategories.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                              <option value="__new__">+ Add New Category</option>
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Price (LKR) *</label>
@@ -2506,8 +2533,8 @@ export default function Admin() {
                 </div>
                 <div className="divide-y divide-gray-100">
                   {availableCategories.map(cat => {
-                    const isDefault = DEFAULT_PRODUCT_CATEGORIES.includes(cat);
-                    const count = productsList.filter(p => p.category === cat).length;
+                    const isDefault = BASE_CATEGORIES.includes(cat);
+                    const count = productsList.filter(p => normalize(p.category ?? '') === normalize(cat)).length;
                     return (
                       <div key={cat} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center gap-3">
