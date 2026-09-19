@@ -7,7 +7,9 @@
 // into the numeric field. The description text is left untouched.
 //
 // Usage:
-//   npx tsx scripts/backfillProductWeight.ts
+//   npx tsx scripts/backfillProductWeight.ts                        (fill weightless products)
+//   npx tsx scripts/backfillProductWeight.ts --fix-defaults         (re-resolve only fallback-weighted ones)
+//   ... add --dry-run to either to print the plan without writing.
 
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
@@ -15,13 +17,18 @@ import Product from '../server/models/Product.js';
 
 dotenv.config();
 
-// Used when neither metalWeight nor the description yields a number. Matches
-// DEFAULT_WEIGHT_G in the configurator so an unparsed product prices the same
-// way a weightless one does at runtime.
-const CATEGORY_DEFAULT_G: Record<string, number> = {
-  ring: 4,
-  pendant: 2.5,
-};
+// Used when neither metalWeight nor the description yields a number.
+//
+// Ordered, and matched as substrings: the first entry whose pattern appears wins.
+// Order is load-bearing — "earrings" contains "ring", so the earring bucket has
+// to be tested before the ring family or every pair of studs prices as a ring.
+const WEIGHT_BUCKETS: Array<{ patterns: string[]; grams: number }> = [
+  { patterns: ['earring', 'ear'],           grams: 1.5 },
+  { patterns: ['necklace', 'chain'],        grams: 8 },
+  { patterns: ['bangle', 'bracelet'],       grams: 12 },
+  { patterns: ['pendant'],                  grams: 2.5 },
+  { patterns: ['ring', 'bridal', 'engagement'], grams: 4.5 },
+];
 const FALLBACK_DEFAULT_G = 3;
 
 type Source = 'metalWeight' | 'description' | 'default';
@@ -46,16 +53,46 @@ function parseGrams(text: string | undefined, re: RegExp): number | null {
   return Math.round(grams * 100) / 100;
 }
 
-function categoryDefault(category: string | undefined): number {
-  const c = (category ?? '').toLowerCase().replace(/s$/, '');
-  return CATEGORY_DEFAULT_G[c] ?? FALLBACK_DEFAULT_G;
+function matchBucket(text: string | undefined): number | null {
+  const t = (text ?? '').toLowerCase();
+  if (!t) return null;
+  for (const bucket of WEIGHT_BUCKETS) {
+    if (bucket.patterns.some(p => t.includes(p))) return bucket.grams;
+  }
+  return null;
+}
+
+/**
+ * Category first, then the product name.
+ *
+ * The name is not a nicety: this catalogue has categories that name an audience
+ * rather than an item type ("Mens", "Teen", "Bridal"), and "Mens" holds both a
+ * ring and a pendant — so no category rule can be right for both. The item type
+ * is in the name ("Mens Pendant Blue Silver"), so that is where we look next.
+ *
+ * Returns null when neither names a type, leaving the caller on the generic
+ * fallback rather than inventing a number from an audience label.
+ */
+function categoryDefault(category: string | undefined, name?: string): {
+  grams: number;
+  specific: boolean;
+} {
+  const fromCategory = matchBucket(category);
+  if (fromCategory !== null) return { grams: fromCategory, specific: true };
+
+  const fromName = matchBucket(name);
+  if (fromName !== null) return { grams: fromName, specific: true };
+
+  return { grams: FALLBACK_DEFAULT_G, specific: false };
 }
 
 /** Resolves a product's weight and where the number came from. */
-function resolveWeight(p: { metalWeight?: string; description?: string; category?: string }): {
-  weight: number;
-  source: Source;
-} {
+function resolveWeight(p: {
+  metalWeight?: string;
+  description?: string;
+  category?: string;
+  name?: string;
+}): { weight: number; source: Source; specific?: boolean } {
   const fromField = parseGrams(p.metalWeight, METAL_WEIGHT_RE);
   if (fromField !== null) return { weight: fromField, source: 'metalWeight' };
 
@@ -65,7 +102,59 @@ function resolveWeight(p: { metalWeight?: string; description?: string; category
   const fromLoose = parseGrams(p.description, DESC_LOOSE_RE);
   if (fromLoose !== null) return { weight: fromLoose, source: 'description' };
 
-  return { weight: categoryDefault(p.category), source: 'default' };
+  const { grams, specific } = categoryDefault(p.category, p.name);
+  return { weight: grams, source: 'default', specific };
+}
+
+const WEIGHTLESS = {
+  // $in [null] also catches documents written before the field existed.
+  $or: [{ weight: 0 }, { weight: { $in: [null] } }, { weight: { $exists: false } }],
+};
+
+/**
+ * Re-resolves only the products left on the generic fallback.
+ *
+ * Deliberately narrow: it matches `weight === FALLBACK_DEFAULT_G` exactly, so a
+ * weight parsed from metalWeight or a description is never reconsidered, and it
+ * writes only when the buckets now yield a *specific* type. A product whose
+ * category and name both name no item type keeps the fallback and is listed for
+ * a human to set by hand.
+ */
+async function fixDefaults(dryRun: boolean) {
+  const candidates = await Product.find({ weight: FALLBACK_DEFAULT_G });
+  console.log(`${candidates.length} product(s) sitting on the ${FALLBACK_DEFAULT_G}g fallback.\n`);
+
+  let updated = 0;
+  const unresolved: string[] = [];
+
+  for (const product of candidates) {
+    // Re-parse from scratch: if a description gained a gram figure since the
+    // first run, that real number should win over any bucket.
+    const { weight, source, specific } = resolveWeight(product);
+
+    if (source === 'default' && !specific) {
+      unresolved.push(`${product.id} (${product.category}) ${product.name}`);
+      continue;
+    }
+    if (weight === product.weight) continue;
+
+    console.log(
+      `[${dryRun ? 'DRY-RUN' : 'FIX'}] ${product.id} ${product.name} — ` +
+      `${product.weight}g -> ${weight}g (${source}${specific ? ', by type' : ''})`
+    );
+    if (!dryRun) {
+      product.weight = weight;
+      await product.save();
+    }
+    updated += 1;
+  }
+
+  console.log('\n── Summary ───────────────────────────────');
+  console.log(`${dryRun ? 'would update' : 'updated'}: ${updated}`);
+  if (unresolved.length > 0) {
+    console.log(`\nleft on the ${FALLBACK_DEFAULT_G}g fallback — set these by hand in the admin form:`);
+    for (const u of unresolved) console.log(`  · ${u}`);
+  }
 }
 
 async function main() {
@@ -75,13 +164,19 @@ async function main() {
     process.exit(1);
   }
 
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 });
-  console.log('Connected.\n');
+  const dryRun = process.argv.includes('--dry-run');
+  const mode = process.argv.includes('--fix-defaults') ? 'fix-defaults' : 'backfill';
 
-  // $in [null] also catches documents written before the field existed.
-  const pending = await Product.find({
-    $or: [{ weight: 0 }, { weight: { $in: [null] } }, { weight: { $exists: false } }],
-  });
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 });
+  console.log(`Connected. mode=${mode}${dryRun ? ' (dry run)' : ''}\n`);
+
+  if (mode === 'fix-defaults') {
+    await fixDefaults(dryRun);
+    await mongoose.disconnect();
+    process.exit(0);
+  }
+
+  const pending = await Product.find(WEIGHTLESS);
 
   console.log(`${pending.length} product(s) need a weight.\n`);
 
@@ -89,22 +184,21 @@ async function main() {
 
   for (const product of pending) {
     const { weight, source } = resolveWeight(product);
+    counts[source] += 1;
+    console.log(`[${dryRun ? 'DRY-RUN' : 'BACKFILL'}] ${product.id} ${product.name} — weight: ${weight}g ${source}`);
+    if (dryRun) continue;
     product.weight = weight;
     await product.save();
-    counts[source] += 1;
-    console.log(`[BACKFILL] ${product.id} ${product.name} — weight: ${weight}g ${source}`);
   }
 
-  const remaining = await Product.countDocuments({
-    $or: [{ weight: 0 }, { weight: { $in: [null] } }, { weight: { $exists: false } }],
-  });
+  const remaining = await Product.countDocuments(WEIGHTLESS);
 
   console.log('\n── Summary ───────────────────────────────');
-  console.log(`updated:      ${pending.length}`);
+  console.log(`${dryRun ? 'would update' : 'updated'}:      ${pending.length}`);
   console.log(`  metalWeight: ${counts.metalWeight}`);
   console.log(`  description: ${counts.description}`);
   console.log(`  default:     ${counts.default}`);
-  console.log(`still weightless after run: ${remaining}`);
+  console.log(`still weightless${dryRun ? '' : ' after run'}: ${remaining}`);
 
   await mongoose.disconnect();
   process.exit(0);

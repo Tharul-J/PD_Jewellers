@@ -54,9 +54,12 @@ export function sizePriceMultiplier(modelType: 'ring' | 'pendant', size: string)
 // ── Indicative price ─────────────────────────────────────────────────────────
 
 /**
- * Metal weight in grams assumed when a piece has none recorded. Matches the
- * backfill script's category defaults so an unparsed catalogue product and a
- * weightless configurator style price identically.
+ * Metal weight in grams assumed when a configurator piece has none recorded.
+ *
+ * Related to, but not the same as, the backfill script's category buckets: those
+ * classify a whole catalogue (earrings, chains, bangles) and put the ring family
+ * at 4.5g, whereas these two cover only the configurator's own ring and pendant
+ * builds. Changing one does not change the other.
  */
 export const DEFAULT_WEIGHT_G = { ring: 4, pendant: 2.5 } as const;
 
