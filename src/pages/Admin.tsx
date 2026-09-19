@@ -1723,8 +1723,6 @@ export default function Admin() {
                 ))}
               </div>
 
-              <GoldPriceChart rates={marketRates} />
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Inquiry Status Breakdown */}
                 <div className="bg-white rounded-2xl border border-amber-100 p-6 shadow-sm">
@@ -3125,7 +3123,11 @@ export default function Admin() {
 
               <MarketRateCard rates={marketRates} />
 
-              {/* Metal Multipliers card */}
+              {/* Reads the same useMarketRates() result as the cards above — one
+                  hook call for the whole page, so no second history fetch. */}
+              <GoldPriceChart rates={marketRates} />
+
+              {/* Metal Prices card */}
               <div className="bg-white shadow-sm border border-gray-100 rounded-lg p-6">
                 <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
                   <div className="w-2 h-5 bg-amber-400 rounded-full" />

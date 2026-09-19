@@ -47,7 +47,7 @@ export function GoldPriceChart({ rates }: GoldPriceChartProps) {
   }, [history]);
 
   return (
-    <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-6 mb-6">
+    <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-6">
       <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
         <div className="p-1.5 bg-amber-50 rounded-lg">
           <LineChart size={16} className="text-amber-600" />
