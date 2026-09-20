@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { FileText, ClipboardCheck, ArrowLeft, Phone, Calendar, Truck, Landmark, Mail, User, Trash2 } from 'lucide-react';
+import { FileText, ClipboardCheck, ArrowLeft, Truck, Landmark, User, Trash2 } from 'lucide-react';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import { formatPrice, formatEstimate } from '../lib/price';

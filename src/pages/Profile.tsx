@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, Phone, MapPin, X, ChevronDown, ChevronRight, Wand2, Gem, Package, Star, CheckCircle, Mail } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, MapPin, X, ChevronDown, ChevronRight, Wand2, Gem, Package, Star, CheckCircle, Mail } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import PasswordInput from '../components/PasswordInput';
 import { NotificationBadge } from '../components/NotificationBadge';

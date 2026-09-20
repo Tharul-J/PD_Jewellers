@@ -64,8 +64,7 @@ export default function ProductDetail() {
   const [activeTab, setActiveTab] = useState<'details' | 'specifications'>('details');
   const [quantity, setQuantity] = useState(1);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [showShareTooltip, setShowShareTooltip] = useState(false);
-  
+
   // Modals
   const [isAROpen, setIsAROpen] = useState(false);
   const [isSizeOpen, setIsSizeOpen] = useState(false);

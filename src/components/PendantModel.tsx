@@ -217,7 +217,7 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
   const heartFitScale    = Math.min(1, heartUsableWidth / cachedWidth);
 
   // Chain link arrays
-  const { leftLinks, rightLinks, singleLinks } = useMemo(() => {
+  const { leftLinks, rightLinks } = useMemo(() => {
     const w = cachedWidth;
 
     // Standard's corner attach points ride on the scaled letter group, so they scale with
@@ -240,12 +240,6 @@ export function PendantModel({ text, metalMaterial, fontStyle, fontBold = false,
     const startY = shape === 'tag'
       ? TAG_RING_Y + 0.06                          // fixed bail position for tag
       : hs * 0.38 + 0.06;                          // V-notch of heart + clearance
-    const cCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, startY, 0),
-      new THREE.Vector3(0, 1.8,   0),
-      new THREE.Vector3(0, 3.2,   0),
-    ]);
-
     // Two-strand chain for Heart — both strands start near the center bail and
     // spread apart toward the neck, mirroring how Standard's lCurve/rCurve work.
     const heartLCurve = new THREE.CatmullRomCurve3([

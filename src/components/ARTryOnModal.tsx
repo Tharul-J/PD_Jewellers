@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, Suspense } from 'react';
+import { useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { HandLandmarker, FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { X, Camera, SwitchCamera } from 'lucide-react';
 import * as THREE from 'three';
@@ -217,7 +217,7 @@ function ARPendant({ transformRef, metal, metalOverride, customText, fontStyle, 
   const metalMaterial = metalOverride || METALS[metal as keyof typeof METALS] || METALS.silver;
   const currentScale = useRef(0);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (!meshRef.current) return;
     const { nx, ny, nw, rotation, visible } = transformRef.current;
 

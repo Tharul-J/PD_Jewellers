@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Phone, Clock, Gem, Award, ShieldCheck, Mail, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Phone, Clock, Gem, Award, ShieldCheck, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const HERO_IMAGES = [
   "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",

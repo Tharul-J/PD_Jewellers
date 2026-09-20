@@ -1,7 +1,7 @@
 import { useState, useEffect, CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Play, Star, ChevronLeft, ChevronRight, Quote, MapPin, Clock, Phone } from 'lucide-react';
+import { Star, ChevronLeft, ChevronRight, Quote, MapPin, Phone } from 'lucide-react';
 import { ProductCarousel, Product } from '../components/ProductCarousel';
 import { ImageSlider } from '../components/ImageSlider';
 
