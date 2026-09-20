@@ -6,8 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
-uploads/
 demo-upload/
+
+# runtime uploads (keep folder, ignore contents)
+uploads/*
+!uploads/.gitkeep
 scripts/fonts-ttf/
 public/glb-models-compressed/
 
