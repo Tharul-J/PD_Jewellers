@@ -40,14 +40,17 @@ function BannerThumb({ file, current, alt }: { file: File | null; current?: stri
   }, [file]);
 
   const src = preview ?? current;
+  // 80x40 is the 2:1 the storefront renders banners at (BANNER_ASPECT in
+  // Collections.tsx), so the thumbnail previews the real crop instead of
+  // squeezing every source into a shape the storefront never uses.
   if (!src) {
     return (
-      <div className="w-16 h-10 shrink-0 rounded border border-dashed border-gray-200 grid place-items-center text-[9px] text-gray-300 uppercase tracking-wider">
+      <div className="w-20 h-10 shrink-0 rounded border border-dashed border-gray-200 grid place-items-center text-[9px] text-gray-300 uppercase tracking-wider">
         None
       </div>
     );
   }
-  return <img src={src} alt={alt} className="w-16 h-10 shrink-0 rounded border border-gray-200 object-cover" />;
+  return <img src={src} alt={alt} className="w-20 h-10 shrink-0 rounded border border-gray-200 object-cover object-center" />;
 }
 
 // The inquiry pipeline is one-directional; each status offers only the actions

@@ -15,6 +15,15 @@ import { useCategories } from '../hooks/useCategories';
 import { useToastContext } from '../context/ToastContext';
 export { MOCK_PRODUCTS };
 
+/**
+ * Every category banner renders in this box whatever its source dimensions. The
+ * shipped defaults are all 1181x590 (2:1); an admin upload can be any shape, so
+ * the box is fixed and the image is cropped to fill it rather than the image
+ * sizing the box — otherwise a single portrait upload changes the height of the
+ * whole band. Mirrored by the admin thumbnail in Admin.tsx.
+ */
+const BANNER_ASPECT = 'aspect-[2/1]';
+
 const HERO_IMAGES = [
   "https://ceylonmastergems.com/wp-content/uploads/2025/08/Blog-What-makes-Ceylon-Sapphire-So-special.png",
   "https://www.caratlane.com/blog/wp-content/uploads/2025/04/gold-jewellery-22-carat.jpg",
@@ -295,7 +304,7 @@ export default function Collections() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-10 rounded-xl overflow-hidden shadow-sm relative group"
+          className={`mb-10 rounded-xl overflow-hidden shadow-sm relative group ${BANNER_ASPECT}`}
         >
           <AnimatePresence mode="wait">
             <motion.img
@@ -306,7 +315,7 @@ export default function Collections() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6 }}
-              className="w-full block"
+              className="absolute inset-0 w-full h-full object-cover object-center"
             />
           </AnimatePresence>
 
@@ -346,23 +355,24 @@ export default function Collections() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-10 rounded-xl overflow-hidden shadow-sm"
+            className={`mb-10 rounded-xl overflow-hidden shadow-sm ${BANNER_ASPECT}`}
           >
             <img
               src={bannerUrl}
               alt={`${activeCategory} Collection`}
-              className="w-full block"
+              className="w-full h-full object-cover object-center"
             />
           </motion.div>
         ) : (
           // No banner uploaded for this category yet — a quiet band keeps the
-          // page rhythm instead of a broken image or a collapsed gap.
+          // page rhythm instead of a broken image or a collapsed gap. Same box
+          // as a real banner, so switching tabs never shifts the layout.
           <motion.div
             key={activeCategory}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-10 rounded-xl overflow-hidden shadow-sm bg-[#faf6ee] border border-black/5 h-32 md:h-40 grid place-items-center"
+            className={`mb-10 rounded-xl overflow-hidden shadow-sm bg-[#faf6ee] border border-black/5 grid place-items-center ${BANNER_ASPECT}`}
           >
             <span className="font-serif italic text-2xl md:text-3xl text-[var(--color-gold)]">
               {activeCategory}

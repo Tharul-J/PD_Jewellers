@@ -79,6 +79,12 @@ export const uploadImageToCloudinary = (fileBuffer: Buffer, publicId: string): P
  * and a 400x400 face crop, and returns only the URL — a banner needs its own
  * folder, a landscape transform, and the id so the old asset can be destroyed
  * when it is replaced.
+ *
+ * Stored at 2:1 to match the shipped defaults (1181x590) and the box the
+ * storefront renders every banner in. This used to be 1600x600 (2.67:1), which
+ * is why an uploaded banner sat taller and wider than the defaults: uploads were
+ * normalised, just to a different ratio. 1200 wide keeps the payload down — the
+ * band is never wider than the 7xl content column.
  */
 export const uploadBannerToCloudinary = (
   fileBuffer: Buffer,
@@ -93,7 +99,7 @@ export const uploadBannerToCloudinary = (
         folder,
         public_id: publicId,
         overwrite: true,
-        transformation: [{ width: 1600, height: 600, crop: 'fill', gravity: 'auto' }],
+        transformation: [{ width: 1200, aspect_ratio: '2:1', crop: 'fill', gravity: 'auto' }],
       },
       (error, result) => {
         if (error || !result || !result.secure_url) {
