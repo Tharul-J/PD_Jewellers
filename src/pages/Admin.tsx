@@ -18,11 +18,37 @@ import InquiryMessages from '../components/InquiryMessages';
 import { InquiryItemThumbnail } from '../components/InquiryItemThumbnail';
 import { mergeById, shouldPausePolling, useOverlayGuard, useResumeOnOverlayClose } from '../lib/pollGuard';
 import { useToastContext } from '../context/ToastContext';
-import { BASE_CATEGORIES, normalize } from '../lib/categories';
+import { Category, normalize } from '../lib/categories';
 import { useCategories } from '../hooks/useCategories';
 
 // Extend this list to add new 3D model categories without other code changes
 const MODEL_CATEGORIES_DEFAULT = ['ring', 'pendant'];
+
+/**
+ * Thumbnail for a not-yet-uploaded file, falling back to `current` (the stored
+ * banner) when nothing new has been picked. The object URL is revoked whenever
+ * the file changes and on unmount, so repeatedly re-picking cannot leak blobs.
+ */
+function BannerThumb({ file, current, alt }: { file: File | null; current?: string; alt: string }) {
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const src = preview ?? current;
+  if (!src) {
+    return (
+      <div className="w-16 h-10 shrink-0 rounded border border-dashed border-gray-200 grid place-items-center text-[9px] text-gray-300 uppercase tracking-wider">
+        None
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className="w-16 h-10 shrink-0 rounded border border-gray-200 object-cover" />;
+}
 
 // The inquiry pipeline is one-directional; each status offers only the actions
 // that move it forward. Mirrors ALLOWED_TRANSITIONS on the server, which is the
@@ -623,10 +649,23 @@ export default function Admin() {
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
   const [catalogSearch, setCatalogSearch] = useState('');
 
-  // Categories — the app-wide shared list, derived from the live catalog so
-  // anything an admin tagged a product with (Mens, Teen, …) lists here too.
-  const { categories: availableCategories, addCategory, removeCategory } = useCategories(productsList);
+  // Categories — the app-wide shared list, served from /api/categories. The
+  // catalog is passed for the offline fallback only.
+  const {
+    categories: availableCategories,
+    categoryList,
+    addCategory,
+    updateCategory: saveCategory,
+    removeCategory,
+    markDirty: markCategoriesDirty,
+    clearDirty: clearCategoriesDirty,
+  } = useCategories(productsList, user?.token);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryBanner, setNewCategoryBanner] = useState<File | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  // Open row editor: the buffer holding unsaved name / banner changes.
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryEdit, setCategoryEdit] = useState<{ name: string; banner: File | null }>({ name: '', banner: null });
   // Inline "+ Add New Category" on the product form, so a category can still be
   // created at the moment of tagging a product with it.
   const [addingProductCat, setAddingProductCat] = useState(false);
@@ -1437,36 +1476,95 @@ export default function Admin() {
   };
 
   /** Creates the category if it is new, then selects it on the product being edited. */
-  const handleAddProductCat = () => {
+  const handleAddProductCat = async () => {
     const name = newProductCatInput.trim();
     if (!name) return;
     const label = name.charAt(0).toUpperCase() + name.slice(1);
-    addCategory(label);
     const existing = availableCategories.find(c => normalize(c) === normalize(label));
+    // Tag the product right away; the create below only has to make the category
+    // exist for everyone else, and a 409 means it already did.
     setProductForm(f => ({ ...f, category: existing ?? label }));
     setAddingProductCat(false);
     setNewProductCatInput('');
+    if (!existing) await addCategory(label);
   };
 
   // Category management
-  const handleAddCategory = () => {
-    if (addCategory(newCategoryName)) {
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim() || savingCategory) return;
+    setSavingCategory(true);
+    const result = await addCategory(newCategoryName, newCategoryBanner);
+    setSavingCategory(false);
+    if (result.ok) {
       setNewCategoryName('');
-    } else if (newCategoryName.trim()) {
-      showToast(`"${newCategoryName.trim()}" already exists`, 'info');
+      setNewCategoryBanner(null);
+      showToast('Category added', 'success');
+    } else {
+      showToast(result.message ?? 'Could not add category', 'error');
     }
   };
 
-  const handleRemoveCategory = (cat: string) => {
-    if (BASE_CATEGORIES.includes(cat)) return;
-    // A category still tagged on products is re-derived from them, so removing it
-    // here would silently do nothing — block it and say why instead.
-    const inUse = productsList.filter(p => normalize(p.category ?? '') === normalize(cat)).length;
-    if (inUse > 0) {
-      showToast(`"${cat}" is used by ${inUse} product${inUse === 1 ? '' : 's'} — reassign them first`, 'error');
+  /** Opens the row editor. Seeds the buffer once, from the row being edited. */
+  const handleEditCategory = (cat: Category) => {
+    setEditingCategoryId(cat._id);
+    setCategoryEdit({ name: cat.name, banner: null });
+  };
+
+  // Wrapped rather than flagging at each call site: the dirty flag cannot then
+  // be forgotten when another edit control is added to the row editor later.
+  const editCategoryName = (name: string) => {
+    markCategoriesDirty();
+    setCategoryEdit(e => ({ ...e, name }));
+  };
+  const editCategoryBanner = (banner: File | null) => {
+    markCategoriesDirty();
+    setCategoryEdit(e => ({ ...e, banner }));
+  };
+
+  const handleCancelCategoryEdit = () => {
+    setEditingCategoryId(null);
+    setCategoryEdit({ name: '', banner: null });
+    clearCategoriesDirty();
+  };
+
+  const handleSaveCategory = async (cat: Category) => {
+    if (savingCategory) return;
+    const nextName = categoryEdit.name.trim();
+    if (!nextName) {
+      showToast('Category name cannot be empty', 'error');
       return;
     }
-    removeCategory(cat);
+    if (nextName === cat.name && !categoryEdit.banner) {
+      handleCancelCategoryEdit();
+      return;
+    }
+    setSavingCategory(true);
+    const result = await saveCategory(cat._id, { name: nextName, banner: categoryEdit.banner });
+    setSavingCategory(false);
+    if (!result.ok) {
+      // Flag stays set, so the unsaved edit survives for a retry.
+      showToast(result.message ?? 'Could not save category', 'error');
+      return;
+    }
+    setEditingCategoryId(null);
+    setCategoryEdit({ name: '', banner: null });
+    if (result.productsUpdated) {
+      showToast(`Category saved — ${result.productsUpdated} product${result.productsUpdated === 1 ? '' : 's'} retagged`, 'success');
+      await fetchCatalog();
+    } else {
+      showToast('Category saved', 'success');
+    }
+  };
+
+  const handleRemoveCategory = async (cat: Category) => {
+    if (cat.isDefault) return;
+    const inUse = productsList.filter(p => normalize(p.category ?? '') === normalize(cat.name)).length;
+    if (inUse > 0) {
+      showToast(`"${cat.name}" is used by ${inUse} product${inUse === 1 ? '' : 's'} — reassign them first`, 'error');
+      return;
+    }
+    const result = await removeCategory(cat._id);
+    if (!result.ok) showToast(result.message ?? 'Could not delete category', 'error');
   };
 
   // Dashboard computed values
@@ -2586,22 +2684,41 @@ export default function Admin() {
             <div className="space-y-6">
               <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-6">
                 <h2 className="text-base font-serif text-[var(--color-ink)] mb-1">Add New Category</h2>
-                <p className="text-xs text-gray-400 mb-4">New categories appear in the Catalog product form immediately.</p>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={e => setNewCategoryName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
-                    placeholder="e.g. Anklets"
-                    className="flex-1 p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
-                  />
+                <p className="text-xs text-gray-400 mb-4">New categories appear in the Catalog product form immediately. A banner image is optional.</p>
+                <div className="flex gap-3 items-start">
+                  <BannerThumb file={newCategoryBanner} alt="New category banner preview" />
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={e => setNewCategoryName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleAddCategory(); } }}
+                      placeholder="e.g. Anklets"
+                      className="w-full p-2.5 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={e => setNewCategoryBanner(e.target.files?.[0] ?? null)}
+                        className="text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-200 file:text-xs file:bg-gray-50 file:text-gray-600 hover:file:bg-gray-100"
+                      />
+                      {newCategoryBanner && (
+                        <button
+                          onClick={() => setNewCategoryBanner(null)}
+                          className="text-[10px] uppercase tracking-wider text-gray-400 hover:text-red-500"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <button
-                    onClick={handleAddCategory}
-                    disabled={!newCategoryName.trim()}
+                    onClick={() => void handleAddCategory()}
+                    disabled={!newCategoryName.trim() || savingCategory}
                     className="px-5 py-2.5 btn-richbrown text-white text-xs uppercase tracking-widest font-bold rounded transition-colors disabled:opacity-40"
                   >
-                    Add
+                    {savingCategory ? 'Saving…' : 'Add'}
                   </button>
                 </div>
               </div>
@@ -2609,27 +2726,87 @@ export default function Admin() {
               <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
                   <h2 className="text-base font-serif text-[var(--color-ink)]">
-                    All Categories <span className="text-sm text-gray-400 font-sans font-normal ml-1">({availableCategories.length})</span>
+                    All Categories <span className="text-sm text-gray-400 font-sans font-normal ml-1">({categoryList.length})</span>
                   </h2>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {availableCategories.map(cat => {
-                    const isDefault = BASE_CATEGORIES.includes(cat);
-                    const count = productsList.filter(p => normalize(p.category ?? '') === normalize(cat)).length;
+                  {categoryList.map(cat => {
+                    const count = productsList.filter(p => normalize(p.category ?? '') === normalize(cat.name)).length;
+                    const isEditing = editingCategoryId === cat._id;
+
+                    if (isEditing) {
+                      return (
+                        <div key={cat._id} className="px-6 py-4 bg-amber-50/40">
+                          <div className="flex items-start gap-3">
+                            <BannerThumb file={categoryEdit.banner} current={cat.bannerImage} alt={`${cat.name} banner`} />
+                            <div className="flex-1 space-y-2">
+                              <input
+                                type="text"
+                                value={categoryEdit.name}
+                                onChange={e => editCategoryName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') { e.preventDefault(); void handleSaveCategory(cat); }
+                                  if (e.key === 'Escape') handleCancelCategoryEdit();
+                                }}
+                                autoFocus
+                                className="w-full p-2 border border-gray-200 text-sm rounded focus:outline-none focus:border-amber-400"
+                              />
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={e => editCategoryBanner(e.target.files?.[0] ?? null)}
+                                className="text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-200 file:text-xs file:bg-gray-50 file:text-gray-600 hover:file:bg-gray-100"
+                              />
+                              <p className="text-[10px] text-gray-400">
+                                {cat.bannerImage ? 'Choosing a file replaces the current banner.' : 'No banner set yet.'}
+                                {cat.name !== categoryEdit.name.trim() && count > 0 && (
+                                  <span className="text-amber-600"> Renaming retags {count} product{count !== 1 ? 's' : ''}.</span>
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => void handleSaveCategory(cat)}
+                                disabled={savingCategory}
+                                className="px-4 py-2 btn-richbrown text-white text-[10px] uppercase tracking-widest font-bold rounded disabled:opacity-40"
+                              >
+                                {savingCategory ? 'Saving…' : 'Save'}
+                              </button>
+                              <button
+                                onClick={handleCancelCategoryEdit}
+                                disabled={savingCategory}
+                                className="px-4 py-2 border border-gray-200 text-gray-500 text-[10px] uppercase tracking-widest font-bold rounded hover:bg-gray-50 disabled:opacity-40"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div key={cat} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
+                      <div key={cat._id} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center gap-3">
+                          <BannerThumb file={null} current={cat.bannerImage} alt={`${cat.name} banner`} />
                           <Tag size={14} className="text-gray-400" />
-                          <span className="text-sm font-medium text-[var(--color-ink)]">{cat}</span>
-                          {isDefault && (
+                          <span className="text-sm font-medium text-[var(--color-ink)]">{cat.name}</span>
+                          {cat.isDefault && (
                             <span className="text-[10px] uppercase tracking-wider text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Default</span>
                           )}
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="text-xs text-gray-400">{count} product{count !== 1 ? 's' : ''}</span>
-                          {!isDefault && (
+                          <button
+                            onClick={() => handleEditCategory(cat)}
+                            className="p-1.5 border border-gray-200 rounded text-gray-400 hover:bg-gray-50 hover:text-[var(--color-ink)] transition-colors"
+                            title="Edit category"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          {!cat.isDefault && (
                             <button
-                              onClick={() => handleRemoveCategory(cat)}
+                              onClick={() => void handleRemoveCategory(cat)}
                               className="p-1.5 border border-red-100 rounded text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                               title="Remove category"
                             >

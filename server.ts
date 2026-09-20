@@ -19,6 +19,7 @@ import uploadRoutes from "./server/routes/uploadRoutes.js";
 import pricingRoutes from "./server/routes/pricingRoutes.js";
 import adminRoutes from "./server/routes/adminRoutes.js";
 import productRoutes from "./server/routes/productRoutes.js";
+import categoryRoutes from "./server/routes/categoryRoutes.js";
 import blogRoutes from "./server/routes/blogRoutes.js";
 import configRoutes from "./server/routes/configRoutes.js";
 import { seedBlogPosts } from "./server/controllers/blogController.js";
@@ -136,6 +137,7 @@ async function startServer() {
   app.use("/api/pricing", pricingRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/products", productRoutes);
+  app.use("/api/categories", categoryRoutes);
   app.use("/api/blog", blogRoutes);
   app.use("/api/config", configRoutes);
 

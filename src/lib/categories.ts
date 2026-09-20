@@ -5,7 +5,22 @@ export const BASE_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', '
 
 const STORAGE_KEY = 'pd_product_categories';
 
-/** Categories an admin added by hand. Kept so a category with no products yet still lists. */
+/** A category row as stored on the server. */
+export interface Category {
+  _id: string;
+  name: string;
+  key: string;
+  isDefault: boolean;
+  bannerImage: string;
+  bannerPublicId: string;
+  order: number;
+}
+
+/**
+ * Legacy store. Categories now live in MongoDB; this is read once on the admin's
+ * next visit so hand-added categories that never got tagged onto a product are
+ * migrated up rather than lost, then cleared.
+ */
 export function readStoredCategories(): string[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -16,6 +31,11 @@ export function readStoredCategories(): string[] {
 
 export function writeStoredCategories(categories: string[]): void {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(categories)); } catch { /* private mode */ }
+}
+
+/** Drops the legacy store once its contents have been migrated to the server. */
+export function clearStoredCategories(): void {
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* private mode */ }
 }
 
 /**

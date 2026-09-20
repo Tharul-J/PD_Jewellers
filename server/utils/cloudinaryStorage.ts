@@ -72,6 +72,42 @@ export const uploadImageToCloudinary = (fileBuffer: Buffer, publicId: string): P
   });
 };
 
+/**
+ * Uploads a wide banner image and returns its public_id alongside the URL.
+ *
+ * Separate from `uploadImageToCloudinary`, which is pinned to the avatar folder
+ * and a 400x400 face crop, and returns only the URL — a banner needs its own
+ * folder, a landscape transform, and the id so the old asset can be destroyed
+ * when it is replaced.
+ */
+export const uploadBannerToCloudinary = (
+  fileBuffer: Buffer,
+  folder: string,
+  publicId: string
+): Promise<{ url: string; publicId: string } | null> => {
+  configure();
+  return new Promise((resolve) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'image',
+        folder,
+        public_id: publicId,
+        overwrite: true,
+        transformation: [{ width: 1600, height: 600, crop: 'fill', gravity: 'auto' }],
+      },
+      (error, result) => {
+        if (error || !result || !result.secure_url) {
+          console.error('Cloudinary banner upload error:', error);
+          resolve(null);
+          return;
+        }
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      }
+    );
+    uploadStream.end(fileBuffer);
+  });
+};
+
 export const deleteImageFromCloudinary = async (publicId: string): Promise<boolean> => {
   configure();
   try {
