@@ -13,3 +13,6 @@ public/glb-models-compressed/
 
 # Local DB backups taken by one-off scripts
 _backup_*/
+
+# local claude settings
+.claude/settings.local.json
