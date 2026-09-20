@@ -54,7 +54,9 @@ export default function Collections() {
 
   // New states for extended filtering and sorting
   const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState('latest');
+  // 'featured' is the admin's manual catalog order (Admin > Catalog drag-and-drop);
+  // the other options are the shopper's own choice and override it.
+  const [sortBy, setSortBy] = useState('featured');
   const [karatageFilter, setKaratageFilter] = useState<string[]>([]);
   const [stonesFilter, setStonesFilter] = useState<string | null>(null);
 
@@ -186,7 +188,14 @@ export default function Collections() {
       }
     }
 
-    if (sortBy === 'latest') {
+    if (sortBy === 'featured') {
+      // Mirrors the server's CATALOG_SORT so the filtered view keeps the admin's
+      // order; the mock fallback has no sortOrder and falls through to dateAdded.
+      products.sort((a: any, b: any) =>
+        ((a.sortOrder ?? 0) - (b.sortOrder ?? 0)) ||
+        (new Date(b.dateAdded || 0).getTime() - new Date(a.dateAdded || 0).getTime())
+      );
+    } else if (sortBy === 'latest') {
       products.sort((a, b) => new Date(b.dateAdded || 0).getTime() - new Date(a.dateAdded || 0).getTime());
     } else if (sortBy === 'most_viewed') {
       products.sort((a, b) => (b.views || 0) - (a.views || 0));
@@ -397,6 +406,7 @@ export default function Collections() {
             onChange={(e) => setSortBy(e.target.value)}
             className="appearance-none border border-black px-6 py-3 pr-10 uppercase tracking-widest text-xs font-bold bg-white focus:outline-none cursor-pointer"
           >
+            <option value="featured">Featured Order</option>
             <option value="latest">Sort By Latest</option>
             <option value="most_viewed">Most Viewed</option>
             <option value="price_low_high">Price: Low to High</option>

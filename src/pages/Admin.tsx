@@ -1,9 +1,17 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry, IUpgradeEntry } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X, Mail, Phone, MapPin, Calendar, MessageSquare } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X, Mail, Phone, MapPin, Calendar, MessageSquare, GripVertical } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
@@ -23,6 +31,45 @@ import { useCategories } from '../hooks/useCategories';
 
 // Extend this list to add new 3D model categories without other code changes
 const MODEL_CATEGORIES_DEFAULT = ['ring', 'pendant'];
+
+/**
+ * A catalog table row that can be dragged to a new position. Only the grip cell
+ * carries the drag listeners, so the name, edit and delete controls in `children`
+ * keep responding to ordinary clicks.
+ */
+function SortableCatalogRow({
+  id, className, disabled, children,
+}: { id: string; className?: string; disabled?: boolean; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+
+  const style: CSSProperties = {
+    // Translate only — a scaled <tr> would distort the cells it contains.
+    transform: CSS.Translate.toString(transform),
+    transition,
+    // Lift the row out of the flow while it is held so its shadow isn't clipped
+    // by the neighbours sliding past it.
+    ...(isDragging ? { position: 'relative', zIndex: 10, boxShadow: '0 6px 16px rgba(0,0,0,0.12)' } : null),
+  };
+
+  return (
+    <tr ref={setNodeRef} style={style} className={`${className ?? ''} ${isDragging ? 'bg-white' : ''}`}>
+      <td className="py-3 pl-4 pr-0 w-8 align-middle">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          disabled={disabled}
+          className="p-1 -ml-1 text-gray-300 hover:text-gray-500 transition-colors cursor-grab active:cursor-grabbing touch-none disabled:cursor-not-allowed disabled:hover:text-gray-300 disabled:opacity-40"
+          title={disabled ? 'Clear the search to reorder products' : 'Drag to reorder'}
+          aria-label="Reorder product"
+        >
+          <GripVertical size={14} />
+        </button>
+      </td>
+      {children}
+    </tr>
+  );
+}
 
 /**
  * Thumbnail for a not-yet-uploaded file, falling back to `current` (the stored
@@ -651,6 +698,12 @@ export default function Admin() {
   const [savingProduct, setSavingProduct] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
   const [catalogSearch, setCatalogSearch] = useState('');
+  // A few pixels of travel before a drag starts, so a click on the grip that
+  // drifts slightly still reads as a click rather than a no-op reorder.
+  const catalogSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   // Categories — the app-wide shared list, served from /api/categories. The
   // catalog is passed for the offline fallback only.
@@ -1663,6 +1716,50 @@ export default function Admin() {
       p.id?.toLowerCase().includes(catalogSearchQuery)
     );
 
+  // A search hit list is an arbitrary slice of the catalog — dragging within it
+  // would pull unrelated products to the top of every category, so the handles
+  // stay inert until the search is cleared. A category filter is fine: those rows
+  // are contiguous in the storefront view the order actually applies to.
+  const catalogDragDisabled = !!catalogSearchQuery;
+
+  const handleCatalogDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const visible = filteredProducts;
+    const from = visible.findIndex(p => p._id === active.id);
+    const to = visible.findIndex(p => p._id === over.id);
+    if (from === -1 || to === -1) return;
+
+    const reordered = arrayMove(visible, from, to);
+    const previous = productsList;
+
+    // Optimistic: drop the reordered rows back into the slots the visible rows
+    // occupied in the full list, so products hidden by the filter stay put.
+    const visibleIds = new Set(visible.map(p => p._id));
+    const next = [...previous];
+    let slot = 0;
+    for (let i = 0; i < next.length; i++) {
+      if (visibleIds.has(next[i]._id)) next[i] = reordered[slot++];
+    }
+    setProductsList(next);
+
+    try {
+      const res = await fetch('/api/products/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+        body: JSON.stringify({ orderedIds: reordered.map(p => p._id) }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || 'Failed to save the new order');
+      }
+    } catch (err: any) {
+      setProductsList(previous);
+      showToast(err.message || 'Could not save the new order', 'error');
+    }
+  };
+
   if (!user || user.role !== 'administrator') return null;
 
   return (
@@ -2610,13 +2707,20 @@ export default function Admin() {
                     )}
                   </div>
                 </div>
+                {catalogDragDisabled && (
+                  <div className="px-6 py-2 bg-amber-50/60 border-b border-amber-100 text-[11px] text-amber-800">
+                    Reordering is paused while a search is active — clear the search to drag products.
+                  </div>
+                )}
                 {catalogLoading ? (
                   <div className="py-20 flex justify-center"><LoadingSpinner fullScreen={false} /></div>
                 ) : (
                   <div className="overflow-x-auto">
+                   <DndContext sensors={catalogSensors} collisionDetection={closestCenter} onDragEnd={handleCatalogDragEnd}>
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                          <th className="py-3 pl-4 pr-0 font-semibold border-b border-gray-100 w-8"><span className="sr-only">Reorder</span></th>
                           <th className="py-3 px-4 font-semibold border-b border-gray-100 w-16">Image</th>
                           <th className="py-3 px-4 font-semibold border-b border-gray-100">Name</th>
                           <th className="py-3 px-4 font-semibold border-b border-gray-100">Category</th>
@@ -2626,8 +2730,14 @@ export default function Admin() {
                         </tr>
                       </thead>
                       <tbody className="text-sm divide-y divide-gray-100">
+                       <SortableContext items={filteredProducts.map(p => p._id)} strategy={verticalListSortingStrategy}>
                         {filteredProducts.map(product => (
-                          <tr key={product._id} className={`transition-colors ${deleteConfirmId === product._id ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                          <SortableCatalogRow
+                            key={product._id}
+                            id={product._id}
+                            disabled={catalogDragDisabled}
+                            className={`transition-colors ${deleteConfirmId === product._id ? 'bg-red-50' : 'hover:bg-gray-50'}`}
+                          >
                             <td className="py-3 px-4">
                               {product.image ? (
                                 <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded border border-gray-100" />
@@ -2665,10 +2775,12 @@ export default function Admin() {
                                 </div>
                               )}
                             </td>
-                          </tr>
+                          </SortableCatalogRow>
                         ))}
+                       </SortableContext>
                       </tbody>
                     </table>
+                   </DndContext>
                     {filteredProducts.length === 0 && !catalogLoading && (
                       <div className="text-center py-12 text-gray-500 text-sm">
                         {catalogSearchQuery

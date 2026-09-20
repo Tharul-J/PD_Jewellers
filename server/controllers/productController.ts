@@ -9,6 +9,12 @@ const CATEGORY_PREFIX: Record<string, string> = {
   Bridal: 'BRL', Mens: 'MNS',
 };
 
+// sortOrder is the admin's manual drag order from Admin > Catalog; it defaults to 0,
+// so products that have never been dragged fall through to the previous ordering.
+// dateAdded is a 'YYYY-MM-DD' string that defaults to '' on legacy rows, so createdAt
+// breaks ties and keeps undated products in a stable newest-first order.
+const CATALOG_SORT = { sortOrder: 1, dateAdded: -1, createdAt: -1 } as const;
+
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Public
@@ -18,9 +24,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
       res.json(MOCK_PRODUCTS);
       return;
     }
-    // dateAdded is a 'YYYY-MM-DD' string that defaults to '' on legacy rows, so
-    // createdAt breaks ties and keeps undated products in a stable newest-first order.
-    const products = await Product.find({}).sort({ dateAdded: -1, createdAt: -1 });
+    const products = await Product.find({}).sort(CATALOG_SORT);
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
@@ -67,7 +71,7 @@ export const getFeaturedProducts = async (req: Request, res: Response): Promise<
     // Early on there are few or no purchases — top up with the newest products.
     if (soldProducts.length < limit) {
       const filler = await Product.find({ id: { $nin: soldProducts.map(p => p.id) } })
-        .sort({ dateAdded: -1, createdAt: -1 })
+        .sort(CATALOG_SORT)
         .limit(limit - soldProducts.length);
       res.json([...soldProducts, ...filler]);
       return;
@@ -162,6 +166,44 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     if (hasStones !== undefined) product.hasStones = hasStones;
     const updated = await product.save();
     res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// @desc    Persist the manual catalog order for a set of products
+// @route   PUT /api/products/reorder
+// @access  Private/Admin
+export const reorderProducts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({ message: 'Database required for product management' });
+      return;
+    }
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) {
+      res.status(400).json({ message: 'orderedIds must be an array of product ids' });
+      return;
+    }
+    // Only the ids sent are touched — a reorder done under a category filter must
+    // leave the sortOrder of everything outside that filter alone.
+    const ops = orderedIds
+      .filter((id: unknown): id is string => typeof id === 'string' && mongoose.isValidObjectId(id))
+      .map((id: string, index: number) => ({
+        updateOne: { filter: { _id: id }, update: { $set: { sortOrder: index } } },
+      }));
+
+    if (ops.length !== orderedIds.length) {
+      res.status(400).json({ message: 'orderedIds contains an invalid product id' });
+      return;
+    }
+    if (ops.length === 0) {
+      res.json({ updated: 0 });
+      return;
+    }
+
+    const result = await Product.bulkWrite(ops);
+    res.json({ updated: result.modifiedCount ?? 0 });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }

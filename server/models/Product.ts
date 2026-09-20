@@ -14,6 +14,8 @@ export interface IProduct extends Document {
   hasStones: boolean;
   dateAdded: string;
   views: number;
+  /** Manual catalog position set by dragging rows in Admin > Catalog. 0 = never reordered. */
+  sortOrder: number;
 }
 
 const productSchema = new Schema<IProduct>(
@@ -30,9 +32,13 @@ const productSchema = new Schema<IProduct>(
     hasStones: { type: Boolean, default: false },
     dateAdded: { type: String, default: '' },
     views: { type: Number, default: 0 },
+    sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
+
+// Matches the default list sort so the catalog page never hits a collection scan.
+productSchema.index({ sortOrder: 1, createdAt: -1 });
 
 const Product = mongoose.model<IProduct>('Product', productSchema);
 
