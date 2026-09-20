@@ -1,90 +1,35 @@
-import nodemailer, { Transporter } from 'nodemailer';
-import dns from 'dns';
-import { promisify } from 'util';
-
-const resolve4 = promisify(dns.resolve4);
-const lookup = promisify(dns.lookup);
+import { Resend } from 'resend';
 
 // Built lazily on first send, never at module load: server.ts calls dotenv.config()
 // *after* its route imports, so reading process.env in the module body would see
-// undefined credentials and permanently bind a broken transporter.
-let transporter: Transporter | null = null;
+// an undefined API key and permanently bind a broken client.
+let resendClient: Resend | null = null;
 
-// Render's free tier has no outbound IPv6 route. smtp.gmail.com resolves to an
-// AAAA record there and net.connect()/tls.connect() (which Nodemailer calls
-// directly with the hostname) fail with ENETUNREACH. Nodemailer 9.0.6 never
-// reads a `family` option — SMTPConnection has no reference to it at all — so
-// the previous fix silently did nothing. Resolving the A record ourselves and
-// connecting to the literal IPv4 address sidesteps Nodemailer's DNS lookup
-// entirely, regardless of what the OS resolver would have preferred.
-const getTransporter = async (): Promise<Transporter> => {
-  if (transporter) return transporter;
-
-  // Two-tier IPv4 resolution: resolve4() queries the A record directly (fastest,
-  // sidesteps getaddrinfo's IPv6 preference entirely) but talks straight to
-  // whatever's in dns.getServers() via c-ares — some resolvers (local stub
-  // resolvers, certain VPNs) refuse that raw query even though ordinary hostname
-  // lookups work fine through them. dns.lookup(family: 4) falls back to the OS
-  // resolver but pins the family, so it still avoids IPv6. Only if both fail do
-  // we pass the bare hostname through, which reproduces the original ENETUNREACH
-  // risk on IPv6-less networks — that path logs loudly so it's never silent.
-  let host = 'smtp.gmail.com';
-  try {
-    const addresses = await resolve4('smtp.gmail.com');
-    if (addresses.length > 0) {
-      host = addresses[0];
-      console.log(`[email] Resolved smtp.gmail.com -> ${host} (IPv4 via resolve4)`);
-    }
-  } catch (err) {
-    console.warn('[email] resolve4 failed, trying dns.lookup(family: 4):', (err as Error).message);
-    try {
-      const { address } = await lookup('smtp.gmail.com', { family: 4 });
-      host = address;
-      console.log(`[email] Resolved smtp.gmail.com -> ${host} (IPv4 via lookup)`);
-    } catch (err2) {
-      console.error(
-        '[email] IPv4 resolution failed entirely, falling back to bare hostname (may hit IPv6/ENETUNREACH):',
-        (err2 as Error).message
-      );
-    }
+// Render's free tier has no outbound IPv6 route, which broke SMTP (port 465/587)
+// to Gmail. Resend's HTTP API runs over HTTPS (port 443), sidestepping that
+// entirely — no DNS/IPv4 workaround needed.
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[email] RESEND_API_KEY not set');
+    return null;
   }
-
-  transporter = nodemailer.createTransport({
-    host,
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-    // TLS validates the cert against the real hostname, not the IP literal in `host`.
-    tls: { servername: 'smtp.gmail.com' },
-  });
-  return transporter;
-};
-
-const emailFrom = () => `PD Jewellers <${process.env.GMAIL_USER}>`;
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 /**
  * Call once after dotenv.config() has run (server.ts loads env vars after its
- * route imports, so this can't run at module load — see getTransporter above).
- * Gives an immediate Render log line confirming whether the Gmail credentials
- * are actually valid, instead of only finding out when a user triggers a send.
+ * route imports, so this can't run at module load — see getResendClient above).
+ * Gives an immediate Render log line confirming whether Resend is configured,
+ * instead of only finding out when a user triggers a send.
  */
 export const verifyEmailTransporter = async (): Promise<void> => {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.error('❌ Email transporter not configured: GMAIL_USER / GMAIL_APP_PASSWORD missing');
-    return;
-  }
-  try {
-    const t = await getTransporter();
-    await t.verify();
-    console.log('✅ Email transporter ready');
-  } catch (err) {
-    console.warn(
-      '⚠️ Email transporter verify timed out (normal on cold start — sends still work):',
-      (err as Error).message
-    );
+  if (process.env.RESEND_API_KEY) {
+    console.log('✅ Email service (Resend) ready');
+  } else {
+    console.error('❌ Email not configured — RESEND_API_KEY missing');
   }
 };
 
@@ -196,16 +141,26 @@ const send = async (to: string, subject: string, html: string, tag: string): Pro
     console.error(`[email:${tag}] no recipient address, skipped`);
     return false;
   }
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.error(`[email:${tag}] GMAIL_USER / GMAIL_APP_PASSWORD not configured, skipped`);
-    return false;
-  }
+  const client = getResendClient();
+  if (!client) return false;
+
   try {
-    const t = await getTransporter();
-    await t.sendMail({ from: emailFrom(), to, subject, html });
+    const { error } = await client.emails.send({
+      from: `PD Jewellers <${process.env.RESEND_FROM || 'onboarding@resend.dev'}>`,
+      to,
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error(`[email:${tag}] Resend error:`, error.message);
+      return false;
+    }
+
+    console.log(`[email:${tag}] Sent to ${to}`);
     return true;
   } catch (err) {
-    console.error(`[email:${tag}] failed to send:`, err);
+    console.error(`[email:${tag}] Failed:`, (err as Error).message);
     return false;
   }
 };
