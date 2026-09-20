@@ -44,7 +44,7 @@ const buildSteps = (categories: string[]) => [
     key: 'price',
     label: `Step 5 of ${TOTAL_STEPS}`,
     question: 'What is your comfort range?',
-    options: ['Under LKR 150K', 'LKR 150K – 600K', 'Over LKR 600K'],
+    options: ['Under LKR 500K', 'LKR 500K – 1M', 'Over LKR 1M'],
   },
 ];
 

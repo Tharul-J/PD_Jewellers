@@ -153,9 +153,10 @@ export default function Collections() {
         : allProducts.filter(p => normalize(p.category) === normalize(activeCategory));
 
     if (urlFilters.price) {
-      if (urlFilters.price === 'Under LKR 150K') products = products.filter(p => p.price < 150000);
-      else if (urlFilters.price === 'LKR 150K - 600K') products = products.filter(p => p.price >= 150000 && p.price <= 600000);
-      else if (urlFilters.price === 'Over LKR 600K') products = products.filter(p => p.price > 600000);
+      if (urlFilters.price === 'Under LKR 500K') products = products.filter(p => p.price < 500000);
+      // En dash here must match the label StyleQuiz puts in the URL verbatim.
+      else if (urlFilters.price === 'LKR 500K – 1M') products = products.filter(p => p.price >= 500000 && p.price <= 1000000);
+      else if (urlFilters.price === 'Over LKR 1M') products = products.filter(p => p.price > 1000000);
     }
 
     if (maxPrice < maxProductPrice) {
