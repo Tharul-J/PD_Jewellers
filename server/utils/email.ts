@@ -1,4 +1,5 @@
 import nodemailer, { Transporter } from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 // Built lazily on first send, never at module load: server.ts calls dotenv.config()
 // *after* its route imports, so reading process.env in the module body would see
@@ -8,17 +9,42 @@ let transporter: Transporter | null = null;
 const getTransporter = (): Transporter => {
   if (!transporter) {
     transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
       },
-    });
+      // Render free tier has no outbound IPv6 — smtp.gmail.com resolves to an
+      // IPv6 address by default there and connections fail with ENETUNREACH.
+      // `family` is forwarded to net.connect() at runtime but isn't declared
+      // on SMTPTransport.Options, hence the cast.
+      tls: { servername: 'smtp.gmail.com' },
+      family: 4,
+    } as SMTPTransport.Options & { family: number });
   }
   return transporter;
 };
 
 const emailFrom = () => `PD Jewellers <${process.env.GMAIL_USER}>`;
+
+/**
+ * Call once after dotenv.config() has run (server.ts loads env vars after its
+ * route imports, so this can't run at module load — see getTransporter above).
+ * Gives an immediate Render log line confirming whether the Gmail credentials
+ * are actually valid, instead of only finding out when a user triggers a send.
+ */
+export const verifyEmailTransporter = (): void => {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.error('❌ Email transporter not configured: GMAIL_USER / GMAIL_APP_PASSWORD missing');
+    return;
+  }
+  getTransporter()
+    .verify()
+    .then(() => console.log('✅ Email transporter ready'))
+    .catch((err) => console.error('❌ Email transporter failed:', err.message));
+};
 
 // Hosted on Cloudinary — email clients cannot resolve the app's local /logo.png.
 const LOGO_URL =

@@ -24,8 +24,11 @@ import blogRoutes from "./server/routes/blogRoutes.js";
 import configRoutes from "./server/routes/configRoutes.js";
 import { seedBlogPosts } from "./server/controllers/blogController.js";
 import Review from "./server/models/Review.js";
+import { verifyEmailTransporter } from "./server/utils/email.js";
 
 dotenv.config();
+
+verifyEmailTransporter();
 
 async function startServer() {
   const app = express();
