@@ -6,12 +6,16 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useAdminGuard } from '../hooks/useAdminGuard';
 import AdminActionWarning from '../components/AdminActionWarning';
 import { formatExact } from '../lib/price';
+import { useToastContext } from '../context/ToastContext';
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export default function PaymentPage() {
   const { inquiryId } = useParams();
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const { guard, showWarning, dismiss } = useAdminGuard();
+  const { showToast } = useToastContext();
 
   const [inquiry, setInquiry] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +90,22 @@ export default function PaymentPage() {
 
     return () => { cancelled = true; };
   }, [user?.token]);
+
+  // The purchase POST already updates the inquiry's status server-side before
+  // responding, so this is a belt-and-suspenders check against replication lag
+  // or any future split between "pay" and "mark ordered" — not the normal path.
+  const isOrderPlaced = async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/orders/${inquiryId}`, {
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.status === 'ordered';
+    } catch {
+      return false;
+    }
+  };
 
   const handleRemoveSavedCard = async () => {
     try {
@@ -165,7 +185,18 @@ export default function PaymentPage() {
         }
       }
 
-      setTimeout(() => navigate('/profile?tab=purchases'), 2200);
+      let confirmed = await isOrderPlaced();
+      if (!confirmed) {
+        await wait(1500);
+        confirmed = await isOrderPlaced();
+      }
+
+      if (confirmed) {
+        navigate('/profile?tab=purchases');
+      } else {
+        showToast("Payment was successful but we couldn't update your order. Please check your inquiries or contact us.", 'error');
+        navigate('/profile?tab=orders');
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
