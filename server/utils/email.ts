@@ -1,29 +1,65 @@
 import nodemailer, { Transporter } from 'nodemailer';
-import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import dns from 'dns';
+import { promisify } from 'util';
+
+const resolve4 = promisify(dns.resolve4);
+const lookup = promisify(dns.lookup);
 
 // Built lazily on first send, never at module load: server.ts calls dotenv.config()
 // *after* its route imports, so reading process.env in the module body would see
 // undefined credentials and permanently bind a broken transporter.
 let transporter: Transporter | null = null;
 
-const getTransporter = (): Transporter => {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-      // Render free tier has no outbound IPv6 — smtp.gmail.com resolves to an
-      // IPv6 address by default there and connections fail with ENETUNREACH.
-      // `family` is forwarded to net.connect() at runtime but isn't declared
-      // on SMTPTransport.Options, hence the cast.
-      tls: { servername: 'smtp.gmail.com' },
-      family: 4,
-    } as SMTPTransport.Options & { family: number });
+// Render's free tier has no outbound IPv6 route. smtp.gmail.com resolves to an
+// AAAA record there and net.connect()/tls.connect() (which Nodemailer calls
+// directly with the hostname) fail with ENETUNREACH. Nodemailer 9.0.6 never
+// reads a `family` option — SMTPConnection has no reference to it at all — so
+// the previous fix silently did nothing. Resolving the A record ourselves and
+// connecting to the literal IPv4 address sidesteps Nodemailer's DNS lookup
+// entirely, regardless of what the OS resolver would have preferred.
+const getTransporter = async (): Promise<Transporter> => {
+  if (transporter) return transporter;
+
+  // Two-tier IPv4 resolution: resolve4() queries the A record directly (fastest,
+  // sidesteps getaddrinfo's IPv6 preference entirely) but talks straight to
+  // whatever's in dns.getServers() via c-ares — some resolvers (local stub
+  // resolvers, certain VPNs) refuse that raw query even though ordinary hostname
+  // lookups work fine through them. dns.lookup(family: 4) falls back to the OS
+  // resolver but pins the family, so it still avoids IPv6. Only if both fail do
+  // we pass the bare hostname through, which reproduces the original ENETUNREACH
+  // risk on IPv6-less networks — that path logs loudly so it's never silent.
+  let host = 'smtp.gmail.com';
+  try {
+    const addresses = await resolve4('smtp.gmail.com');
+    if (addresses.length > 0) {
+      host = addresses[0];
+      console.log(`[email] Resolved smtp.gmail.com -> ${host} (IPv4 via resolve4)`);
+    }
+  } catch (err) {
+    console.warn('[email] resolve4 failed, trying dns.lookup(family: 4):', (err as Error).message);
+    try {
+      const { address } = await lookup('smtp.gmail.com', { family: 4 });
+      host = address;
+      console.log(`[email] Resolved smtp.gmail.com -> ${host} (IPv4 via lookup)`);
+    } catch (err2) {
+      console.error(
+        '[email] IPv4 resolution failed entirely, falling back to bare hostname (may hit IPv6/ENETUNREACH):',
+        (err2 as Error).message
+      );
+    }
   }
+
+  transporter = nodemailer.createTransport({
+    host,
+    port: 465,
+    secure: true,
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+    // TLS validates the cert against the real hostname, not the IP literal in `host`.
+    tls: { servername: 'smtp.gmail.com' },
+  });
   return transporter;
 };
 
@@ -35,15 +71,18 @@ const emailFrom = () => `PD Jewellers <${process.env.GMAIL_USER}>`;
  * Gives an immediate Render log line confirming whether the Gmail credentials
  * are actually valid, instead of only finding out when a user triggers a send.
  */
-export const verifyEmailTransporter = (): void => {
+export const verifyEmailTransporter = async (): Promise<void> => {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     console.error('❌ Email transporter not configured: GMAIL_USER / GMAIL_APP_PASSWORD missing');
     return;
   }
-  getTransporter()
-    .verify()
-    .then(() => console.log('✅ Email transporter ready'))
-    .catch((err) => console.error('❌ Email transporter failed:', err.message));
+  try {
+    const t = await getTransporter();
+    await t.verify();
+    console.log('✅ Email transporter ready');
+  } catch (err) {
+    console.error('❌ Email transporter failed:', (err as Error).message);
+  }
 };
 
 // Hosted on Cloudinary — email clients cannot resolve the app's local /logo.png.
@@ -159,7 +198,8 @@ const send = async (to: string, subject: string, html: string, tag: string): Pro
     return false;
   }
   try {
-    await getTransporter().sendMail({ from: emailFrom(), to, subject, html });
+    const t = await getTransporter();
+    await t.sendMail({ from: emailFrom(), to, subject, html });
     return true;
   } catch (err) {
     console.error(`[email:${tag}] failed to send:`, err);
