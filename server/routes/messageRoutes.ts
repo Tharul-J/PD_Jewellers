@@ -1,10 +1,12 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import mongoose from 'mongoose';
+import multer from 'multer';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { notifyUser } from '../utils/notify.js';
 import { sendAdminMessageEmail } from '../utils/email.js';
+import { uploadMessageAttachmentToCloudinary, deleteMessageAttachmentFromCloudinary } from '../utils/cloudinaryStorage.js';
 
 const router = express.Router();
 
@@ -15,21 +17,55 @@ const dbDown = (res: express.Response) =>
 const preview = (s: string, max = 60) =>
   s.length > max ? `${s.slice(0, max - 1)}…` : s;
 
+const ALLOWED_ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+const uploadAttachment = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_ATTACHMENT_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, WEBP images or PDF files are allowed'));
+    }
+  },
+});
+
+/**
+ * A rejected attachment is the admin's mistake, not a server fault: without this
+ * the fileFilter/limit error reaches the default handler as a 500 with an HTML
+ * body, which the admin UI cannot show a reason from.
+ */
+const handleUploadError = (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'Attachment must be 5MB or smaller' : err.message;
+    res.status(400).json({ message });
+    return;
+  }
+  if (err instanceof Error) {
+    res.status(400).json({ message: err.message });
+    return;
+  }
+  next(err);
+};
+
 // ── POST /api/messages — compose and send (admin) ────────────────────────────
-router.post('/', protect, admin, async (req, res) => {
+router.post('/', protect, admin, uploadAttachment.single('attachment'), handleUploadError, async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) return dbDown(res);
 
-    const { subject, body, type, recipientIds } = req.body as {
-      subject?: string; body?: string; type?: string; recipientIds?: string[];
+    const { subject, body, type } = req.body as {
+      subject?: string; body?: string; type?: string;
     };
+    // multipart/form-data collapses a single repeated field to a plain string.
+    const recipientIds = ([] as string[]).concat(req.body.recipientIds ?? []);
 
     if (!subject?.trim())  return res.status(400).json({ message: 'Subject is required' });
     if (!body?.trim())     return res.status(400).json({ message: 'Message body is required' });
     if (type !== 'individual' && type !== 'announcement') {
       return res.status(400).json({ message: 'Type must be "individual" or "announcement"' });
     }
-    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+    if (recipientIds.length === 0) {
       return res.status(400).json({ message: 'At least one recipient is required' });
     }
     if (type === 'individual' && recipientIds.length > 1) {
@@ -44,6 +80,19 @@ router.post('/', protect, admin, async (req, res) => {
       return res.status(400).json({ message: 'None of the selected recipients exist' });
     }
 
+    let attachment: { url: string; publicId: string; fileName: string; fileType: string } | undefined;
+    if (req.file) {
+      const base = req.file.originalname.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60);
+      const uploaded = await uploadMessageAttachmentToCloudinary(req.file.buffer, `${Date.now()}-${base}`);
+      if (!uploaded) return res.status(500).json({ message: 'Attachment upload failed. Please try again.' });
+      attachment = {
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+      };
+    }
+
     const message = await Message.create({
       sender: req.user._id,
       subject: subject.trim(),
@@ -51,6 +100,7 @@ router.post('/', protect, admin, async (req, res) => {
       type,
       recipients: found.map(u => u._id),
       readBy: [],
+      attachment,
     });
 
     // Best-effort: a notification failure must not fail an already-sent message.
@@ -69,7 +119,8 @@ router.post('/', protect, admin, async (req, res) => {
         (u as any).name || 'Valued Customer',
         subject.trim(),
         body.trim(),
-        type === 'announcement'
+        type === 'announcement',
+        !!attachment
       ).catch(err => console.error(`[Messages] email to ${(u as any).email} failed:`, err));
     }
 
@@ -106,6 +157,7 @@ router.get('/mine', protect, async (req, res) => {
         type: m.type,
         createdAt: m.createdAt,
         isRead: (m.readBy ?? []).some(id => String(id) === mine),
+        attachment: m.attachment,
       })),
       unreadCount: messages.filter(m => !(m.readBy ?? []).some(id => String(id) === mine)).length,
     });
@@ -147,6 +199,7 @@ router.get('/', protect, admin, async (req, res) => {
         createdAt: m.createdAt,
         recipientCount: (m.recipients ?? []).length,
         readCount: (m.readBy ?? []).length,
+        hasAttachment: !!m.attachment?.url,
       })),
       page,
       pages: Math.ceil(total / limit),
@@ -227,6 +280,11 @@ router.delete('/:id', protect, admin, async (req, res) => {
 
     const deleted = await Message.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: 'Message not found' });
+
+    if (deleted.attachment?.publicId) {
+      void deleteMessageAttachmentFromCloudinary(deleted.attachment.publicId)
+        .catch(err => console.error('[Messages] attachment cleanup failed:', err));
+    }
 
     res.json({ message: 'Message deleted' });
   } catch (e) {

@@ -11,7 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../context/AuthContext';
 import { usePricing, IMetalEntry, IStoneEntry, IUpgradeEntry } from '../context/PricingContext';
 import { motion } from 'motion/react';
-import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X, Mail, Phone, MapPin, Calendar, MessageSquare, GripVertical } from 'lucide-react';
+import { Users, Package, ShoppingCart, Activity, DollarSign, LayoutList, Pencil, Trash2, BookOpen, LogOut, Tag, ChevronDown, ChevronRight, Shield, Banknote, Star, Search, X, Mail, Phone, MapPin, Calendar, MessageSquare, GripVertical, Paperclip, FileText } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { NotificationBadge } from '../components/NotificationBadge';
 import { useNotifications } from '../hooks/useNotifications';
@@ -326,7 +326,11 @@ interface ComposePayload {
   body: string;
   type: 'individual' | 'announcement';
   recipientIds: string[];
+  attachmentFile: File | null;
 }
+
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_ATTACHMENT_TYPES = '.jpg,.jpeg,.png,.webp,.pdf';
 
 /**
  * Compose form for admin → customer messages.
@@ -352,6 +356,19 @@ function ComposeMessageModal({
   const [search, setSearch] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (file && file.size > MAX_ATTACHMENT_BYTES) {
+      setError('Attachment must be 5MB or smaller.');
+      e.target.value = '';
+      return;
+    }
+    setError(null);
+    setAttachmentFile(file);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape' && !sending) onClose(); };
@@ -391,7 +408,7 @@ function ComposeMessageModal({
     if (!canSend) return;
     setSending(true);
     setError(null);
-    const err = await onSend({ subject: subject.trim(), body: body.trim(), type: mode, recipientIds: selected });
+    const err = await onSend({ subject: subject.trim(), body: body.trim(), type: mode, recipientIds: selected, attachmentFile });
     if (err) {
       setError(err);
       setSending(false);
@@ -534,6 +551,41 @@ function ComposeMessageModal({
             />
           </div>
 
+          {/* Attachment */}
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">Attachment</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_ATTACHMENT_TYPES}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            {attachmentFile ? (
+              <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+                <Paperclip size={14} className="text-gray-400 shrink-0" />
+                <span className="text-xs text-gray-700 truncate flex-1">{attachmentFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setAttachmentFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                  className="p-0.5 text-gray-400 hover:text-gray-700 transition-colors shrink-0"
+                  title="Remove attachment"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors w-full"
+              >
+                <Paperclip size={14} />
+                Attach File (PDF or Image, max 5MB)
+              </button>
+            )}
+          </div>
+
           {error && <p className="text-xs text-rose-600">{error}</p>}
         </div>
 
@@ -601,6 +653,19 @@ function MessageDetailModal({ detail, loading, onClose }: { detail: any; loading
             <p className="text-xs text-gray-400 mb-4">From {detail.sender?.name || 'Unknown'}</p>
 
             <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-4 mb-5">{detail.body}</p>
+
+            {detail.attachment?.url && (
+              <a
+                href={detail.attachment.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 mb-5 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors w-fit"
+              >
+                {detail.attachment.fileType === 'application/pdf' ? <FileText size={14} className="text-gray-400" /> : <Paperclip size={14} className="text-gray-400" />}
+                <span className="truncate max-w-[220px]">{detail.attachment.fileName}</span>
+                <span className="text-gray-400">— View</span>
+              </a>
+            )}
 
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Recipients</p>
@@ -1308,10 +1373,17 @@ export default function Admin() {
   /** Resolves to an error string for the modal to show, or null on success. */
   const handleSendMessage = async (payload: ComposePayload): Promise<string | null> => {
     try {
+      const formData = new FormData();
+      formData.append('subject', payload.subject);
+      formData.append('body', payload.body);
+      formData.append('type', payload.type);
+      payload.recipientIds.forEach(id => formData.append('recipientIds', id));
+      if (payload.attachmentFile) formData.append('attachment', payload.attachmentFile);
+
       const res = await fetch('/api/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
-        body: JSON.stringify(payload),
+        headers: { Authorization: `Bearer ${user?.token}` },
+        body: formData,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -3367,7 +3439,10 @@ export default function Admin() {
                               </span>
                             </td>
                             <td className="py-4 px-4 max-w-xs">
-                              <p className="font-medium text-[var(--color-ink)] truncate">{msg.subject}</p>
+                              <p className="font-medium text-[var(--color-ink)] truncate flex items-center gap-1.5">
+                                {msg.hasAttachment && <Paperclip size={12} className="text-gray-400 shrink-0" />}
+                                <span className="truncate">{msg.subject}</span>
+                              </p>
                               <p className="text-xs text-gray-400 truncate">{msg.body}</p>
                             </td>
                             <td className="py-4 px-4 text-gray-600 text-xs">

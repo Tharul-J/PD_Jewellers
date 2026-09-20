@@ -1,5 +1,12 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IMessageAttachment {
+  url: string;
+  publicId: string;
+  fileName: string;
+  fileType: string;
+}
+
 export interface IMessage extends Document {
   sender: mongoose.Types.ObjectId;
   subject: string;
@@ -7,6 +14,7 @@ export interface IMessage extends Document {
   type: 'individual' | 'announcement';
   recipients: mongoose.Types.ObjectId[];
   readBy: mongoose.Types.ObjectId[];
+  attachment?: IMessageAttachment;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +27,12 @@ const messageSchema = new Schema<IMessage>(
     type:       { type: String, enum: ['individual', 'announcement'], required: true },
     recipients: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     readBy:     [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    attachment: {
+      url:      { type: String },
+      publicId: { type: String },
+      fileName: { type: String },
+      fileType: { type: String },
+    },
   },
   { timestamps: true }
 );

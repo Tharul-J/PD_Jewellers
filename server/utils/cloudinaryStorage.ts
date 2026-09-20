@@ -114,6 +114,44 @@ export const uploadBannerToCloudinary = (
   });
 };
 
+/** Uploads an admin-message attachment (image or PDF) and returns its URL + public_id for later cleanup. */
+export const uploadMessageAttachmentToCloudinary = (
+  fileBuffer: Buffer,
+  publicId: string
+): Promise<{ url: string; publicId: string } | null> => {
+  configure();
+  return new Promise((resolve) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'auto',
+        folder: 'pd-jewellers/message-attachments',
+        public_id: publicId,
+      },
+      (error, result) => {
+        if (error || !result || !result.secure_url) {
+          console.error('Cloudinary attachment upload error:', error);
+          resolve(null);
+          return;
+        }
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      }
+    );
+    uploadStream.end(fileBuffer);
+  });
+};
+
+/** Message attachments (jpeg/png/webp/pdf) all upload under Cloudinary's 'image' resource type. */
+export const deleteMessageAttachmentFromCloudinary = async (publicId: string): Promise<boolean> => {
+  configure();
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+    return result.result === 'ok';
+  } catch (error) {
+    console.error('Cloudinary attachment delete error:', error);
+    return false;
+  }
+};
+
 export const deleteImageFromCloudinary = async (publicId: string): Promise<boolean> => {
   configure();
   try {

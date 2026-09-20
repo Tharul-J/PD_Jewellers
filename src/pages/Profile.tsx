@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, MapPin, X, ChevronDown, ChevronRight, Wand2, Gem, Package, Star, CheckCircle, Mail } from 'lucide-react';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, Trash2, Palette, Edit, Lock, Camera, MapPin, X, ChevronDown, ChevronRight, Wand2, Gem, Package, Star, CheckCircle, Mail, Paperclip, FileText } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import PasswordInput from '../components/PasswordInput';
 import { NotificationBadge } from '../components/NotificationBadge';
@@ -1433,6 +1433,7 @@ export default function Profile() {
                                         Announcement
                                       </span>
                                     )}
+                                    {msg.attachment?.url && <Paperclip size={12} className="text-gray-400 shrink-0" />}
                                   </span>
                                   <span className="block text-xs text-gray-400 mt-0.5">
                                     From: {msg.sender?.name || 'PD Jewellers'}
@@ -1448,6 +1449,39 @@ export default function Profile() {
                                 <div className="px-4 pb-4 pl-14">
                                   <div className="border-t border-gray-100 pt-3">
                                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.body}</p>
+
+                                    {msg.attachment?.url && (
+                                      <div className="mt-3">
+                                        {msg.attachment.fileType?.startsWith('image/') ? (
+                                          <div>
+                                            <img
+                                              src={msg.attachment.url}
+                                              alt={msg.attachment.fileName}
+                                              className="max-h-40 object-contain rounded-md border border-gray-100 mb-2"
+                                            />
+                                            <a
+                                              href={msg.attachment.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 font-medium"
+                                            >
+                                              <Paperclip size={12} />
+                                              {msg.attachment.fileName} — Download
+                                            </a>
+                                          </div>
+                                        ) : (
+                                          <a
+                                            href={msg.attachment.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+                                          >
+                                            <FileText size={14} className="text-gray-400" />
+                                            {msg.attachment.fileName} — Download
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               )}

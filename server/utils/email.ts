@@ -303,7 +303,8 @@ export const sendAdminMessageEmail = async (
   name: string,
   subject: string,
   body: string,
-  isAnnouncement = false
+  isAnnouncement = false,
+  hasAttachment = false
 ): Promise<boolean> => {
   const intro = isAnnouncement
     ? 'We have an announcement to share with you from PD Jewellers.'
@@ -320,6 +321,7 @@ export const sendAdminMessageEmail = async (
         </td>
       </tr>
     </table>
+    ${hasAttachment ? '<p style="margin:0 0 12px 0;">This message includes an attachment. View it in your account.</p>' : ''}
     <p style="margin:0;">You can view this and all previous messages from your account dashboard under &ldquo;Messages&rdquo;.</p>
     ${signOff}
   `);
