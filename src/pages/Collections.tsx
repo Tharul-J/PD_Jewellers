@@ -25,16 +25,6 @@ const HERO_IMAGES = [
   "https://t4.ftcdn.net/jpg/08/13/39/89/360_F_813398976_T2ZiKgGaYXeI2Iwk6zpqFnAl1BRbO4Lz.jpg",
 ];
 
-const CATEGORY_BANNERS: Record<string, string> = {
-  'Rings':     '/banners/Rings_Banner.png',
-  'Necklaces': '/banners/Necklaces_Banner.png',
-  'Earrings':  '/banners/Earrings_Banner.png',
-  'Bracelets': '/banners/Bracelets_Banner.png',
-  'Pendants':  '/banners/Pendants_Banner.png',
-  'Bridal':    '/banners/Bridal_Banner.png',
-  'Mens':      '/banners/Mens_Banner.png',
-};
-
 export default function Collections() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -50,7 +40,7 @@ export default function Collections() {
   const [isLoading, setIsLoading] = useState(false);
   const [allProducts, setAllProducts] = useState(MOCK_PRODUCTS);
 
-  const { categories: productCategories } = useCategories(allProducts);
+  const { categories: productCategories, categoryList } = useCategories(allProducts);
   const categories = useMemo(() => ['All', ...productCategories], [productCategories]);
 
   // New states for extended filtering and sorting
@@ -70,10 +60,22 @@ export default function Collections() {
     if (!hasUserAdjustedPrice.current) setMaxPrice(maxProductPrice);
   }, [maxProductPrice]);
 
-  const ALL_BANNERS = Object.values(CATEGORY_BANNERS);
+  // Banners come off the category rows, so an admin upload and a shipped default
+  // reach the storefront through the same field. Categories without one are simply
+  // absent from the carousel rather than rendering a broken image.
+  const ALL_BANNERS = useMemo(
+    () => categoryList.map(c => c.bannerImage).filter(Boolean),
+    [categoryList]
+  );
   const [bannerIndex, setBannerIndex] = useState(0);
   const nextBanner = useCallback(() => setBannerIndex(i => (i + 1) % ALL_BANNERS.length), [ALL_BANNERS.length]);
   const prevBanner = useCallback(() => setBannerIndex(i => (i - 1 + ALL_BANNERS.length) % ALL_BANNERS.length), [ALL_BANNERS.length]);
+
+  // The list arrives after mount and can shrink when a category is deleted, which
+  // would otherwise strand the index past the end and blank the carousel.
+  useEffect(() => {
+    setBannerIndex(i => (ALL_BANNERS.length === 0 ? 0 : i % ALL_BANNERS.length));
+  }, [ALL_BANNERS.length]);
 
   const [heroIdx, setHeroIdx] = useState(7);
 
@@ -83,10 +85,10 @@ export default function Collections() {
   }, []);
 
   useEffect(() => {
-    if (activeCategory !== 'All') return;
+    if (activeCategory !== 'All' || ALL_BANNERS.length === 0) return;
     const t = setInterval(nextBanner, 4000);
     return () => clearInterval(t);
-  }, [activeCategory, nextBanner]);
+  }, [activeCategory, nextBanner, ALL_BANNERS.length]);
 
   useEffect(() => {
     fetch('/api/products')
@@ -288,7 +290,7 @@ export default function Collections() {
       </div>
 
       {/* All — auto-sliding banner carousel */}
-      {activeCategory === 'All' && (
+      {activeCategory === 'All' && ALL_BANNERS.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -335,7 +337,9 @@ export default function Collections() {
 
       {/* Category Banner — full image, no cropping */}
       {activeCategory !== 'All' && (() => {
-        const bannerUrl = Object.entries(CATEGORY_BANNERS).find(([k]) => normalize(k) === normalize(activeCategory))?.[1];
+        // Matched on the row, not on a static name→path map, so renaming a
+        // category in the admin carries its banner with it.
+        const bannerUrl = categoryList.find(c => normalize(c.name) === normalize(activeCategory))?.bannerImage;
         return bannerUrl ? (
           <motion.div
             key={activeCategory}
@@ -350,7 +354,21 @@ export default function Collections() {
               className="w-full block"
             />
           </motion.div>
-        ) : null;
+        ) : (
+          // No banner uploaded for this category yet — a quiet band keeps the
+          // page rhythm instead of a broken image or a collapsed gap.
+          <motion.div
+            key={activeCategory}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-10 rounded-xl overflow-hidden shadow-sm bg-[#faf6ee] border border-black/5 h-32 md:h-40 grid place-items-center"
+          >
+            <span className="font-serif italic text-2xl md:text-3xl text-[var(--color-gold)]">
+              {activeCategory}
+            </span>
+          </motion.div>
+        );
       })()}
 
       {/* Advanced Filters Bar */}

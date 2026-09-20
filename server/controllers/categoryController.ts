@@ -13,22 +13,44 @@ const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 const DEFAULT_CATEGORIES = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants', 'Bridal'];
 
 /**
+ * The banners that ship with the app, keyed by normalized name. These used to be
+ * a hardcoded map in Collections.tsx, which meant the storefront looked banners
+ * up by name while the admin read `bannerImage` — so an uploaded banner never
+ * reached the storefront and a shipped one never reached the admin list. They
+ * live here now and are backfilled onto the rows, making `bannerImage` the one
+ * source of truth for both.
+ *
+ * Values are root-relative paths served from public/banners; an admin upload
+ * stores an absolute Cloudinary URL instead. Both render as-is in an <img src>,
+ * so nothing downstream needs to tell them apart.
+ */
+const DEFAULT_BANNERS: Record<string, string> = {
+  rings: '/banners/Rings_Banner.png',
+  necklaces: '/banners/Necklaces_Banner.png',
+  earrings: '/banners/Earrings_Banner.png',
+  bracelets: '/banners/Bracelets_Banner.png',
+  pendants: '/banners/Pendants_Banner.png',
+  bridal: '/banners/Bridal_Banner.png',
+  mens: '/banners/Mens_Banner.png',
+};
+
+/**
  * Creates any missing built-in, plus a row for every category the live catalog
  * already uses. Idempotent, and safe to call on each GET: categories used to be
  * derived from products and browser localStorage, so the first call after this
  * feature ships is what migrates the existing set into the collection.
  */
 const ensureSeeded = async (): Promise<void> => {
-  const existing = await Category.find({}, 'key').lean();
+  const existing = await Category.find({}, 'key bannerImage').lean();
   const known = new Set(existing.map(c => c.key));
 
-  const pending: { name: string; key: string; isDefault: boolean; order: number }[] = [];
+  const pending: { name: string; key: string; isDefault: boolean; order: number; bannerImage: string }[] = [];
 
   DEFAULT_CATEGORIES.forEach((name, index) => {
     const key = normalize(name);
     if (known.has(key)) return;
     known.add(key);
-    pending.push({ name, key, isDefault: true, order: index });
+    pending.push({ name, key, isDefault: true, order: index, bannerImage: DEFAULT_BANNERS[key] ?? '' });
   });
 
   // Whatever products are actually tagged with, so nothing in the catalog is
@@ -39,12 +61,29 @@ const ensureSeeded = async (): Promise<void> => {
     const key = normalize(name);
     if (!key || known.has(key)) continue;
     known.add(key);
-    pending.push({ name, key, isDefault: false, order: 1000 });
+    pending.push({ name, key, isDefault: false, order: 1000, bannerImage: DEFAULT_BANNERS[key] ?? '' });
   }
 
   if (pending.length > 0) {
     // ordered:false so one duplicate from a concurrent request cannot abort the rest.
     await Category.insertMany(pending, { ordered: false }).catch(() => { /* raced, fine */ });
+  }
+
+  // Rows that predate DEFAULT_BANNERS were created with an empty bannerImage, so
+  // their banner only ever existed in the storefront's old name→path map. Adopt
+  // the shipped path once. Strictly `bannerImage: ''` — an admin's Cloudinary
+  // upload must never be clobbered on the next request.
+  const backfill = existing.filter(c => !c.bannerImage && DEFAULT_BANNERS[c.key]);
+  if (backfill.length > 0) {
+    await Category.bulkWrite(
+      backfill.map(c => ({
+        updateOne: {
+          filter: { key: c.key, $or: [{ bannerImage: '' }, { bannerImage: { $exists: false } }] },
+          update: { $set: { bannerImage: DEFAULT_BANNERS[c.key] } },
+        },
+      })),
+      { ordered: false }
+    ).catch(() => { /* raced, fine */ });
   }
 };
 
@@ -54,17 +93,21 @@ const ensureSeeded = async (): Promise<void> => {
 export const getCategories = async (_req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      // Offline: the built-ins still let the storefront and product form render.
+      // Offline: the built-ins still let the storefront and product form render,
+      // banners included — those are local files and do not need the database.
       res.json(
-        DEFAULT_CATEGORIES.map((name, index) => ({
-          _id: `default-${normalize(name)}`,
-          name,
-          key: normalize(name),
-          isDefault: true,
-          bannerImage: '',
-          bannerPublicId: '',
-          order: index,
-        }))
+        DEFAULT_CATEGORIES.map((name, index) => {
+          const key = normalize(name);
+          return {
+            _id: `default-${key}`,
+            name,
+            key,
+            isDefault: true,
+            bannerImage: DEFAULT_BANNERS[key] ?? '',
+            bannerPublicId: '',
+            order: index,
+          };
+        })
       );
       return;
     }
