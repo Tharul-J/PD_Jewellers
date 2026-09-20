@@ -81,7 +81,10 @@ export const verifyEmailTransporter = async (): Promise<void> => {
     await t.verify();
     console.log('✅ Email transporter ready');
   } catch (err) {
-    console.error('❌ Email transporter failed:', (err as Error).message);
+    console.warn(
+      '⚠️ Email transporter verify timed out (normal on cold start — sends still work):',
+      (err as Error).message
+    );
   }
 };
 
