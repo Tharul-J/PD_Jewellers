@@ -1,35 +1,16 @@
-import { Resend } from 'resend';
-
-// Built lazily on first send, never at module load: server.ts calls dotenv.config()
-// *after* its route imports, so reading process.env in the module body would see
-// an undefined API key and permanently bind a broken client.
-let resendClient: Resend | null = null;
-
-// Render's free tier has no outbound IPv6 route, which broke SMTP (port 465/587)
-// to Gmail. Resend's HTTP API runs over HTTPS (port 443), sidestepping that
-// entirely — no DNS/IPv4 workaround needed.
-function getResendClient(): Resend | null {
-  if (!process.env.RESEND_API_KEY) {
-    console.error('[email] RESEND_API_KEY not set');
-    return null;
-  }
-  if (!resendClient) {
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resendClient;
-}
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 /**
  * Call once after dotenv.config() has run (server.ts loads env vars after its
- * route imports, so this can't run at module load — see getResendClient above).
- * Gives an immediate Render log line confirming whether Resend is configured,
+ * route imports, so this can't run at module load).
+ * Gives an immediate Render log line confirming whether Brevo is configured,
  * instead of only finding out when a user triggers a send.
  */
 export const verifyEmailTransporter = async (): Promise<void> => {
-  if (process.env.RESEND_API_KEY) {
-    console.log('✅ Email service (Resend) ready');
+  if (process.env.BREVO_API_KEY && process.env.BREVO_FROM_EMAIL) {
+    console.log(`✅ Email service (Brevo) ready — sending from ${process.env.BREVO_FROM_EMAIL}`);
   } else {
-    console.error('❌ Email not configured — RESEND_API_KEY missing');
+    console.error('❌ Email not configured — BREVO_API_KEY or BREVO_FROM_EMAIL missing');
   }
 };
 
@@ -141,19 +122,34 @@ const send = async (to: string, subject: string, html: string, tag: string): Pro
     console.error(`[email:${tag}] no recipient address, skipped`);
     return false;
   }
-  const client = getResendClient();
-  if (!client) return false;
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.error(`[email:${tag}] BREVO_API_KEY not set`);
+    return false;
+  }
 
   try {
-    const { error } = await client.emails.send({
-      from: `PD Jewellers <${process.env.RESEND_FROM || 'onboarding@resend.dev'}>`,
-      to,
-      subject,
-      html,
+    const response = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: process.env.BREVO_FROM_NAME || 'PD Jewellers',
+          email: process.env.BREVO_FROM_EMAIL || 'pdjewellerslk@gmail.com',
+        },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
     });
 
-    if (error) {
-      console.error(`[email:${tag}] Resend error:`, error.message);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error(`[email:${tag}] Brevo error (${response.status}):`, JSON.stringify(err));
       return false;
     }
 
