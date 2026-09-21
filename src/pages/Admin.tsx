@@ -1521,9 +1521,9 @@ export default function Admin() {
       if (productFile) {
         const fd = new FormData();
         fd.append('file', productFile);
-        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-        if (!upRes.ok) throw new Error('Image upload failed');
-        const upData = await upRes.json();
+        const upRes = await fetch('/api/upload/image', { method: 'POST', body: fd });
+        const upData = await upRes.json().catch(() => ({}));
+        if (!upRes.ok) throw new Error(upData.message || 'Image upload failed');
         imageUrl = upData.url;
       }
       // weight is a text input, so an empty field must send 0 ("unknown") rather

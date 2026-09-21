@@ -72,6 +72,25 @@ export const uploadImageToCloudinary = (fileBuffer: Buffer, publicId: string): P
   });
 };
 
+/** Uploads a product photo untouched (no crop) so the storefront can size it as needed. */
+export const uploadProductImageToCloudinary = (fileBuffer: Buffer): Promise<string | null> => {
+  configure();
+  return new Promise((resolve) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { resource_type: 'image', folder: 'pd-jewellers/products' },
+      (error, result) => {
+        if (error || !result || !result.secure_url) {
+          console.error('Cloudinary product image upload error:', error);
+          resolve(null);
+          return;
+        }
+        resolve(result.secure_url);
+      }
+    );
+    uploadStream.end(fileBuffer);
+  });
+};
+
 /**
  * Uploads a wide banner image and returns its public_id alongside the URL.
  *
