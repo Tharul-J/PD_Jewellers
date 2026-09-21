@@ -120,7 +120,7 @@ router.post('/', protect, admin, uploadAttachment.single('attachment'), handleUp
         subject.trim(),
         body.trim(),
         type === 'announcement',
-        !!attachment
+        attachment ? { url: attachment.url, fileType: attachment.fileType } : undefined
       ).catch(err => console.error(`[Messages] email to ${(u as any).email} failed:`, err));
     }
 

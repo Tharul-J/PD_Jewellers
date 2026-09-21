@@ -255,11 +255,14 @@ export const sendAdminMessageEmail = async (
   subject: string,
   body: string,
   isAnnouncement = false,
-  hasAttachment = false
+  attachment?: { url: string; fileType: string }
 ): Promise<boolean> => {
   const intro = isAnnouncement
     ? 'We have an announcement to share with you from PD Jewellers.'
     : 'Our team has sent you a message.';
+
+  // PDFs can't render as <img>, so those still fall back to the account link.
+  const isImageAttachment = !!attachment && attachment.fileType.startsWith('image/');
 
   const html = buildEmailHtml(`
     ${heading(subject)}
@@ -272,7 +275,11 @@ export const sendAdminMessageEmail = async (
         </td>
       </tr>
     </table>
-    ${hasAttachment ? '<p style="margin:0 0 12px 0;">This message includes an attachment. View it in your account.</p>' : ''}
+    ${isImageAttachment ? `
+    <div style="margin:0 0 16px 0;">
+      <img src="${esc(attachment!.url)}" alt="Attachment" style="max-width:100%;border-radius:8px;display:block;" />
+    </div>
+    ` : attachment ? '<p style="margin:0 0 12px 0;">This message includes an attachment. View it in your account.</p>' : ''}
     <p style="margin:0;">You can view this and all previous messages from your account dashboard under &ldquo;Messages&rdquo;.</p>
     ${signOff}
   `);
